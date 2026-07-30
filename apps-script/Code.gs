@@ -20,62 +20,70 @@ function verifyAccess(code) {
 }
 
 function analyzeImage(payload) {
-  assertAccess_(payload);
-  const image = parseImage_(payload.imageDataUrl);
-  const brandNote = cleanText_(payload.brandNote, 120);
-  const seed = Number(payload.seed || Date.now());
+  try {
+    assertAccess_(payload);
+    const image = parseImage_(payload.imageDataUrl);
+    const brandNote = cleanText_(payload.brandNote, 120);
+    const seed = Number(payload.seed || Date.now());
 
-  const insight = callGeminiJson_(
-    buildInsightPrompt_(brandNote),
-    INSIGHT_SCHEMA,
-    image,
-    0.2,
-  );
-  const trend = collectPublicTrends_(insight.searchQueries || [], insight.keywords || []);
-  const result = generateCopy_(insight, trend, brandNote, seed);
+    const insight = callGeminiJson_(
+      buildInsightPrompt_(brandNote),
+      INSIGHT_SCHEMA,
+      image,
+      0.2,
+    );
+    const trend = collectPublicTrends_(insight.searchQueries || [], insight.keywords || []);
+    const result = generateCopy_(insight, trend, brandNote, seed);
 
-  return {
-    ok: true,
-    insight: {
-      category: cleanText_(insight.category, 40),
-      summary: cleanText_(insight.summary, 180),
-      evidence: normalizeTextArray_(insight.evidence, 5, 24),
-      keywords: normalizeTextArray_(insight.keywords, 8, 18),
-      audience: cleanText_(insight.audience, 80),
-      contentOpportunity: cleanText_(insight.contentOpportunity, 100),
-      emotionalTone: cleanText_(insight.emotionalTone, 40),
-    },
-    trends: trend.terms,
-    trendSource: trend.sources.join(" + "),
-    trendTime: trend.time,
-    sets: result.sets,
-    context: {
-      insight: insight,
-      trends: trend,
-      brandNote: brandNote,
-    },
-  };
+    return {
+      ok: true,
+      insight: {
+        category: cleanText_(insight.category, 40),
+        summary: cleanText_(insight.summary, 180),
+        evidence: normalizeTextArray_(insight.evidence, 5, 24),
+        keywords: normalizeTextArray_(insight.keywords, 8, 18),
+        audience: cleanText_(insight.audience, 80),
+        contentOpportunity: cleanText_(insight.contentOpportunity, 100),
+        emotionalTone: cleanText_(insight.emotionalTone, 40),
+      },
+      trends: trend.terms,
+      trendSource: trend.sources.join(" + "),
+      trendTime: trend.time,
+      sets: result.sets,
+      context: {
+        insight: insight,
+        trends: trend,
+        brandNote: brandNote,
+      },
+    };
+  } catch (error) {
+    throw new Error(toChineseError_(error));
+  }
 }
 
 function refreshCopy(payload) {
-  assertAccess_(payload);
-  if (!payload.context || !payload.context.insight || !payload.context.trends) {
-    throw new Error("缺少上一次识别结果，请重新上传图片。");
+  try {
+    assertAccess_(payload);
+    if (!payload.context || !payload.context.insight || !payload.context.trends) {
+      throw new Error("缺少上一次识别结果，请重新上传图片。");
+    }
+
+    const brandNote = cleanText_(payload.brandNote || payload.context.brandNote, 120);
+    const seed = Number(payload.seed || Date.now());
+    const result = generateCopy_(payload.context.insight, payload.context.trends, brandNote, seed);
+
+    return {
+      ok: true,
+      sets: result.sets,
+      context: {
+        insight: payload.context.insight,
+        trends: payload.context.trends,
+        brandNote: brandNote,
+      },
+    };
+  } catch (error) {
+    throw new Error(toChineseError_(error));
   }
-
-  const brandNote = cleanText_(payload.brandNote || payload.context.brandNote, 120);
-  const seed = Number(payload.seed || Date.now());
-  const result = generateCopy_(payload.context.insight, payload.context.trends, brandNote, seed);
-
-  return {
-    ok: true,
-    sets: result.sets,
-    context: {
-      insight: payload.context.insight,
-      trends: payload.context.trends,
-      brandNote: brandNote,
-    },
-  };
 }
 
 function generateCopy_(insight, trend, brandNote, seed) {
@@ -103,7 +111,7 @@ function generateCopy_(insight, trend, brandNote, seed) {
 
 function callGeminiJson_(prompt, schema, image, temperature) {
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
-  if (!apiKey) throw new Error("AI 密钥尚未配置。");
+  if (!apiKey) throw new Error("智能服务尚未完成后台配置。");
 
   const parts = [{ text: prompt }];
   if (image) {
@@ -140,17 +148,22 @@ function callGeminiJson_(prompt, schema, image, temperature) {
   const status = response.getResponseCode();
   const text = response.getContentText();
   if (status < 200 || status >= 300) {
-    let detail = "AI 服务暂时不可用";
+    let detail = "";
     try {
       const parsedError = JSON.parse(text);
       detail = parsedError.error && parsedError.error.message ? parsedError.error.message : detail;
     } catch (error) {
-      // Keep the user-facing fallback message.
+      // The final translation layer handles malformed service responses.
     }
-    throw new Error(detail);
+    throw new Error(toChineseError_(detail, status));
   }
 
-  const data = JSON.parse(text);
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (error) {
+    throw new Error("智能服务返回的数据无法读取，请点击“重新尝试”。");
+  }
   const output =
     data.candidates &&
     data.candidates[0] &&
@@ -159,8 +172,60 @@ function callGeminiJson_(prompt, schema, image, temperature) {
     data.candidates[0].content.parts[0] &&
     data.candidates[0].content.parts[0].text;
 
-  if (!output) throw new Error("AI 没有返回可用内容，请重新生成。");
-  return JSON.parse(String(output).replace(/^```json\s*|\s*```$/g, ""));
+  if (!output) throw new Error("智能服务没有返回可用内容，请点击“重新尝试”。");
+  try {
+    return JSON.parse(String(output).replace(/^```json\s*|\s*```$/g, ""));
+  } catch (error) {
+    throw new Error("智能服务返回的内容格式不完整，请点击“重新尝试”。");
+  }
+}
+
+function toChineseError_(error, statusCode) {
+  const raw = String(
+    error && typeof error === "object" && error.message ? error.message : error || "",
+  ).replace(/^Error:\s*/i, "").trim();
+  const normalized = raw.toLowerCase();
+  const status = Number(statusCode || 0);
+
+  if (
+    status === 429 ||
+    /high demand|overload|too many requests|resource exhausted|quota|rate limit/.test(normalized)
+  ) {
+    return "当前智能服务使用人数较多，正在排队。请等待30秒后点击“重新尝试”。";
+  }
+  if (
+    status === 408 ||
+    /timeout|timed out|deadline exceeded|time limit/.test(normalized)
+  ) {
+    return "本次连接等待时间过长，任务已经安全停止。请检查网络后点击“重新尝试”。";
+  }
+  if (
+    /network|failed to fetch|connection|socket|dns|internet|offline/.test(normalized)
+  ) {
+    return "当前网络连接不稳定，图片和错误结果都不会被采用。请检查网络后重新尝试。";
+  }
+  if (
+    status === 401 ||
+    status === 403 ||
+    /api key|unauthorized|permission denied|forbidden|authentication/.test(normalized)
+  ) {
+    return "智能服务授权暂时失效，请联系管理员检查后台设置。";
+  }
+  if (
+    /safety|blocked|prohibited|policy|content filter/.test(normalized)
+  ) {
+    return "这张图片或本次文字触发了内容安全检查，请更换图片或调整补充要求后重试。";
+  }
+  if (
+    status >= 500 ||
+    /internal error|server error|service unavailable|temporarily unavailable/.test(normalized)
+  ) {
+    return "智能服务暂时出现异常，任务已经安全停止。请稍后点击“重新尝试”。";
+  }
+  if (/[\u4e00-\u9fff]/.test(raw) && !/[A-Za-z]/.test(raw)) {
+    return raw;
+  }
+  return "系统暂时出现异常，本次结果不会被采用。请稍后点击“重新尝试”。";
 }
 
 function collectPublicTrends_(queries, fallbackKeywords) {
