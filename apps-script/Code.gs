@@ -42,6 +42,8 @@ function analyzeImage(payload) {
       evidence: normalizeTextArray_(insight.evidence, 5, 24),
       keywords: normalizeTextArray_(insight.keywords, 8, 18),
       audience: cleanText_(insight.audience, 80),
+      contentOpportunity: cleanText_(insight.contentOpportunity, 100),
+      emotionalTone: cleanText_(insight.emotionalTone, 40),
     },
     trends: trend.terms,
     trendSource: trend.sources.join(" + "),
@@ -81,7 +83,7 @@ function generateCopy_(insight, trend, brandNote, seed) {
   let result = callGeminiJson_(prompt, COPY_SCHEMA, null, 0.72);
   result = normalizeCopyResult_(result);
 
-  if (!hasExactCoverLengths_(result)) {
+  if (!hasExactCoverLengths_(result) || !hasCompletePlatformPackages_(result)) {
     result = normalizeCopyResult_(
       callGeminiJson_(
         buildRepairPrompt_(result, insight, trend, brandNote, seed),
@@ -92,8 +94,8 @@ function generateCopy_(insight, trend, brandNote, seed) {
     );
   }
 
-  if (!hasExactCoverLengths_(result)) {
-    throw new Error("本次标题字数校验未通过，请点击“换一批”重新生成。");
+  if (!hasExactCoverLengths_(result) || !hasCompletePlatformPackages_(result)) {
+    throw new Error("本次内容校验未通过，请点击“换一批”重新生成。");
   }
 
   return result;
@@ -162,7 +164,7 @@ function callGeminiJson_(prompt, schema, image, temperature) {
 }
 
 function collectPublicTrends_(queries, fallbackKeywords) {
-  const cleanQueries = normalizeTextArray_(queries, 3, 30);
+  const cleanQueries = normalizeTextArray_(queries, 4, 30);
   const requests = [];
 
   cleanQueries.forEach(function (query) {
@@ -223,47 +225,47 @@ function buildInsightPrompt_(brandNote) {
     "summary 要具体写出主体、颜色、构图、光线、氛围和可发布角度。",
     "evidence 只列真实可见的画面证据。",
     "keywords 是图片内容相关的中文关键词。",
-    "searchQueries 给出 3 个适合查询当下公开搜索联想的中文短语。",
+    "searchQueries 给出 4 个适合查询当下公开搜索联想的中文短语，兼顾品类词、用户问题词和内容风格词。",
     "audience 写最可能对此内容感兴趣的人群，但不要过度推断。",
+    "contentOpportunity 写这张图最值得放大的传播机会，例如悬念、反差、审美、知识、信任、避坑或购买灵感；必须基于图片。",
+    "emotionalTone 写画面真实情绪，如克制、自信、松弛、治愈、精致、热闹或专业。",
     "账号补充要求：" + (brandNote || "根据图片真实内容自动匹配"),
   ].join("\n");
 }
 
 function buildCopyPrompt_(insight, trend, brandNote, seed) {
   return [
-    "你是中文社交媒体前沿文案工具，负责小红书、抖音、视频号。",
+    "你是中文社交媒体前沿内容策略师，负责小红书、抖音、视频号。你必须先理解图片、受众和传播目标，再写文案，禁止套模板。",
     "图片理解：" + JSON.stringify(insight),
     "当前公开搜索联想词：" + JSON.stringify(trend.terms || []),
     "趋势来源：" + JSON.stringify(trend.sources || []) + "，采集时间：" + String(trend.time || ""),
     "账号补充要求：" + (brandNote || "根据图片真实内容自动匹配"),
     "本次创意种子：" + String(seed),
     "",
-    "请生成恰好 3 组不同角度的高意向发布方案，并按用户最可能想咨询、收藏或互动的顺序打分。",
+    "请生成恰好 3 组不同角度的高意向方案，并按最可能获得点击、停留、收藏、互动或咨询的综合潜力排序。",
     "硬性规则：",
     "1. top 必须恰好 7 个中文字符，bottom 必须恰好 8 个中文字符；不含空格、标点、英文和数字。",
-    "2. 7+8 合计固定 15 字，必须自然、具体、有画面钩子，不能像通用鸡汤。",
+    "2. 7+8 合计固定 15 字，是三平台通用的封面字。必须自然、具体、有画面钩子，不能像通用鸡汤。",
     "3. 文案必须与图片主体一致。珠宝就写珠宝，风景就写风景，人物就写人物；禁止货不对版。",
     "4. 只有图片明确是男士写真时，才可使用“明码实价、拍得明白、自然引导、真实耐看”等南铂定位。",
     "5. 不得捏造品牌、价格、优惠、城市、稀缺性、功效、材质证书或图片中没有的事实。",
     "6. 公开搜索联想只用于选题方向，不得伪装成小红书或抖音官方热榜。",
-    "7. 每组提供小红书、抖音、视频号三套正文；小红书 120-220 字，抖音 45-90 字，视频号 70-130 字。",
-    "8. 每组给 6 个 #话题，优先图片精准词和当前公开联想词；不要堆无关大词。",
-    "9. eyebrow 是简短的意向判断，reason 解释为什么适合这张图。",
-    "10. 三组角度要明显不同：咨询转化、收藏价值、情绪互动各有侧重。",
+    "7. 每组都要分别生成小红书、抖音、视频号的 title、description、topics、audience、hook、strategy，三个平台禁止使用同一套标题或描述。",
+    "8. 小红书：title 最多20个字符，偏搜索、收藏、经验分享或决策帮助；description 建议180-420字，像真实笔记；topics 5-8个。",
+    "9. 抖音：title 最多30个字符，前半句必须快速抓人；description 建议60-180字，短句、有节奏、可有一个明确互动或咨询动作；topics 3-5个。",
+    "10. 视频号：title 最多30个字符，可信、克制、适合熟人社交传播；description 建议80-220字，重真实感、价值或观点；topics 2-4个。",
+    "11. 表情符号按内容决定，不是必加项。生活化、情绪化内容可在标题或描述少量使用；商务、极简、严肃画面可以完全不用。每个标题最多1个表情，描述最多3个，禁止表情堆砌。",
+    "12. hook 必须写明采用的钩子手段，例如悬念、反差、痛点、结果前置、清单、情绪共鸣、审美冲击、信任证明或购买灵感；必须与图片和平台人群匹配。",
+    "13. audience 写该平台最可能停留的人群，strategy 用一句话解释为什么这样写，不要说空泛的“增加曝光”。",
+    "14. topics 优先图片精准词、用户搜索词和公开联想词，不堆砌无关大词，每个词都以#开头。",
+    "15. eyebrow 是简短的传播角度，reason 解释为什么适合这张图。三组角度必须明显不同，不得只是换同义词。",
   ].join("\n");
 }
 
 function buildRepairPrompt_(result, insight, trend, brandNote, seed) {
-  return [
-    "下面结果未通过固定字数校验，请完整重写为 3 组。",
-    "每组 top 恰好 7 个中文字符，bottom 恰好 8 个中文字符；不含空格、标点、英文和数字。",
-    "必须继续严格匹配图片真实内容，不得捏造。",
-    "图片理解：" + JSON.stringify(insight),
-    "公开搜索联想：" + JSON.stringify(trend.terms || []),
-    "账号要求：" + (brandNote || "根据图片真实内容自动匹配"),
-    "创意种子：" + String(seed + 17),
-    "待修正结果：" + JSON.stringify(result),
-  ].join("\n");
+  return buildCopyPrompt_(insight, trend, brandNote, seed + 17) +
+    "\n\n上一次结果没有通过封面字数或平台内容完整性校验，请完全重写，不要沿用错误结构：" +
+    JSON.stringify(result);
 }
 
 function normalizeCopyResult_(result) {
@@ -272,30 +274,75 @@ function normalizeCopyResult_(result) {
   }
 
   const sets = result.sets.map(function (item, index) {
-    const bodies = item.bodies || {};
     return {
       eyebrow: cleanText_(item.eyebrow, 20) || ["咨询意向高", "收藏价值高", "互动共鸣高"][index],
       top: cleanCover_(item.top),
       bottom: cleanCover_(item.bottom),
       reason: cleanText_(item.reason, 100),
       score: Math.max(70, Math.min(99, Number(item.score || 90 - index * 2))),
-      bodies: {
-        小红书: cleanText_(bodies["小红书"], 500),
-        抖音: cleanText_(bodies["抖音"], 220),
-        视频号: cleanText_(bodies["视频号"], 320),
+      platforms: {
+        xiaohongshu: normalizePlatform_(item.platforms && item.platforms.xiaohongshu, {
+          titleMax: 20,
+          bodyMax: 1000,
+          topicMax: 8,
+        }),
+        douyin: normalizePlatform_(item.platforms && item.platforms.douyin, {
+          titleMax: 30,
+          bodyMax: 1000,
+          topicMax: 5,
+        }),
+        channels: normalizePlatform_(item.platforms && item.platforms.channels, {
+          titleMax: 30,
+          bodyMax: 600,
+          topicMax: 4,
+        }),
       },
-      tags: normalizeTextArray_(item.tags, 6, 22).map(function (tag) {
-        return tag.charAt(0) === "#" ? tag : "#" + tag;
-      }),
     };
   });
 
   return { sets: sets };
 }
 
+function normalizePlatform_(value, limits) {
+  const item = value || {};
+  return {
+    title: cleanText_(item.title, limits.titleMax),
+    description: cleanText_(item.description, limits.bodyMax),
+    topics: normalizeTopics_(item.topics, limits.topicMax),
+    audience: cleanText_(item.audience, 80),
+    hook: cleanText_(item.hook, 32),
+    strategy: cleanText_(item.strategy, 120),
+  };
+}
+
+function normalizeTopics_(value, limit) {
+  return normalizeTextArray_(value, limit, 24).map(function (tag) {
+    const cleaned = String(tag || "").replace(/^#+/, "");
+    return cleaned ? "#" + cleaned : "";
+  }).filter(Boolean);
+}
+
 function hasExactCoverLengths_(result) {
   return result.sets.every(function (item) {
     return codePointLength_(item.top) === 7 && codePointLength_(item.bottom) === 8;
+  });
+}
+
+function hasCompletePlatformPackages_(result) {
+  return result.sets.every(function (item) {
+    return ["xiaohongshu", "douyin", "channels"].every(function (key) {
+      const platform = item.platforms && item.platforms[key];
+      return Boolean(
+        platform &&
+        platform.title &&
+        platform.description &&
+        platform.topics &&
+        platform.topics.length >= 2 &&
+        platform.audience &&
+        platform.hook &&
+        platform.strategy
+      );
+    });
   });
 }
 
@@ -346,14 +393,16 @@ function codePointLength_(value) {
 
 const INSIGHT_SCHEMA = {
   type: "OBJECT",
-  required: ["category", "summary", "evidence", "keywords", "searchQueries", "audience"],
+  required: ["category", "summary", "evidence", "keywords", "searchQueries", "audience", "contentOpportunity", "emotionalTone"],
   properties: {
     category: { type: "STRING" },
     summary: { type: "STRING" },
     evidence: { type: "ARRAY", items: { type: "STRING" }, minItems: 3, maxItems: 5 },
     keywords: { type: "ARRAY", items: { type: "STRING" }, minItems: 4, maxItems: 8 },
-    searchQueries: { type: "ARRAY", items: { type: "STRING" }, minItems: 3, maxItems: 3 },
+    searchQueries: { type: "ARRAY", items: { type: "STRING" }, minItems: 4, maxItems: 4 },
     audience: { type: "STRING" },
+    contentOpportunity: { type: "STRING" },
+    emotionalTone: { type: "STRING" },
   },
 };
 
@@ -367,30 +416,44 @@ const COPY_SCHEMA = {
       maxItems: 3,
       items: {
         type: "OBJECT",
-        required: ["eyebrow", "top", "bottom", "reason", "score", "bodies", "tags"],
+        required: ["eyebrow", "top", "bottom", "reason", "score", "platforms"],
         properties: {
           eyebrow: { type: "STRING" },
           top: { type: "STRING" },
           bottom: { type: "STRING" },
           reason: { type: "STRING" },
           score: { type: "INTEGER", minimum: 70, maximum: 99 },
-          bodies: {
+          platforms: {
             type: "OBJECT",
-            required: ["小红书", "抖音", "视频号"],
+            required: ["xiaohongshu", "douyin", "channels"],
             properties: {
-              小红书: { type: "STRING" },
-              抖音: { type: "STRING" },
-              视频号: { type: "STRING" },
+              xiaohongshu: platformSchema_(5, 8),
+              douyin: platformSchema_(3, 5),
+              channels: platformSchema_(2, 4),
             },
-          },
-          tags: {
-            type: "ARRAY",
-            items: { type: "STRING" },
-            minItems: 6,
-            maxItems: 6,
           },
         },
       },
     },
   },
 };
+
+function platformSchema_(minTopics, maxTopics) {
+  return {
+    type: "OBJECT",
+    required: ["title", "description", "topics", "audience", "hook", "strategy"],
+    properties: {
+      title: { type: "STRING" },
+      description: { type: "STRING" },
+      topics: {
+        type: "ARRAY",
+        items: { type: "STRING" },
+        minItems: minTopics,
+        maxItems: maxTopics,
+      },
+      audience: { type: "STRING" },
+      hook: { type: "STRING" },
+      strategy: { type: "STRING" },
+    },
+  };
+}

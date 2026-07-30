@@ -262,7 +262,7 @@
       }
       .refresh-button:disabled { opacity: .5; cursor: wait; }
       .copy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-      .copy-card { min-height: 330px; padding: 26px; border-radius: 23px; cursor: pointer; transition: .2s ease; }
+      .copy-card { min-height: 390px; padding: 26px; border-radius: 23px; cursor: pointer; transition: .2s ease; }
       .copy-card:hover { transform: translateY(-3px); box-shadow: 0 16px 38px rgba(55,40,35,.08); }
       .copy-card.selected { border: 2px solid #ff7186; box-shadow: 0 12px 34px rgba(255,36,66,.09); }
       .card-topline { display: flex; align-items: center; gap: 10px; font-size: 10px; }
@@ -270,18 +270,52 @@
       .intent { color: var(--red); font-weight: 800; }
       .score { margin-left: auto; font: 800 22px Georgia, serif; }
       .score small { margin-left: 2px; color: #aaa19b; font: 10px sans-serif; }
-      .cover-copy { margin: 32px 0 24px; }
-      .cover-copy > div { display: flex; align-items: center; gap: 9px; }
+      .cover-copy { margin: 29px 0 20px; }
+      .cover-copy > div { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; }
       .cover-copy strong { font-size: clamp(21px, 2vw, 29px); line-height: 1.55; letter-spacing: -.04em; }
       .count { padding: 3px 6px; border-radius: 7px; background: #eaf8f1; color: var(--green); font-size: 9px; font-weight: 800; }
       .count.invalid { background: #fff0f1; color: var(--red); }
-      .copy-card p { color: #8d8580; font-size: 11px; line-height: 1.8; }
+      .line-copy, .cover-combined-copy {
+        border: 1px solid #e5dfda;
+        background: #fff;
+        color: #706963;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .line-copy { width: 30px; height: 30px; border-radius: 9px; }
+      .cover-combined-copy { width: 100%; margin-top: 14px; padding: 10px; border-radius: 10px; }
+      .copy-card p { min-height: 58px; margin: 0; color: #8d8580; font-size: 11px; line-height: 1.8; }
+      .card-foot { margin-top: 18px; padding-top: 15px; border-top: 1px solid #f0ece9; display: flex; align-items: center; justify-content: space-between; color: #aaa29c; font-size: 9px; }
+      .card-foot b { color: var(--red); font-size: 9px; }
 
       .platform-tabs { display: flex; padding: 4px; border-radius: 12px; background: #ece9e6; }
       .platform-tabs button { padding: 8px 12px; border: 0; border-radius: 9px; background: transparent; color: #8d857f; font-size: 11px; font-weight: 700; }
       .platform-tabs button[aria-selected="true"] { background: white; color: var(--ink); box-shadow: 0 3px 10px rgba(44,31,27,.08); }
+      .platform-rule {
+        margin: -8px 0 16px;
+        padding: 15px 18px;
+        border: 1px solid #eadfdc;
+        border-radius: 16px;
+        background: linear-gradient(90deg, #fff, #fff8f9);
+        color: #786f69;
+        font-size: 10px;
+        line-height: 1.7;
+      }
+      .strategy-grid { display: grid; grid-template-columns: .9fr .7fr 1.4fr; gap: 12px; margin-bottom: 16px; }
+      .strategy-card {
+        min-height: 98px;
+        padding: 17px;
+        border: 1px solid var(--line);
+        border-radius: 17px;
+        background: rgba(255,255,255,.94);
+      }
+      .strategy-card small { display: block; margin-bottom: 8px; color: #aaa29c; font-size: 9px; }
+      .strategy-card strong { color: #4f4945; font-size: 12px; line-height: 1.65; }
+      .strategy-card.hook { background: #fff4f6; border-color: #ffd9df; }
+      .strategy-card.hook strong { color: var(--red); }
       .publish-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 18px; }
-      .publish-card { min-height: 330px; padding: 25px; border-radius: 22px; }
+      .publish-stack { display: grid; gap: 14px; }
+      .publish-card { padding: 25px; border-radius: 22px; }
       .publish-card-title { display: flex; align-items: center; justify-content: space-between; }
       .publish-card-title span { display: block; font-size: 14px; font-weight: 800; }
       .publish-card-title small { display: block; margin-top: 4px; color: #aaa29c; font-size: 9px; }
@@ -294,8 +328,11 @@
         font-size: 10px;
         font-weight: 700;
       }
-      #bodyText { width: 100%; height: 220px; margin-top: 18px; resize: none; border: 0; outline: 0; background: transparent; color: #514b47; font-size: 12px; line-height: 1.9; }
+      .title-value { min-height: 44px; margin: 20px 0 10px; color: #292624; font-size: 21px; font-weight: 850; line-height: 1.55; letter-spacing: -.02em; }
+      #bodyText { width: 100%; height: 230px; margin-top: 18px; resize: none; border: 0; outline: 0; background: transparent; color: #514b47; font-size: 12px; line-height: 1.9; }
       .text-meta { display: flex; justify-content: space-between; color: #b0a8a1; font-size: 9px; }
+      .text-meta .over-limit { color: var(--red); font-weight: 800; }
+      .topics-card { min-height: 100%; }
       .topic-list { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
       .topic-list button { width: 100%; padding: 11px 13px; border: 0; border-radius: 11px; background: #f7f5f3; color: #655f5b; text-align: left; font-size: 11px; }
       .source-note { margin: 18px 0 0; color: #b0a8a1; font-size: 9px; line-height: 1.6; }
@@ -320,6 +357,7 @@
         .copy-grid { grid-template-columns: 1fr; }
         .copy-card { min-height: auto; }
         .publish-grid { grid-template-columns: 1fr; }
+        .strategy-grid { grid-template-columns: 1fr; }
       }
       @media (max-width: 600px) {
         .topbar, .hero, .workspace, footer { width: min(100% - 24px, 1100px); }
@@ -375,8 +413,8 @@
         <div class="hero-copy">
           <span class="kicker"><i></i> FREE AI PERSONAL STUDIO</span>
           <h1>看懂图片，再写<br /><em>当下能发的文案</em></h1>
-          <p>先识别画面真实主体，再结合当前公开搜索联想，生成固定 7+8 字封面、三平台正文与相关话题。拒绝图片和文案货不对版。</p>
-          <div class="feature-row"><span>真实图像理解</span><b>·</b><span>公开趋势采集</span><b>·</b><span>3 组高意向</span></div>
+          <p>固定 7+8 字只负责封面；标题、描述和话题则按小红书、抖音、视频号的不同受众分别生成。每次先看懂图片，再决定钩子、表情和转化方向。</p>
+          <div class="feature-row"><span>真实图像理解</span><b>·</b><span>平台受众分析</span><b>·</b><span>标题＋描述＋话题</span></div>
         </div>
 
         <div class="upload-card" id="uploadCard">
@@ -424,38 +462,51 @@
         </div>
 
         <div class="section-heading result-heading">
-          <div><span class="step-label">02 / 高意向方案</span><h2>为你优选 3 组</h2></div>
+          <div><span class="step-label">02 / 通用封面文案</span><h2>为你优选 3 组</h2></div>
           <button class="refresh-button" id="refreshButton" type="button" disabled>↻ 不满意，换一批</button>
         </div>
         <div class="copy-grid" id="copyGrid">
-          <article class="copy-card"><p>识别完成后，3 组 7+8 字封面文案会出现在这里。</p></article>
-          <article class="copy-card"><p>每组都会严格校验：上行 7 字，下行 8 字。</p></article>
-          <article class="copy-card"><p>文案根据图片和公开趋势生成，不再使用固定男士写真模板。</p></article>
+          <article class="copy-card"><p>识别完成后，3 组通用封面文案会出现在这里。</p></article>
+          <article class="copy-card"><p>每组严格校验上行 7 字、下行 8 字，并支持逐行复制。</p></article>
+          <article class="copy-card"><p>选择一组封面后，下方会显示三个平台各自独立的发布包。</p></article>
         </div>
 
         <div class="section-heading publish-heading">
-          <div><span class="step-label">03 / 发布整理</span><h2>正文与话题</h2></div>
+          <div><span class="step-label">03 / 平台发布包</span><h2>标题、描述与话题</h2></div>
           <div class="platform-tabs" role="tablist">
             <button role="tab" aria-selected="true" data-platform="小红书">小红书</button>
             <button role="tab" aria-selected="false" data-platform="抖音">抖音</button>
             <button role="tab" aria-selected="false" data-platform="视频号">视频号</button>
           </div>
         </div>
+        <div class="platform-rule" id="platformRule">小红书：标题控制在 20 字内，正文偏搜索、收藏和真实经验；话题只选与图片有关的词。</div>
+        <div class="strategy-grid">
+          <article class="strategy-card"><small>这个平台的目标观众</small><strong id="platformAudience">等待图片分析</strong></article>
+          <article class="strategy-card hook"><small>本次使用的钩子</small><strong id="platformHook">自动判断</strong></article>
+          <article class="strategy-card"><small>为什么这样写</small><strong id="platformStrategy">不会把同一套文案复制给三个平台</strong></article>
+        </div>
         <div class="publish-grid">
-          <article class="publish-card">
-            <div class="publish-card-title"><div><span>发布软文</span><small id="platformNote">识别后按小红书习惯整理</small></div><button id="copyBody">复制正文</button></div>
-            <textarea id="bodyText" readonly placeholder="这里会出现与图片匹配的发布正文"></textarea>
-            <div class="text-meta"><span id="bodyCount">0 字</span><span>不编造图片外信息</span></div>
-          </article>
-          <article class="publish-card">
+          <div class="publish-stack">
+            <article class="publish-card">
+              <div class="publish-card-title"><div><span>发布标题</span><small id="platformNote">识别后按小红书阅读习惯整理</small></div><button id="copyTitle">复制标题</button></div>
+              <div class="title-value" id="titleText">这里会出现平台专用标题</div>
+              <div class="text-meta"><span id="titleCount">0 / 20 字</span><span>表情按内容决定，不强行添加</span></div>
+            </article>
+            <article class="publish-card">
+              <div class="publish-card-title"><div><span>发布描述</span><small id="descriptionGuide">建议 180–420 字</small></div><button id="copyBody">复制描述</button></div>
+              <textarea id="bodyText" readonly placeholder="这里会出现与图片匹配的平台专用描述"></textarea>
+              <div class="text-meta"><span id="bodyCount">0 字</span><span>不编造图片外信息</span></div>
+            </article>
+          </div>
+          <article class="publish-card topics-card">
             <div class="publish-card-title"><div><span>相关话题</span><small>精准词 × 公开联想词 × 内容词</small></div><button id="copyTags">复制话题</button></div>
             <div class="topic-list" id="topicList"></div>
             <p class="source-note">趋势信号来自公开搜索联想，不代表小红书或抖音官方热榜；会显示来源与采集时间。</p>
           </article>
         </div>
         <div class="export-bar">
-          <div><span class="export-check">✓</span><div><strong id="exportTitle">等待生成</strong><small id="exportDescription">封面标题 + 三平台正文 + 相关话题</small></div></div>
-          <button id="copyAll">一键复制整套内容</button>
+          <div><span class="export-check">✓</span><div><strong id="exportTitle">等待生成</strong><small id="exportDescription">通用封面 7+8 字 + 当前平台标题、描述、话题</small></div></div>
+          <button id="copyAll">复制当前平台整套内容</button>
         </div>
       </section>
       <footer><span>NBO 灵感封面 · 免费智能版</span><span>真实识图，不套模板 · 公开趋势，来源透明</span></footer>
@@ -466,6 +517,32 @@
       const ACCESS_TOKEN_KEY = "nbo_ai_access_token";
       const ACCESS_UNTIL_KEY = "nbo_ai_access_until";
       const ACCESS_DAYS = 180;
+      const PLATFORM_CONFIG = {
+        小红书: {
+          key: "xiaohongshu",
+          titleMax: 20,
+          titleGuide: "标题 ≤ 20 字",
+          descriptionGuide: "建议 180–420 字",
+          topicGuide: "5–8 个精准话题",
+          rule: "小红书：标题控制在 20 字内，正文偏搜索、收藏、经验分享和决策帮助；语气像真实笔记，不写成硬广告。",
+        },
+        抖音: {
+          key: "douyin",
+          titleMax: 30,
+          titleGuide: "工具建议标题 ≤ 30 字",
+          descriptionGuide: "建议 60–180 字",
+          topicGuide: "3–5 个精准话题",
+          rule: "抖音：官方分享能力标题边界为 60 字符、开放发布接口整段文本不超过 1000 字；本工具主动压缩到 30 字内标题和短描述，让前半句先抓住注意力。",
+        },
+        视频号: {
+          key: "channels",
+          titleMax: 30,
+          titleGuide: "工具安全线 ≤ 30 字",
+          descriptionGuide: "建议 80–220 字",
+          topicGuide: "2–4 个精准话题",
+          rule: "视频号：公开页面没有稳定可核验的独立标题硬上限，本工具采用 30 字内安全线；表达更可信克制，适合熟人关系和本地口碑传播。",
+        },
+      };
       const state = {
         accessToken: "",
         imageDataUrl: "",
@@ -512,9 +589,16 @@
       const trendList = $("#trendList");
       const refreshButton = $("#refreshButton");
       const copyGrid = $("#copyGrid");
+      const titleText = $("#titleText");
+      const titleCount = $("#titleCount");
       const bodyText = $("#bodyText");
       const bodyCount = $("#bodyCount");
       const platformNote = $("#platformNote");
+      const descriptionGuide = $("#descriptionGuide");
+      const platformRule = $("#platformRule");
+      const platformAudience = $("#platformAudience");
+      const platformHook = $("#platformHook");
+      const platformStrategy = $("#platformStrategy");
       const topicList = $("#topicList");
       const exportTitle = $("#exportTitle");
       const exportDescription = $("#exportDescription");
@@ -618,8 +702,8 @@
         scanLine.classList.remove("is-hidden");
         insightStatus.textContent = "AI 正在识别";
         insightTitle.textContent = "正在读取真实画面";
-        insightDescription.textContent = "先判断主体和可见证据，再抓取相关公开搜索联想，最后生成三套文案。";
-        setTags(["读取主体", "分析构图", "核对事实", "采集公开联想"]);
+        insightDescription.textContent = "先判断主体与可见证据，再分析平台受众和传播机会，最后分别生成三平台发布包。";
+        setTags(["读取主体", "分析构图", "判断受众", "选择钩子", "采集公开联想"]);
         updateProgress();
         state.progressTimer = setInterval(() => {
           if (!state.running || state.progress >= 88) return;
@@ -674,8 +758,8 @@
         state.selected = 0;
         insightStatus.textContent = "真实识别已完成";
         insightTitle.textContent = result.insight.category + "｜已看懂图片";
-        insightDescription.textContent = result.insight.summary;
-        setTags(result.insight.evidence);
+        insightDescription.textContent = result.insight.summary + (result.insight.contentOpportunity ? "｜传播机会：" + result.insight.contentOpportunity : "");
+        setTags((result.insight.evidence || []).concat(result.insight.emotionalTone ? ["画面情绪：" + result.insight.emotionalTone] : []));
         trendPanel.classList.remove("is-hidden");
         trendMeta.textContent = result.trendSource + " · " + result.trendTime;
         renderTrendTerms(result.trends);
@@ -683,7 +767,7 @@
         renderPublish();
         refreshButton.disabled = false;
         exportTitle.textContent = "方案已整理完成";
-        exportDescription.textContent = "3 组固定 7+8 字封面 + 三平台正文 + 6 个话题";
+        exportDescription.textContent = "3 组固定 7+8 字封面 + 三平台独立标题、描述、话题";
       }
 
       function failAnalysis(message) {
@@ -708,8 +792,8 @@
         progressStage.textContent =
           value < 28 ? "正在读取画面" :
           value < 54 ? "正在判断真实主体" :
-          value < 78 ? "正在采集公开趋势" :
-          value < 96 ? "正在生成三套文案" : "正在完成校验";
+          value < 78 ? "正在分析受众与趋势" :
+          value < 96 ? "正在生成三平台发布包" : "正在校验字数与内容";
       }
 
       refreshButton.addEventListener("click", () => {
@@ -750,12 +834,24 @@
           card.innerHTML =
             '<div class="card-topline"><span class="rank">0' + (index + 1) + '</span><span class="intent"></span><span class="score">' +
             item.score + '<small>分</small></span></div>' +
-            '<div class="cover-copy"><div><strong></strong><span class="count ' + (topLength === 7 ? "" : "invalid") + '">' + topLength + '/7</span></div>' +
-            '<div><strong></strong><span class="count ' + (bottomLength === 8 ? "" : "invalid") + '">' + bottomLength + '/8</span></div></div><p></p>';
+            '<div class="cover-copy"><div><strong></strong><span class="count ' + (topLength === 7 ? "" : "invalid") + '">' + topLength + '/7</span><button class="line-copy" data-copy-line="top" type="button">复制</button></div>' +
+            '<div><strong></strong><span class="count ' + (bottomLength === 8 ? "" : "invalid") + '">' + bottomLength + '/8</span><button class="line-copy" data-copy-line="bottom" type="button">复制</button></div>' +
+            '<button class="cover-combined-copy" type="button">复制完整 15 字封面</button></div><p></p>' +
+            '<div class="card-foot"><span>点击卡片切换整套方案</span><b>' + (index === state.selected ? "当前采用" : "选择此方案") + '</b></div>';
           card.querySelector(".intent").textContent = item.eyebrow;
           card.querySelectorAll(".cover-copy strong")[0].textContent = item.top;
           card.querySelectorAll(".cover-copy strong")[1].textContent = item.bottom;
           card.querySelector("p").textContent = item.reason;
+          card.querySelectorAll(".line-copy").forEach((button) => {
+            button.addEventListener("click", (event) => {
+              event.stopPropagation();
+              copyText(item[button.dataset.copyLine], button.dataset.copyLine === "top" ? "上行 7 字已复制" : "下行 8 字已复制");
+            });
+          });
+          card.querySelector(".cover-combined-copy").addEventListener("click", (event) => {
+            event.stopPropagation();
+            copyText(item.top + "\n" + item.bottom, "完整 15 字封面已复制");
+          });
           card.addEventListener("click", () => {
             state.selected = index;
             renderCards();
@@ -768,17 +864,33 @@
       function renderPublish() {
         if (!state.result) return;
         const item = state.result.sets[state.selected];
-        const text = item.bodies[state.platform] || "";
-        bodyText.value = text;
-        bodyCount.textContent = Array.from(text).length + " 字";
-        platformNote.textContent = "已按" + state.platform + "阅读习惯整理";
+        const config = PLATFORM_CONFIG[state.platform];
+        const platform = item.platforms[config.key];
+        const titleLength = Array.from(platform.title || "").length;
+        const bodyLength = Array.from(platform.description || "").length;
+        titleText.textContent = platform.title || "暂无标题";
+        titleCount.textContent = titleLength + " / " + config.titleMax + " 字";
+        titleCount.classList.toggle("over-limit", titleLength > config.titleMax);
+        bodyText.value = platform.description || "";
+        bodyCount.textContent = bodyLength + " 字";
+        platformNote.textContent = config.titleGuide;
+        descriptionGuide.textContent = config.descriptionGuide;
+        platformRule.textContent = config.rule;
+        platformAudience.textContent = platform.audience || "根据图片自动判断";
+        platformHook.textContent = platform.hook || "内容相关钩子";
+        platformStrategy.textContent = platform.strategy || "根据平台阅读习惯重新组织";
         topicList.replaceChildren();
-        item.tags.forEach((tag) => {
+        (platform.topics || []).forEach((tag) => {
           const button = document.createElement("button");
           button.textContent = tag;
           button.addEventListener("click", () => copyText(tag, "话题已复制"));
           topicList.appendChild(button);
         });
+        const topicHint = document.createElement("small");
+        topicHint.textContent = config.topicGuide;
+        topicHint.style.color = "#aaa29c";
+        topicHint.style.fontSize = "9px";
+        topicList.appendChild(topicHint);
       }
 
       function renderTrendTerms(terms) {
@@ -807,17 +919,25 @@
         });
       });
 
-      $("#copyBody").addEventListener("click", () => copyText(bodyText.value, "正文已复制"));
+      $("#copyTitle").addEventListener("click", () => copyText(titleText.textContent, "标题已复制"));
+      $("#copyBody").addEventListener("click", () => copyText(bodyText.value, "描述已复制"));
       $("#copyTags").addEventListener("click", () => {
         if (!state.result) return showToast("请先完成识别");
-        copyText(state.result.sets[state.selected].tags.join(" "), "话题已复制");
+        const config = PLATFORM_CONFIG[state.platform];
+        const platform = state.result.sets[state.selected].platforms[config.key];
+        copyText(platform.topics.join(" "), "话题已复制");
       });
       $("#copyAll").addEventListener("click", () => {
         if (!state.result) return showToast("请先完成识别");
         const item = state.result.sets[state.selected];
+        const config = PLATFORM_CONFIG[state.platform];
+        const platform = item.platforms[config.key];
         copyText(
-          item.top + "\n" + item.bottom + "\n\n" + item.bodies[state.platform] + "\n\n" + item.tags.join(" "),
-          "整套内容已复制",
+          "【通用封面】\n" + item.top + "\n" + item.bottom +
+          "\n\n【" + state.platform + "标题】\n" + platform.title +
+          "\n\n【描述】\n" + platform.description +
+          "\n\n【话题】\n" + platform.topics.join(" "),
+          state.platform + "整套内容已复制",
         );
       });
 
