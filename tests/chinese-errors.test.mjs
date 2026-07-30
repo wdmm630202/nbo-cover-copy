@@ -53,10 +53,12 @@ test("前端兜底不会把未知英文错误显示给用户", async () => {
 
 test("繁忙时只重试临时错误并自动切换免费稳定模型", async () => {
   const source = await readFile(new URL("apps-script/Code.gs", root), "utf8");
-  assert.match(source, /"gemini-2\.5-flash"/);
-  assert.match(source, /"gemini-2\.5-flash-lite"/);
+  assert.match(source, /"gemini-3\.5-flash"/);
+  assert.match(source, /"gemini-3\.5-flash-lite"/);
+  assert.doesNotMatch(source, /gemini-2\.5-flash/);
   assert.doesNotMatch(source, /gemini-3-flash-preview/);
-  assert.match(source, /thinkingBudget:\s*0/);
+  assert.match(source, /thinkingLevel:\s*"minimal"/);
+  assert.doesNotMatch(source, /temperature:\s*temperature/);
 
   const isRetryable = await loadFunction(
     "apps-script/Code.gs",
@@ -67,6 +69,8 @@ test("繁忙时只重试临时错误并自动切换免费稳定模型", async ()
   assert.equal(isRetryable(429, "resource exhausted"), true);
   assert.equal(isRetryable(503, "service unavailable"), true);
   assert.equal(isRetryable(408, "timeout"), true);
+  assert.equal(isRetryable(404, "This model is no longer available to new users"), true);
+  assert.equal(isRetryable(404, "Unknown page"), false);
   assert.equal(isRetryable(400, "invalid argument"), false);
   assert.equal(isRetryable(403, "permission denied"), false);
 });

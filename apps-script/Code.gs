@@ -1,6 +1,6 @@
 const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
 ];
 const GEMINI_ATTEMPTS_PER_MODEL = 2;
 const MAX_IMAGE_BASE64_LENGTH = 7000000;
@@ -33,8 +33,7 @@ function analyzeImage(payload) {
     const insight = callGeminiJson_(
       buildInsightPrompt_(brandNote),
       INSIGHT_SCHEMA,
-      image,
-      0.2,
+      image
     );
     const trend = collectPublicTrends_(insight.searchQueries || [], insight.keywords || []);
     const result = generateCopy_(insight, trend, brandNote, seed);
@@ -92,7 +91,7 @@ function refreshCopy(payload) {
 
 function generateCopy_(insight, trend, brandNote, seed) {
   const prompt = buildCopyPrompt_(insight, trend, brandNote, seed);
-  let result = callGeminiJson_(prompt, COPY_SCHEMA, null, 0.72);
+  let result = callGeminiJson_(prompt, COPY_SCHEMA, null);
   result = normalizeCopyResult_(result);
 
   if (!hasExactCoverLengths_(result) || !hasCompletePlatformPackages_(result)) {
@@ -100,8 +99,7 @@ function generateCopy_(insight, trend, brandNote, seed) {
       callGeminiJson_(
         buildRepairPrompt_(result, insight, trend, brandNote, seed),
         COPY_SCHEMA,
-        null,
-        0.35,
+        null
       ),
     );
   }
@@ -113,7 +111,7 @@ function generateCopy_(insight, trend, brandNote, seed) {
   return result;
 }
 
-function callGeminiJson_(prompt, schema, image, temperature) {
+function callGeminiJson_(prompt, schema, image) {
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
   if (!apiKey) throw new Error("智能服务尚未完成后台配置。");
 
@@ -130,11 +128,10 @@ function callGeminiJson_(prompt, schema, image, temperature) {
   const requestBody = {
     contents: [{ role: "user", parts: parts }],
     generationConfig: {
-      temperature: temperature,
       responseMimeType: "application/json",
       responseSchema: schema,
       thinkingConfig: {
-        thinkingBudget: 0,
+        thinkingLevel: "minimal",
       },
     },
   };
@@ -192,6 +189,7 @@ function callGeminiJson_(prompt, schema, image, temperature) {
       }
 
       if (!isRetryableGeminiError_(status, detail)) {
+        logGeminiFailure_(model, status, detail);
         throw new Error(toChineseError_(detail, status));
       }
 
@@ -210,6 +208,25 @@ function callGeminiJson_(prompt, schema, image, temperature) {
     throw new Error("免费使用额度暂时达到上限，系统已经自动尝试稳定服务和备用服务。请稍后再试。");
   }
   throw new Error("稳定服务和备用服务目前都比较繁忙，系统已经自动重试。请等待几分钟后再试。");
+}
+
+function logGeminiFailure_(model, status, detail) {
+  console.error(
+    JSON.stringify({
+      stage: "Gemini接口请求",
+      model: String(model || ""),
+      status: Number(status || 0),
+      detail: String(detail || "").slice(0, 1200),
+    }),
+  );
+}
+
+function diagnoseGeminiService() {
+  return callGeminiJson_(
+    "请严格返回一个JSON对象，category写测试，summary写连接正常，evidence和keywords各写两个中文词，searchQueries写四个中文短语，audience、contentOpportunity、emotionalTone均写简短中文。",
+    INSIGHT_SCHEMA,
+    null
+  );
 }
 
 function parseGeminiJson_(text) {
@@ -242,6 +259,8 @@ function isRetryableGeminiError_(statusCode, detail) {
     status === 0 ||
     status === 408 ||
     status === 429 ||
+    (status === 404 &&
+      /model|no longer available|not available|not found|new users/.test(normalized)) ||
     status >= 500 ||
     /high demand|overload|timeout|timed out|deadline|network|connection|temporarily unavailable/.test(normalized)
   );
@@ -265,6 +284,12 @@ function toChineseError_(error, statusCode) {
     /high demand|overload|too many requests|resource exhausted|quota|rate limit/.test(normalized)
   ) {
     return "免费使用额度暂时达到上限，系统已经自动尝试稳定服务和备用服务。请稍后再试。";
+  }
+  if (
+    status === 404 &&
+    /model|no longer available|not available|not found|new users/.test(normalized)
+  ) {
+    return "免费智能模型正在更新，系统已经自动尝试备用服务。请稍后重新尝试。";
   }
   if (
     status === 408 ||
