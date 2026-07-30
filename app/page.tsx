@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Platform = "小红书" | "抖音" | "视频号";
 
@@ -24,6 +24,18 @@ type ImageInfo = {
   ratio: string;
   size: string;
 };
+
+type PreparedImage = {
+  name: string;
+  source: string;
+  width: number;
+  height: number;
+  brightness: number;
+  warmth: number;
+  size: string;
+};
+
+type AnalysisState = "empty" | "ready" | "running" | "stopped" | "done";
 
 const copyPools: CopySet[][] = [
   [
@@ -182,8 +194,14 @@ const countChars = (text: string) => Array.from(text).length;
 
 export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const analysisTimerRef = useRef<number | null>(null);
+  const progressTimerRef = useRef<number | null>(null);
+  const analysisRunRef = useRef(0);
   const [preview, setPreview] = useState<string>("");
+  const [preparedImage, setPreparedImage] = useState<PreparedImage | null>(null);
   const [imageInfo, setImageInfo] = useState<ImageInfo | null>(null);
+  const [analysisState, setAnalysisState] = useState<AnalysisState>("empty");
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const [platform, setPlatform] = useState<Platform>("小红书");
   const [poolIndex, setPoolIndex] = useState(0);
   const [selected, setSelected] = useState(0);
@@ -196,14 +214,30 @@ export default function Home() {
   const active = currentSets[selected];
 
   const insightTags = useMemo(() => {
-    if (!imageInfo) return ["男士人像", "自然状态", "干净构图", "质感表达"];
+    if (!imageInfo) {
+      if (analysisState === "running") return ["读取构图", "分析光线", "判断色调", "匹配内容"];
+      return ["男士人像", "自然状态", "干净构图", "质感表达"];
+    }
     return [
       imageInfo.orientation,
       imageInfo.tone,
       imageInfo.light,
       imageInfo.ratio,
     ];
-  }, [imageInfo]);
+  }, [analysisState, imageInfo]);
+
+  const clearAnalysisTimers = () => {
+    if (analysisTimerRef.current !== null) {
+      window.clearTimeout(analysisTimerRef.current);
+      analysisTimerRef.current = null;
+    }
+    if (progressTimerRef.current !== null) {
+      window.clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => () => clearAnalysisTimers(), []);
 
   const showCopied = (key: string) => {
     setCopied(key);
@@ -215,9 +249,15 @@ export default function Home() {
     showCopied(key);
   };
 
-  const analyzeImage = (file: File) => {
+  const prepareImage = (file: File) => {
     if (!file.type.startsWith("image/")) return;
-    setIsAnalyzing(true);
+    clearAnalysisTimers();
+    analysisRunRef.current += 1;
+    setImageInfo(null);
+    setPreparedImage(null);
+    setAnalysisProgress(0);
+    setAnalysisState("empty");
+    setIsAnalyzing(false);
     const reader = new FileReader();
     reader.onload = () => {
       const src = String(reader.result);
@@ -244,44 +284,96 @@ export default function Home() {
           warmth = warmTotal / (pixels.length / 4);
         }
 
-        const ratioNumber = img.width / img.height;
-        const orientation =
-          ratioNumber > 1.12 ? "横版构图" : ratioNumber < 0.88 ? "竖版人像" : "方形构图";
-        const ratio = ratioNumber > 1.12 ? "适合视频号" : ratioNumber < 0.88 ? "适合封面" : "社媒友好";
-        const tone = warmth > 12 ? "暖调氛围" : warmth < -8 ? "冷调质感" : "自然色调";
-        const light = brightness > 178 ? "明亮干净" : brightness < 95 ? "低调情绪" : "光线柔和";
-
-        setImageInfo({
+        setPreparedImage({
           name: file.name,
+          source: src,
           width: img.width,
           height: img.height,
-          orientation,
-          tone,
-          light,
-          ratio,
+          brightness,
+          warmth,
           size: file.size > 1024 * 1024
             ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
             : `${Math.max(1, Math.round(file.size / 1024))} KB`,
         });
-        setPoolIndex(Math.abs(file.name.length + img.width + img.height) % copyPools.length);
-        setSelected(0);
-        window.setTimeout(() => setIsAnalyzing(false), 650);
+        setAnalysisState("ready");
       };
       img.src = src;
     };
     reader.readAsDataURL(file);
   };
 
+  const startAnalysis = () => {
+    if (!preparedImage || analysisState === "running") return;
+    clearAnalysisTimers();
+    const runId = analysisRunRef.current + 1;
+    analysisRunRef.current = runId;
+    setImageInfo(null);
+    setAnalysisProgress(8);
+    setAnalysisState("running");
+    setIsAnalyzing(true);
+
+    progressTimerRef.current = window.setInterval(() => {
+      setAnalysisProgress((value) => Math.min(92, value + Math.max(2, Math.round((94 - value) / 7))));
+    }, 170);
+
+    analysisTimerRef.current = window.setTimeout(() => {
+      if (analysisRunRef.current !== runId) return;
+      clearAnalysisTimers();
+      const ratioNumber = preparedImage.width / preparedImage.height;
+      const orientation =
+        ratioNumber > 1.12 ? "横版构图" : ratioNumber < 0.88 ? "竖版人像" : "方形构图";
+      const ratio =
+        ratioNumber > 1.12 ? "适合视频号" : ratioNumber < 0.88 ? "适合封面" : "社媒友好";
+      const tone =
+        preparedImage.warmth > 12 ? "暖调氛围" : preparedImage.warmth < -8 ? "冷调质感" : "自然色调";
+      const light =
+        preparedImage.brightness > 178 ? "明亮干净" : preparedImage.brightness < 95 ? "低调情绪" : "光线柔和";
+
+      setImageInfo({
+        name: preparedImage.name,
+        width: preparedImage.width,
+        height: preparedImage.height,
+        orientation,
+        tone,
+        light,
+        ratio,
+        size: preparedImage.size,
+      });
+      setPoolIndex(Math.abs(preparedImage.name.length + preparedImage.width + preparedImage.height) % copyPools.length);
+      setSelected(0);
+      setAnalysisProgress(100);
+      setAnalysisState("done");
+      setIsAnalyzing(false);
+    }, 2200);
+  };
+
+  const stopAnalysis = () => {
+    if (analysisState !== "running") return;
+    analysisRunRef.current += 1;
+    clearAnalysisTimers();
+    setAnalysisProgress(0);
+    setAnalysisState("stopped");
+    setIsAnalyzing(false);
+    setImageInfo(null);
+  };
+
+  const openFilePicker = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    }
+  };
+
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) analyzeImage(file);
+    if (file) prepareImage(file);
   };
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDragging(false);
     const file = event.dataTransfer.files?.[0];
-    if (file) analyzeImage(file);
+    if (file) prepareImage(file);
   };
 
   const refresh = () => {
@@ -346,16 +438,43 @@ export default function Home() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={preview} alt="已上传图片预览" />
               <div className="preview-shade" />
-              <button className="replace-image" onClick={() => fileInputRef.current?.click()}>
-                重新上传
-              </button>
+              {analysisState === "running" && <div className="scan-line" aria-hidden="true" />}
+              <div className="preview-actions">
+                <button className="replace-image" onClick={openFilePicker} disabled={analysisState === "running"}>
+                  重新上传
+                </button>
+                <button
+                  className={`analysis-button ${analysisState === "running" ? "stop" : ""}`}
+                  onClick={analysisState === "running" ? stopAnalysis : startAnalysis}
+                  disabled={!preparedImage}
+                >
+                  <span>{analysisState === "running" ? "■" : "▶"}</span>
+                  {analysisState === "running"
+                    ? "停止识别"
+                    : analysisState === "done"
+                      ? "重新识别"
+                      : analysisState === "stopped"
+                        ? "重新开始"
+                        : "开始识别"}
+                </button>
+              </div>
+              {analysisState === "running" && (
+                <div className="analysis-progress" role="status" aria-live="polite">
+                  <div>
+                    <span className="running-dot" />
+                    <strong>任务正在运行</strong>
+                    <em>{analysisProgress}%</em>
+                  </div>
+                  <i><b style={{ width: `${analysisProgress}%` }} /></i>
+                </div>
+              )}
               <div className="preview-caption">
-                <span>{imageInfo?.width} × {imageInfo?.height}</span>
-                <strong>{imageInfo?.name}</strong>
+                <span>{preparedImage?.width} × {preparedImage?.height}</span>
+                <strong>{preparedImage?.name}</strong>
               </div>
             </div>
           ) : (
-            <button className="upload-empty" onClick={() => fileInputRef.current?.click()}>
+            <button className="upload-empty" onClick={openFilePicker}>
               <span className="upload-icon"><i>＋</i></span>
               <strong>上传一张图片开始</strong>
               <small>点击选择或拖拽图片到这里</small>
@@ -372,18 +491,44 @@ export default function Home() {
             <span className="step-label">01 / 图片理解</span>
             <h2>画面信息</h2>
           </div>
-          <span className="status-pill">{imageInfo ? "已完成基础识别" : "上传后自动识别"}</span>
+          <span className={`status-pill ${analysisState === "running" ? "running" : ""}`}>
+            {analysisState === "done"
+              ? "已完成基础识别"
+              : analysisState === "running"
+                ? `识别进行中 ${analysisProgress}%`
+                : analysisState === "stopped"
+                  ? "已停止，可重新开始"
+                  : analysisState === "ready"
+                    ? "图片已就绪"
+                    : "上传后手动开始"}
+          </span>
         </div>
 
         <div className="insight-panel">
           <div className="insight-main">
             <div className="insight-orb">✦</div>
             <div>
-              <strong>{imageInfo ? "已读懂这张图片的基础视觉信息" : "等待你的图片"}</strong>
+              <strong>
+                {imageInfo
+                  ? "已读懂这张图片的基础视觉信息"
+                  : analysisState === "running"
+                    ? "正在识别画面信息…"
+                    : analysisState === "stopped"
+                      ? "识别已停止"
+                      : analysisState === "ready"
+                        ? "图片已准备好，点击“开始识别”"
+                        : "等待你的图片"}
+              </strong>
               <p>
                 {imageInfo
                   ? `${imageInfo.width} × ${imageInfo.height} · ${imageInfo.size}。初版已根据构图、明暗与色调匹配内容方向。`
-                  : "上传后将读取尺寸、构图、色调与光线，并据此匹配封面文案。下方已放入男士写真示例供你预览。"}
+                  : analysisState === "running"
+                    ? "任务正在运行，你可以随时点击“停止识别”中断本次处理。"
+                    : analysisState === "stopped"
+                      ? "本次任务没有生成结果。确认照片无误后可重新开始，也可以重新上传。"
+                      : analysisState === "ready"
+                        ? "上传只做预览，不会自动执行。确认照片无误后再开始。"
+                        : "上传后将等待你确认，再读取尺寸、构图、色调与光线。下方已放入男士写真示例供你预览。"}
               </p>
             </div>
           </div>

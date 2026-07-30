@@ -77,7 +77,22 @@
           <div class="image-preview is-hidden" id="imagePreview">
             <img id="previewImage" alt="已上传图片预览" />
             <div class="preview-shade"></div>
-            <button class="replace-image" id="replaceImage" type="button">重新上传</button>
+            <div class="scan-line is-hidden" id="scanLine" aria-hidden="true"></div>
+            <div class="preview-actions">
+              <button class="replace-image" id="replaceImage" type="button">重新上传</button>
+              <button class="analysis-button" id="analysisButton" type="button" disabled>
+                <span id="analysisButtonIcon">▶</span>
+                <b id="analysisButtonLabel">开始识别</b>
+              </button>
+            </div>
+            <div class="analysis-progress is-hidden" id="analysisProgress" role="status" aria-live="polite">
+              <div>
+                <span class="running-dot"></span>
+                <strong>任务正在运行</strong>
+                <em id="analysisProgressText">0%</em>
+              </div>
+              <i><b id="analysisProgressFill"></b></i>
+            </div>
             <div class="preview-caption">
               <span id="previewSize"></span>
               <strong id="previewName"></strong>
@@ -93,7 +108,7 @@
             <span class="step-label">01 / 图片理解</span>
             <h2>画面信息</h2>
           </div>
-          <span class="status-pill" id="insightStatus">上传后自动识别</span>
+          <span class="status-pill" id="insightStatus">上传后手动开始</span>
         </div>
 
         <div class="insight-panel">
@@ -101,7 +116,7 @@
             <div class="insight-orb">✦</div>
             <div>
               <strong id="insightTitle">等待你的图片</strong>
-              <p id="insightDescription">上传后将读取尺寸、构图、色调与光线，并匹配封面文案。下方已放入男士写真示例供你预览。</p>
+              <p id="insightDescription">上传后将等待你确认，再读取尺寸、构图、色调与光线。下方已放入男士写真示例供你预览。</p>
             </div>
           </div>
           <div class="insight-tags" id="insightTags"></div>

@@ -132,6 +132,12 @@ let poolIndex = 0;
 let selectedIndex = 0;
 let platform = "小红书";
 let toastTimer;
+let preparedImage = null;
+let analysisState = "empty";
+let analysisProgressValue = 0;
+let analysisTimer;
+let progressTimer;
+let analysisRunId = 0;
 
 const accessGate = document.querySelector("#accessGate");
 const app = document.querySelector("#app");
@@ -146,6 +152,13 @@ const previewImage = document.querySelector("#previewImage");
 const previewSize = document.querySelector("#previewSize");
 const previewName = document.querySelector("#previewName");
 const replaceImage = document.querySelector("#replaceImage");
+const analysisButton = document.querySelector("#analysisButton");
+const analysisButtonIcon = document.querySelector("#analysisButtonIcon");
+const analysisButtonLabel = document.querySelector("#analysisButtonLabel");
+const analysisProgress = document.querySelector("#analysisProgress");
+const analysisProgressText = document.querySelector("#analysisProgressText");
+const analysisProgressFill = document.querySelector("#analysisProgressFill");
+const scanLine = document.querySelector("#scanLine");
 const insightStatus = document.querySelector("#insightStatus");
 const insightTitle = document.querySelector("#insightTitle");
 const insightDescription = document.querySelector("#insightDescription");
@@ -305,11 +318,80 @@ async function copyText(value, message = "已复制") {
   showToast(message);
 }
 
-function analyzeImage(file) {
+function clearAnalysisTimers() {
+  window.clearTimeout(analysisTimer);
+  window.clearInterval(progressTimer);
+  analysisTimer = undefined;
+  progressTimer = undefined;
+}
+
+function setProgress(value) {
+  analysisProgressValue = value;
+  analysisProgressText.textContent = `${value}%`;
+  analysisProgressFill.style.width = `${value}%`;
+  if (analysisState === "running") insightStatus.textContent = `识别进行中 ${value}%`;
+}
+
+function setAnalysisState(nextState) {
+  analysisState = nextState;
+  const running = nextState === "running";
+
+  imagePreview.classList.toggle("analyzing", running);
+  scanLine.classList.toggle("is-hidden", !running);
+  analysisProgress.classList.toggle("is-hidden", !running);
+  insightStatus.classList.toggle("running", running);
+  replaceImage.disabled = running;
+  analysisButton.disabled = !preparedImage;
+  analysisButton.classList.toggle("stop", running);
+  analysisButtonIcon.textContent = running ? "■" : "▶";
+
+  if (nextState === "done") {
+    analysisButtonLabel.textContent = "重新识别";
+    insightStatus.textContent = "已完成基础识别";
+    return;
+  }
+  if (running) {
+    analysisButtonLabel.textContent = "停止识别";
+    insightStatus.textContent = `识别进行中 ${analysisProgressValue}%`;
+    insightTitle.textContent = "正在识别画面信息…";
+    insightDescription.textContent = "任务正在运行，你可以随时点击“停止识别”中断本次处理。";
+    renderInsightTags(["读取构图", "分析光线", "判断色调", "匹配内容"]);
+    return;
+  }
+  if (nextState === "stopped") {
+    analysisButtonLabel.textContent = "重新开始";
+    insightStatus.textContent = "已停止，可重新开始";
+    insightTitle.textContent = "识别已停止";
+    insightDescription.textContent = "本次任务没有生成结果。确认照片无误后可重新开始，也可以重新上传。";
+    renderInsightTags();
+    return;
+  }
+  if (nextState === "ready") {
+    analysisButtonLabel.textContent = "开始识别";
+    insightStatus.textContent = "图片已就绪";
+    insightTitle.textContent = "图片已准备好，点击“开始识别”";
+    insightDescription.textContent = "上传只做预览，不会自动执行。确认照片无误后再开始。";
+    renderInsightTags();
+    return;
+  }
+
+  analysisButtonLabel.textContent = "开始识别";
+  insightStatus.textContent = "上传后手动开始";
+  insightTitle.textContent = "等待你的图片";
+  insightDescription.textContent = "上传后将等待你确认，再读取尺寸、构图、色调与光线。下方已放入男士写真示例供你预览。";
+}
+
+function prepareImage(file) {
   if (!file || !file.type.startsWith("image/")) {
     showToast("请选择图片文件");
     return;
   }
+
+  clearAnalysisTimers();
+  analysisRunId += 1;
+  preparedImage = null;
+  setProgress(0);
+  setAnalysisState("empty");
 
   const reader = new FileReader();
   reader.onload = () => {
@@ -336,38 +418,84 @@ function analyzeImage(file) {
         warmth = warmTotal / (pixels.length / 4);
       }
 
-      const ratioNumber = image.width / image.height;
-      const orientation = ratioNumber > 1.12 ? "横版构图" : ratioNumber < 0.88 ? "竖版人像" : "方形构图";
-      const ratio = ratioNumber > 1.12 ? "适合视频号" : ratioNumber < 0.88 ? "适合封面" : "社媒友好";
-      const tone = warmth > 12 ? "暖调氛围" : warmth < -8 ? "冷调质感" : "自然色调";
-      const light = brightness > 178 ? "明亮干净" : brightness < 95 ? "低调情绪" : "光线柔和";
       const size = file.size > 1024 * 1024
         ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
         : `${Math.max(1, Math.round(file.size / 1024))} KB`;
 
+      preparedImage = {
+        name: file.name,
+        source,
+        width: image.width,
+        height: image.height,
+        brightness,
+        warmth,
+        size,
+      };
       previewImage.src = source;
       previewSize.textContent = `${image.width} × ${image.height}`;
       previewName.textContent = file.name;
       uploadEmpty.classList.add("is-hidden");
       imagePreview.classList.remove("is-hidden");
-
-      insightStatus.textContent = "已完成基础识别";
-      insightTitle.textContent = "已读懂这张图片的基础视觉信息";
-      insightDescription.textContent = `${image.width} × ${image.height} · ${size}。免费版已根据构图、明暗与色调匹配内容方向。`;
-      renderInsightTags([orientation, tone, light, ratio]);
-
-      poolIndex = Math.abs(file.name.length + image.width + image.height) % copyPools.length;
-      selectedIndex = 0;
-      renderCards();
+      setAnalysisState("ready");
     };
     image.src = source;
   };
   reader.readAsDataURL(file);
 }
 
-uploadEmpty.addEventListener("click", () => fileInput.click());
-replaceImage.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", () => analyzeImage(fileInput.files?.[0]));
+function startAnalysis() {
+  if (!preparedImage || analysisState === "running") return;
+  clearAnalysisTimers();
+  const runId = analysisRunId + 1;
+  analysisRunId = runId;
+  setProgress(8);
+  setAnalysisState("running");
+
+  progressTimer = window.setInterval(() => {
+    setProgress(Math.min(92, analysisProgressValue + Math.max(2, Math.round((94 - analysisProgressValue) / 7))));
+  }, 170);
+
+  analysisTimer = window.setTimeout(() => {
+    if (analysisRunId !== runId || !preparedImage) return;
+    clearAnalysisTimers();
+
+    const ratioNumber = preparedImage.width / preparedImage.height;
+    const orientation = ratioNumber > 1.12 ? "横版构图" : ratioNumber < 0.88 ? "竖版人像" : "方形构图";
+    const ratio = ratioNumber > 1.12 ? "适合视频号" : ratioNumber < 0.88 ? "适合封面" : "社媒友好";
+    const tone = preparedImage.warmth > 12 ? "暖调氛围" : preparedImage.warmth < -8 ? "冷调质感" : "自然色调";
+    const light = preparedImage.brightness > 178 ? "明亮干净" : preparedImage.brightness < 95 ? "低调情绪" : "光线柔和";
+
+    insightTitle.textContent = "已读懂这张图片的基础视觉信息";
+    insightDescription.textContent = `${preparedImage.width} × ${preparedImage.height} · ${preparedImage.size}。免费版已根据构图、明暗与色调匹配内容方向。`;
+    renderInsightTags([orientation, tone, light, ratio]);
+    poolIndex = Math.abs(preparedImage.name.length + preparedImage.width + preparedImage.height) % copyPools.length;
+    selectedIndex = 0;
+    renderCards();
+    setProgress(100);
+    setAnalysisState("done");
+  }, 2200);
+}
+
+function stopAnalysis() {
+  if (analysisState !== "running") return;
+  analysisRunId += 1;
+  clearAnalysisTimers();
+  setProgress(0);
+  setAnalysisState("stopped");
+}
+
+function openFilePicker() {
+  fileInput.value = "";
+  fileInput.click();
+}
+
+uploadEmpty.addEventListener("click", openFilePicker);
+replaceImage.addEventListener("click", openFilePicker);
+analysisButton.addEventListener("click", () => {
+  if (analysisState === "running") stopAnalysis();
+  else startAnalysis();
+});
+fileInput.addEventListener("change", () => prepareImage(fileInput.files?.[0]));
 
 ["dragenter", "dragover"].forEach((eventName) => {
   uploadCard.addEventListener(eventName, (event) => {
@@ -383,7 +511,7 @@ fileInput.addEventListener("change", () => analyzeImage(fileInput.files?.[0]));
   });
 });
 
-uploadCard.addEventListener("drop", (event) => analyzeImage(event.dataTransfer?.files?.[0]));
+uploadCard.addEventListener("drop", (event) => prepareImage(event.dataTransfer?.files?.[0]));
 
 copyGrid.addEventListener("click", (event) => {
   const copyButton = event.target.closest("[data-copy-title]");

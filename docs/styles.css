@@ -482,10 +482,16 @@ button {
   background: linear-gradient(transparent 48%, rgba(0, 0, 0, 0.62));
 }
 
-.replace-image {
+.preview-actions {
   position: absolute;
   right: 14px;
   top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.replace-image {
   padding: 9px 14px;
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 99px;
@@ -494,6 +500,128 @@ button {
   font-size: 12px;
   backdrop-filter: blur(8px);
   cursor: pointer;
+}
+
+.replace-image:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.analysis-button {
+  min-width: 108px;
+  padding: 9px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 99px;
+  background: var(--red);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(255, 36, 66, 0.32);
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.analysis-button:hover {
+  transform: translateY(-1px);
+  background: #ee1837;
+}
+
+.analysis-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.analysis-button.stop {
+  border-color: rgba(255, 255, 255, 0.64);
+  background: rgba(22, 20, 20, 0.84);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.analysis-button span {
+  font-size: 9px;
+}
+
+.scan-line {
+  width: 100%;
+  height: 2px;
+  position: absolute;
+  left: 0;
+  top: 7%;
+  z-index: 1;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), var(--red), rgba(255, 255, 255, 0.9), transparent);
+  box-shadow: 0 0 18px rgba(255, 36, 66, 0.9);
+  animation: scan-image 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes scan-image {
+  from { top: 8%; }
+  to { top: 88%; }
+}
+
+.analysis-progress {
+  width: min(270px, calc(100% - 36px));
+  padding: 11px 13px;
+  position: absolute;
+  left: 18px;
+  bottom: 58px;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(20, 18, 18, 0.75);
+  color: white;
+  backdrop-filter: blur(12px);
+}
+
+.analysis-progress > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.analysis-progress strong {
+  font-size: 11px;
+}
+
+.analysis-progress em {
+  margin-left: auto;
+  font-size: 10px;
+  font-style: normal;
+  opacity: 0.8;
+}
+
+.analysis-progress > i {
+  height: 3px;
+  margin-top: 8px;
+  display: block;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.analysis-progress > i > b {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff526b, #fff);
+  transition: width 0.16s linear;
+}
+
+.running-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6ff2af;
+  box-shadow: 0 0 0 0 rgba(111, 242, 175, 0.6);
+  animation: running-pulse 1.15s ease-out infinite;
+}
+
+@keyframes running-pulse {
+  70% { box-shadow: 0 0 0 6px rgba(111, 242, 175, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(111, 242, 175, 0); }
 }
 
 .preview-caption {
@@ -554,6 +682,12 @@ button {
   background: #f4fbf7;
   color: #25815a;
   font-size: 11px;
+}
+
+.status-pill.running {
+  border-color: #ffd5dc;
+  background: #fff4f6;
+  color: var(--red);
 }
 
 .insight-panel {
@@ -1156,6 +1290,29 @@ footer {
   .upload-empty,
   .image-preview {
     height: 280px;
+  }
+
+  .preview-actions {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    justify-content: flex-end;
+  }
+
+  .replace-image,
+  .analysis-button {
+    padding: 8px 11px;
+    font-size: 10px;
+  }
+
+  .analysis-button {
+    min-width: 96px;
+  }
+
+  .analysis-progress {
+    width: calc(100% - 24px);
+    left: 12px;
+    bottom: 55px;
   }
 
   .privacy-note {
