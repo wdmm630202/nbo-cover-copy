@@ -1,4 +1,8 @@
-const GEMINI_MODEL = "gemini-3-flash-preview";
+const GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+];
+const GEMINI_ATTEMPTS_PER_MODEL = 2;
 const MAX_IMAGE_BASE64_LENGTH = 7000000;
 
 function doGet() {
@@ -129,35 +133,86 @@ function callGeminiJson_(prompt, schema, image, temperature) {
       temperature: temperature,
       responseMimeType: "application/json",
       responseSchema: schema,
+      thinkingConfig: {
+        thinkingBudget: 0,
+      },
     },
   };
 
-  const response = UrlFetchApp.fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/" +
-      encodeURIComponent(GEMINI_MODEL) +
-      ":generateContent",
-    {
-      method: "post",
-      contentType: "application/json",
-      headers: { "x-goog-api-key": apiKey },
-      payload: JSON.stringify(requestBody),
-      muteHttpExceptions: true,
-    },
-  );
+  let lastStatus = 0;
+  let lastDetail = "";
 
-  const status = response.getResponseCode();
-  const text = response.getContentText();
-  if (status < 200 || status >= 300) {
-    let detail = "";
-    try {
-      const parsedError = JSON.parse(text);
-      detail = parsedError.error && parsedError.error.message ? parsedError.error.message : detail;
-    } catch (error) {
-      // The final translation layer handles malformed service responses.
+  for (let modelIndex = 0; modelIndex < GEMINI_MODELS.length; modelIndex += 1) {
+    const model = GEMINI_MODELS[modelIndex];
+    for (let attempt = 0; attempt < GEMINI_ATTEMPTS_PER_MODEL; attempt += 1) {
+      let response;
+      try {
+        response = UrlFetchApp.fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/" +
+            encodeURIComponent(model) +
+            ":generateContent",
+          {
+            method: "post",
+            contentType: "application/json",
+            headers: { "x-goog-api-key": apiKey },
+            payload: JSON.stringify(requestBody),
+            muteHttpExceptions: true,
+          },
+        );
+      } catch (error) {
+        lastStatus = 0;
+        lastDetail = error && error.message ? error.message : String(error || "");
+        if (attempt + 1 < GEMINI_ATTEMPTS_PER_MODEL) {
+          sleepBeforeRetry_(attempt, modelIndex);
+        }
+        continue;
+      }
+
+      const status = response.getResponseCode();
+      const text = response.getContentText();
+      if (status >= 200 && status < 300) {
+        try {
+          return parseGeminiJson_(text);
+        } catch (error) {
+          lastStatus = 502;
+          lastDetail = error && error.message ? error.message : String(error || "");
+          if (attempt + 1 < GEMINI_ATTEMPTS_PER_MODEL) {
+            sleepBeforeRetry_(attempt, modelIndex);
+          }
+          continue;
+        }
+      }
+
+      let detail = "";
+      try {
+        const parsedError = JSON.parse(text);
+        detail = parsedError.error && parsedError.error.message ? parsedError.error.message : detail;
+      } catch (error) {
+        detail = text;
+      }
+
+      if (!isRetryableGeminiError_(status, detail)) {
+        throw new Error(toChineseError_(detail, status));
+      }
+
+      lastStatus = status;
+      lastDetail = detail;
+      if (attempt + 1 < GEMINI_ATTEMPTS_PER_MODEL) {
+        sleepBeforeRetry_(attempt, modelIndex);
+      }
     }
-    throw new Error(toChineseError_(detail, status));
   }
 
+  if (
+    lastStatus === 429 ||
+    /quota|rate limit|resource exhausted|too many requests/i.test(lastDetail)
+  ) {
+    throw new Error("免费使用额度暂时达到上限，系统已经自动尝试稳定服务和备用服务。请稍后再试。");
+  }
+  throw new Error("稳定服务和备用服务目前都比较繁忙，系统已经自动重试。请等待几分钟后再试。");
+}
+
+function parseGeminiJson_(text) {
   let data;
   try {
     data = JSON.parse(text);
@@ -180,6 +235,24 @@ function callGeminiJson_(prompt, schema, image, temperature) {
   }
 }
 
+function isRetryableGeminiError_(statusCode, detail) {
+  const status = Number(statusCode || 0);
+  const normalized = String(detail || "").toLowerCase();
+  return (
+    status === 0 ||
+    status === 408 ||
+    status === 429 ||
+    status >= 500 ||
+    /high demand|overload|timeout|timed out|deadline|network|connection|temporarily unavailable/.test(normalized)
+  );
+}
+
+function sleepBeforeRetry_(attempt, modelIndex) {
+  const baseDelay = (attempt + 1) * 900 + modelIndex * 700;
+  const jitter = Math.floor(Math.random() * 450);
+  Utilities.sleep(baseDelay + jitter);
+}
+
 function toChineseError_(error, statusCode) {
   const raw = String(
     error && typeof error === "object" && error.message ? error.message : error || "",
@@ -191,7 +264,7 @@ function toChineseError_(error, statusCode) {
     status === 429 ||
     /high demand|overload|too many requests|resource exhausted|quota|rate limit/.test(normalized)
   ) {
-    return "当前智能服务使用人数较多，正在排队。请等待30秒后点击“重新尝试”。";
+    return "免费使用额度暂时达到上限，系统已经自动尝试稳定服务和备用服务。请稍后再试。";
   }
   if (
     status === 408 ||

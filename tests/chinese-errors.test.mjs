@@ -32,7 +32,7 @@ test("后台把外部服务英文错误统一转换成中文", async () => {
     translate("Unexpected foreign service failure."),
   ];
   messages.forEach(assertChineseOnly);
-  assert.match(messages[0], /使用人数较多/);
+  assert.match(messages[0], /自动尝试/);
 });
 
 test("前端兜底不会把未知英文错误显示给用户", async () => {
@@ -48,5 +48,25 @@ test("前端兜底不会把未知英文错误显示给用户", async () => {
     translate({ message: "Something completely unexpected happened." }),
   ];
   messages.forEach(assertChineseOnly);
-  assert.match(messages[0], /使用人数较多/);
+  assert.match(messages[0], /自动尝试/);
+});
+
+test("繁忙时只重试临时错误并自动切换免费稳定模型", async () => {
+  const source = await readFile(new URL("apps-script/Code.gs", root), "utf8");
+  assert.match(source, /"gemini-2\.5-flash"/);
+  assert.match(source, /"gemini-2\.5-flash-lite"/);
+  assert.doesNotMatch(source, /gemini-3-flash-preview/);
+  assert.match(source, /thinkingBudget:\s*0/);
+
+  const isRetryable = await loadFunction(
+    "apps-script/Code.gs",
+    "function isRetryableGeminiError_",
+    "function sleepBeforeRetry_",
+    "isRetryableGeminiError_",
+  );
+  assert.equal(isRetryable(429, "resource exhausted"), true);
+  assert.equal(isRetryable(503, "service unavailable"), true);
+  assert.equal(isRetryable(408, "timeout"), true);
+  assert.equal(isRetryable(400, "invalid argument"), false);
+  assert.equal(isRetryable(403, "permission denied"), false);
 });

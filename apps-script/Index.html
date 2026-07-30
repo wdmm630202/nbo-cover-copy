@@ -414,7 +414,7 @@
           <span class="kicker"><i></i> FREE AI PERSONAL STUDIO</span>
           <h1>看懂图片，再写<br /><em>当下能发的文案</em></h1>
           <p>固定 7+8 字只负责封面；标题、描述和话题则按小红书、抖音、视频号的不同受众分别生成。每次先看懂图片，再决定钩子、表情和转化方向。</p>
-          <div class="feature-row"><span>真实图像理解</span><b>·</b><span>平台受众分析</span><b>·</b><span>标题＋描述＋话题</span></div>
+          <div class="feature-row"><span>真实图像理解</span><b>·</b><span>双服务自动切换</span><b>·</b><span>三平台独立文案</span></div>
         </div>
 
         <div class="upload-card" id="uploadCard">
@@ -669,8 +669,8 @@
           imagePreview.classList.remove("is-hidden");
           insightStatus.textContent = "已就绪，等待开始";
           insightTitle.textContent = "图片已准备好";
-          insightDescription.textContent = "点击图片右上角“开始识别”后，才会发送至 Gemini 进行真实画面理解。";
-          setTags(["等待真实识图", "可随时重新上传"]);
+          insightDescription.textContent = "点击图片右上角“开始识别”后才会开始分析；如遇繁忙，系统会自动重试并切换备用服务。";
+          setTags(["等待真实识图", "自动重试", "备用服务"]);
           state.result = null;
           refreshButton.disabled = true;
         } catch (error) {
@@ -702,11 +702,11 @@
         scanLine.classList.remove("is-hidden");
         insightStatus.textContent = "AI 正在识别";
         insightTitle.textContent = "正在读取真实画面";
-        insightDescription.textContent = "先判断主体与可见证据，再分析平台受众和传播机会，最后分别生成三平台发布包。";
-        setTags(["读取主体", "分析构图", "判断受众", "选择钩子", "采集公开联想"]);
+        insightDescription.textContent = "先读取真实画面，再生成三平台文案；如遇排队会自动重试和切换，不需要你反复点击。";
+        setTags(["读取主体", "分析构图", "稳定服务", "自动重试", "备用服务"]);
         updateProgress();
         state.progressTimer = setInterval(() => {
-          if (!state.running || state.progress >= 88) return;
+          if (!state.running || state.progress >= 96) return;
           state.progress += state.progress < 52 ? 4 : 2;
           updateProgress();
         }, 700);
@@ -781,7 +781,7 @@
         insightStatus.textContent = "识别未完成";
         insightTitle.textContent = "这次没有生成成功";
         insightDescription.textContent = message;
-        setTags(["可重新尝试", "不会采用错误结果"]);
+        setTags(["已自动重试", "已尝试备用服务", "不会采用错误结果"]);
         showToast(message);
       }
 
@@ -791,9 +791,10 @@
         progressFill.style.width = value + "%";
         progressStage.textContent =
           value < 28 ? "正在读取画面" :
-          value < 54 ? "正在判断真实主体" :
-          value < 78 ? "正在分析受众与趋势" :
-          value < 96 ? "正在生成三平台发布包" : "正在校验字数与内容";
+          value < 52 ? "正在判断真实主体" :
+          value < 72 ? "稳定服务正在分析" :
+          value < 88 ? "正在生成三平台发布包" :
+          value < 97 ? "如遇繁忙将自动切换备用服务" : "正在校验字数与内容";
       }
 
       refreshButton.addEventListener("click", () => {
@@ -961,7 +962,7 @@
         const normalized = raw.toLowerCase();
 
         if (/high demand|overload|too many requests|resource exhausted|quota|rate limit/.test(normalized)) {
-          return "当前智能服务使用人数较多，正在排队。请等待30秒后点击“重新尝试”。";
+          return "免费使用额度暂时达到上限，系统已经自动尝试稳定服务和备用服务。请稍后再试。";
         }
         if (/timeout|timed out|deadline exceeded|time limit/.test(normalized)) {
           return "本次连接等待时间过长，任务已经安全停止。请检查网络后重新尝试。";
