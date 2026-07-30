@@ -1,8 +1,12 @@
-const GEMINI_MODELS = [
+const GEMINI_INSIGHT_MODELS = [
+  "gemini-3.5-flash-lite",
+  "gemini-3.6-flash",
+];
+const GEMINI_COPY_MODELS = [
   "gemini-3.6-flash",
   "gemini-3.5-flash-lite",
 ];
-const GEMINI_ATTEMPTS_PER_MODEL = 2;
+const GEMINI_RETRY_ROUNDS = 2;
 const MAX_IMAGE_BASE64_LENGTH = 7000000;
 
 function doGet() {
@@ -33,7 +37,9 @@ function analyzeImage(payload) {
     const insight = callGeminiJson_(
       buildInsightPrompt_(brandNote),
       INSIGHT_SCHEMA,
-      image
+      image,
+      GEMINI_INSIGHT_MODELS,
+      2048
     );
     const trend = collectPublicTrends_(insight.searchQueries || [], insight.keywords || []);
     const result = generateCopy_(insight, trend, brandNote, seed);
@@ -91,38 +97,30 @@ function refreshCopy(payload) {
 
 function generateCopy_(insight, trend, brandNote, seed) {
   const prompt = buildCopyPrompt_(insight, trend, brandNote, seed);
-  let result = normalizeCopyResult_(callGeminiJson_(prompt, COPY_SCHEMA, null));
-  let issues = getCopyValidationIssues_(result);
+  let result = normalizeCopyResult_(
+    callGeminiJson_(prompt, COPY_SCHEMA, null, GEMINI_COPY_MODELS, 8192)
+  );
+  const issues = getCopyValidationIssues_(result);
 
   if (issues.length) {
-    logCopyRepair_("开始智能修复", issues);
-    try {
-      result = normalizeCopyResult_(
-        callGeminiJson_(
-          buildRepairPrompt_(result, insight, trend, brandNote, seed),
-          COPY_SCHEMA,
-          null
-        ),
-      );
-    } catch (error) {
-      logCopyRepair_("智能修复未完成，转为本地补全", [
-        toChineseError_(error),
-      ]);
-    }
+    logCopyRepair_("检测到缺项，立即转为本地补全", issues);
   }
 
   result = finalizeCopyResult_(result, insight, trend);
-  issues = getCopyValidationIssues_(result);
-  if (issues.length) {
-    logCopyRepair_("最终结果仍有缺项", issues);
+  const finalIssues = getCopyValidationIssues_(result);
+  if (finalIssues.length) {
+    logCopyRepair_("最终结果仍有缺项", finalIssues);
   }
 
   return result;
 }
 
-function callGeminiJson_(prompt, schema, image) {
+function callGeminiJson_(prompt, schema, image, modelOrder, maxOutputTokens) {
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
   if (!apiKey) throw new Error("智能服务尚未完成后台配置。");
+  const models = Array.isArray(modelOrder) && modelOrder.length
+    ? modelOrder
+    : GEMINI_COPY_MODELS;
 
   const parts = [{ text: prompt }];
   if (image) {
@@ -142,15 +140,16 @@ function callGeminiJson_(prompt, schema, image) {
       thinkingConfig: {
         thinkingLevel: "minimal",
       },
+      maxOutputTokens: Number(maxOutputTokens || 8192),
     },
   };
 
   let lastStatus = 0;
   let lastDetail = "";
 
-  for (let modelIndex = 0; modelIndex < GEMINI_MODELS.length; modelIndex += 1) {
-    const model = GEMINI_MODELS[modelIndex];
-    for (let attempt = 0; attempt < GEMINI_ATTEMPTS_PER_MODEL; attempt += 1) {
+  for (let attempt = 0; attempt < GEMINI_RETRY_ROUNDS; attempt += 1) {
+    for (let modelIndex = 0; modelIndex < models.length; modelIndex += 1) {
+      const model = models[modelIndex];
       let response;
       try {
         response = UrlFetchApp.fetch(
@@ -168,7 +167,7 @@ function callGeminiJson_(prompt, schema, image) {
       } catch (error) {
         lastStatus = 0;
         lastDetail = error && error.message ? error.message : String(error || "");
-        if (attempt + 1 < GEMINI_ATTEMPTS_PER_MODEL) {
+        if (modelIndex + 1 === models.length && attempt + 1 < GEMINI_RETRY_ROUNDS) {
           sleepBeforeRetry_(attempt, modelIndex);
         }
         continue;
@@ -182,7 +181,7 @@ function callGeminiJson_(prompt, schema, image) {
         } catch (error) {
           lastStatus = 502;
           lastDetail = error && error.message ? error.message : String(error || "");
-          if (attempt + 1 < GEMINI_ATTEMPTS_PER_MODEL) {
+          if (modelIndex + 1 === models.length && attempt + 1 < GEMINI_RETRY_ROUNDS) {
             sleepBeforeRetry_(attempt, modelIndex);
           }
           continue;
@@ -204,7 +203,7 @@ function callGeminiJson_(prompt, schema, image) {
 
       lastStatus = status;
       lastDetail = detail;
-      if (attempt + 1 < GEMINI_ATTEMPTS_PER_MODEL) {
+      if (modelIndex + 1 === models.length && attempt + 1 < GEMINI_RETRY_ROUNDS) {
         sleepBeforeRetry_(attempt, modelIndex);
       }
     }
@@ -432,12 +431,6 @@ function buildCopyPrompt_(insight, trend, brandNote, seed) {
     "14. topics 优先图片精准词、用户搜索词和公开联想词，不堆砌无关大词，每个词都以#开头。",
     "15. eyebrow 是简短的传播角度，reason 解释为什么适合这张图。三组角度必须明显不同，不得只是换同义词。",
   ].join("\n");
-}
-
-function buildRepairPrompt_(result, insight, trend, brandNote, seed) {
-  return buildCopyPrompt_(insight, trend, brandNote, seed + 17) +
-    "\n\n上一次结果没有通过封面字数或平台内容完整性校验，请完全重写，不要沿用错误结构：" +
-    JSON.stringify(result);
 }
 
 function normalizeCopyResult_(result) {

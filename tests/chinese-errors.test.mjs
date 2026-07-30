@@ -56,9 +56,18 @@ test("繁忙时只重试临时错误并自动切换免费稳定模型", async ()
   const source = await readFile(new URL("apps-script/Code.gs", root), "utf8");
   assert.match(source, /"gemini-3\.6-flash"/);
   assert.match(source, /"gemini-3\.5-flash-lite"/);
+  assert.match(
+    source,
+    /const GEMINI_INSIGHT_MODELS = \[\s*"gemini-3\.5-flash-lite",\s*"gemini-3\.6-flash"/,
+  );
+  assert.match(
+    source,
+    /const GEMINI_COPY_MODELS = \[\s*"gemini-3\.6-flash",\s*"gemini-3\.5-flash-lite"/,
+  );
   assert.doesNotMatch(source, /gemini-2\.5-flash/);
   assert.doesNotMatch(source, /gemini-3-flash-preview/);
   assert.match(source, /thinkingLevel:\s*"minimal"/);
+  assert.match(source, /maxOutputTokens:/);
   assert.doesNotMatch(source, /temperature:\s*temperature/);
 
   const isRetryable = await loadFunction(
@@ -80,7 +89,8 @@ test("文案校验不再整单失败并能自动补齐三套结果", async () =>
   const source = await readFile(new URL("apps-script/Code.gs", root), "utf8");
   assert.doesNotMatch(source, /本次内容校验未通过，请点击“换一批”重新生成/);
   assert.match(source, /finalizeCopyResult_/);
-  assert.match(source, /智能修复未完成，转为本地补全/);
+  assert.match(source, /检测到缺项，立即转为本地补全/);
+  assert.doesNotMatch(source, /buildRepairPrompt_\(result/);
 
   const context = { console };
   runInNewContext(
