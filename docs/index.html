@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ff2442" />
+    <meta name="description" content="上传图片，整理固定7字上行、8字下行封面文案、发布软文与相关话题。" />
+    <meta property="og:title" content="NBO 灵感封面｜图片转发布文案" />
+    <meta property="og:description" content="一张图片，整理好整套发布文案。" />
+    <meta property="og:image" content="./og.png" />
+    <title>NBO 灵感封面｜图片转发布文案</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <section class="access-gate" id="accessGate" aria-labelledby="gateTitle">
+      <div class="gate-shell">
+        <div class="gate-brand">
+          <span class="brand-mark">N</span>
+          <strong>NBO 灵感封面</strong>
+        </div>
+        <div class="gate-card">
+          <div class="gate-lock">●</div>
+          <h1 id="gateTitle">请输入访问密码</h1>
+          <p>这是南铂个人内容工作台<br />首次验证后，这台设备会记住180天</p>
+          <form id="accessForm">
+            <label for="accessPassword">访问密码</label>
+            <input
+              id="accessPassword"
+              name="password"
+              type="password"
+              inputmode="numeric"
+              autocomplete="current-password"
+              maxlength="20"
+              required
+            />
+            <button type="submit">验证并进入</button>
+          </form>
+          <p class="gate-error is-hidden" id="gateError" role="alert">密码不正确，请重新输入</p>
+          <small>轻量个人体验版 · 请勿存放客户隐私资料</small>
+        </div>
+      </div>
+    </section>
+
+    <main class="app-shell is-hidden" id="app">
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="NBO 灵感封面首页">
+          <span class="brand-mark">N</span>
+          <span>
+            <strong>NBO 灵感封面</strong>
+            <small>图片一传，文案即来</small>
+          </span>
+        </a>
+        <nav class="top-actions" aria-label="页面导航">
+          <a href="#works">作品区</a>
+          <button class="avatar-button" type="button" aria-label="个人版本">南</button>
+        </nav>
+      </header>
+
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <span class="kicker"><i></i> 免费个人体验版</span>
+          <h1>一张图片，整理好<br /><em>整套发布文案</em></h1>
+          <p>读取画面基础信息，生成固定15字封面标题、发布软文和相关话题。一次给你3组高意向方案。</p>
+          <div class="feature-row" aria-label="核心能力">
+            <span>上行 7 字</span><b>·</b><span>下行 8 字</span><b>·</b><span>三平台适配</span>
+          </div>
+        </div>
+
+        <div class="upload-card" id="uploadCard">
+          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" aria-label="上传需要识别的图片" />
+          <button class="upload-empty" id="uploadEmpty" type="button">
+            <span class="upload-icon"><i>＋</i></span>
+            <strong>上传一张图片开始</strong>
+            <small>点击选择或拖拽图片到这里</small>
+            <em>支持 JPG、PNG、WEBP · 图片仅在本机读取</em>
+          </button>
+          <div class="image-preview is-hidden" id="imagePreview">
+            <img id="previewImage" alt="已上传图片预览" />
+            <div class="preview-shade"></div>
+            <button class="replace-image" id="replaceImage" type="button">重新上传</button>
+            <div class="preview-caption">
+              <span id="previewSize"></span>
+              <strong id="previewName"></strong>
+            </div>
+          </div>
+          <div class="privacy-note"><span>✓</span> 图片不上传、不保存，仅在当前浏览器分析</div>
+        </div>
+      </section>
+
+      <section class="workspace" id="works">
+        <div class="section-heading">
+          <div>
+            <span class="step-label">01 / 图片理解</span>
+            <h2>画面信息</h2>
+          </div>
+          <span class="status-pill" id="insightStatus">上传后自动识别</span>
+        </div>
+
+        <div class="insight-panel">
+          <div class="insight-main">
+            <div class="insight-orb">✦</div>
+            <div>
+              <strong id="insightTitle">等待你的图片</strong>
+              <p id="insightDescription">上传后将读取尺寸、构图、色调与光线，并匹配封面文案。下方已放入男士写真示例供你预览。</p>
+            </div>
+          </div>
+          <div class="insight-tags" id="insightTags"></div>
+        </div>
+
+        <div class="setting-strip">
+          <label>
+            <span>账号定位</span>
+            <input id="brandNote" value="男士写真｜自然引导｜真实耐看" maxlength="28" />
+          </label>
+          <div class="setting-hint" id="brandHint">文案将围绕你的账号定位生成</div>
+        </div>
+
+        <div class="section-heading result-heading">
+          <div>
+            <span class="step-label">02 / 高意向方案</span>
+            <h2>为你优选 3 组</h2>
+          </div>
+          <button class="refresh-button" id="refreshButton" type="button"><span>↻</span> 不满意，换一批</button>
+        </div>
+
+        <div class="copy-grid" id="copyGrid"></div>
+
+        <div class="section-heading publish-heading">
+          <div>
+            <span class="step-label">03 / 发布整理</span>
+            <h2>正文与话题</h2>
+          </div>
+          <div class="platform-tabs" role="tablist" aria-label="发布平台">
+            <button role="tab" aria-selected="true" data-platform="小红书" type="button">小红书</button>
+            <button role="tab" aria-selected="false" data-platform="抖音" type="button">抖音</button>
+            <button role="tab" aria-selected="false" data-platform="视频号" type="button">视频号</button>
+          </div>
+        </div>
+
+        <div class="publish-grid">
+          <article class="publish-card body-card">
+            <div class="publish-card-title">
+              <div>
+                <span>发布软文</span>
+                <small id="platformNote">已按小红书阅读习惯整理</small>
+              </div>
+              <button id="copyBody" type="button">复制正文</button>
+            </div>
+            <textarea id="bodyText" aria-label="发布软文" readonly></textarea>
+            <div class="text-meta">
+              <span id="bodyCount"></span>
+              <span>语气：自然分享</span>
+            </div>
+          </article>
+
+          <article class="publish-card topic-card">
+            <div class="publish-card-title">
+              <div>
+                <span>相关话题</span>
+                <small>热门词 × 精准词 × 品牌词</small>
+              </div>
+              <button id="copyTags" type="button">复制话题</button>
+            </div>
+            <div class="topic-list" id="topicList"></div>
+            <p class="beta-note">免费版使用内置相关词库，热度标签仅作为内容方向参考。</p>
+          </article>
+        </div>
+
+        <div class="export-bar">
+          <div>
+            <span class="export-check">✓</span>
+            <div>
+              <strong>方案已整理完成</strong>
+              <small id="exportDescription">封面标题 + 小红书正文 + 5个相关话题</small>
+            </div>
+          </div>
+          <button id="copyAll" type="button">一键复制整套内容</button>
+        </div>
+      </section>
+
+      <footer>
+        <span>NBO 灵感封面 · 免费个人体验版</span>
+        <span>数据只保留在当前设备</span>
+      </footer>
+    </main>
+    <div class="copy-toast is-hidden" id="copyToast">已复制</div>
+    <script src="./app.js"></script>
+  </body>
+</html>
