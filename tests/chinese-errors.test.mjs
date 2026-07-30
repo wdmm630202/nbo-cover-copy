@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 const root = new URL("../", import.meta.url);
 
@@ -53,7 +54,7 @@ test("前端兜底不会把未知英文错误显示给用户", async () => {
 
 test("繁忙时只重试临时错误并自动切换免费稳定模型", async () => {
   const source = await readFile(new URL("apps-script/Code.gs", root), "utf8");
-  assert.match(source, /"gemini-3\.5-flash"/);
+  assert.match(source, /"gemini-3\.6-flash"/);
   assert.match(source, /"gemini-3\.5-flash-lite"/);
   assert.doesNotMatch(source, /gemini-2\.5-flash/);
   assert.doesNotMatch(source, /gemini-3-flash-preview/);
@@ -73,4 +74,67 @@ test("繁忙时只重试临时错误并自动切换免费稳定模型", async ()
   assert.equal(isRetryable(404, "Unknown page"), false);
   assert.equal(isRetryable(400, "invalid argument"), false);
   assert.equal(isRetryable(403, "permission denied"), false);
+});
+
+test("文案校验不再整单失败并能自动补齐三套结果", async () => {
+  const source = await readFile(new URL("apps-script/Code.gs", root), "utf8");
+  assert.doesNotMatch(source, /本次内容校验未通过，请点击“换一批”重新生成/);
+  assert.match(source, /finalizeCopyResult_/);
+  assert.match(source, /智能修复未完成，转为本地补全/);
+
+  const context = { console };
+  runInNewContext(
+    `${source}
+globalThis.__copyTest = {
+  finalizeCopyResult_,
+  getCopyValidationIssues_,
+  hasExactCoverLengths_,
+  hasCompletePlatformPackages_,
+  codePointLength_
+};`,
+    context,
+  );
+
+  const initial = {
+    sets: [
+      {
+        eyebrow: "珠宝细节",
+        top: "太短",
+        bottom: "这是一条明显超过八个字的封面文案",
+        reason: "",
+        score: 95,
+        platforms: {
+          xiaohongshu: { title: "", description: "", topics: [] },
+          douyin: null,
+          channels: {},
+        },
+      },
+    ],
+  };
+  const insight = {
+    category: "珠宝首饰",
+    summary: "暗色背景里，一只手拿着带有金色细节的手链。",
+    keywords: ["珠宝", "手链", "暗调"],
+    audience: "喜欢珠宝细节和氛围摄影的人",
+    contentOpportunity: "用暗光与金色细节形成视觉反差",
+  };
+  const result = context.__copyTest.finalizeCopyResult_(
+    initial,
+    insight,
+    { terms: ["珠宝拍摄", "手链搭配"] },
+  );
+
+  assert.equal(result.sets.length, 3);
+  assert.equal(context.__copyTest.hasExactCoverLengths_(result), true);
+  assert.equal(context.__copyTest.hasCompletePlatformPackages_(result), true);
+  assert.equal(context.__copyTest.getCopyValidationIssues_(result).length, 0);
+  result.sets.forEach((item) => {
+    assert.equal(context.__copyTest.codePointLength_(item.top), 7);
+    assert.equal(context.__copyTest.codePointLength_(item.bottom), 8);
+    ["xiaohongshu", "douyin", "channels"].forEach((key) => {
+      assert.ok(item.platforms[key].title);
+      assert.ok(item.platforms[key].description);
+      assert.ok(item.platforms[key].topics.length >= 2);
+    });
+  });
 });

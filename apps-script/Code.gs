@@ -1,5 +1,5 @@
 const GEMINI_MODELS = [
-  "gemini-3.5-flash",
+  "gemini-3.6-flash",
   "gemini-3.5-flash-lite",
 ];
 const GEMINI_ATTEMPTS_PER_MODEL = 2;
@@ -91,21 +91,30 @@ function refreshCopy(payload) {
 
 function generateCopy_(insight, trend, brandNote, seed) {
   const prompt = buildCopyPrompt_(insight, trend, brandNote, seed);
-  let result = callGeminiJson_(prompt, COPY_SCHEMA, null);
-  result = normalizeCopyResult_(result);
+  let result = normalizeCopyResult_(callGeminiJson_(prompt, COPY_SCHEMA, null));
+  let issues = getCopyValidationIssues_(result);
 
-  if (!hasExactCoverLengths_(result) || !hasCompletePlatformPackages_(result)) {
-    result = normalizeCopyResult_(
-      callGeminiJson_(
-        buildRepairPrompt_(result, insight, trend, brandNote, seed),
-        COPY_SCHEMA,
-        null
-      ),
-    );
+  if (issues.length) {
+    logCopyRepair_("开始智能修复", issues);
+    try {
+      result = normalizeCopyResult_(
+        callGeminiJson_(
+          buildRepairPrompt_(result, insight, trend, brandNote, seed),
+          COPY_SCHEMA,
+          null
+        ),
+      );
+    } catch (error) {
+      logCopyRepair_("智能修复未完成，转为本地补全", [
+        toChineseError_(error),
+      ]);
+    }
   }
 
-  if (!hasExactCoverLengths_(result) || !hasCompletePlatformPackages_(result)) {
-    throw new Error("本次内容校验未通过，请点击“换一批”重新生成。");
+  result = finalizeCopyResult_(result, insight, trend);
+  issues = getCopyValidationIssues_(result);
+  if (issues.length) {
+    logCopyRepair_("最终结果仍有缺项", issues);
   }
 
   return result;
@@ -432,29 +441,30 @@ function buildRepairPrompt_(result, insight, trend, brandNote, seed) {
 }
 
 function normalizeCopyResult_(result) {
-  if (!result || !Array.isArray(result.sets) || result.sets.length !== 3) {
-    throw new Error("AI 返回结构不完整，请重新生成。");
-  }
+  const sourceSets = result && Array.isArray(result.sets)
+    ? result.sets.slice(0, 3)
+    : [];
 
-  const sets = result.sets.map(function (item, index) {
+  const sets = sourceSets.map(function (item, index) {
+    const source = item || {};
     return {
-      eyebrow: cleanText_(item.eyebrow, 20) || ["咨询意向高", "收藏价值高", "互动共鸣高"][index],
-      top: cleanCover_(item.top),
-      bottom: cleanCover_(item.bottom),
-      reason: cleanText_(item.reason, 100),
-      score: Math.max(70, Math.min(99, Number(item.score || 90 - index * 2))),
+      eyebrow: cleanText_(source.eyebrow, 20) || ["咨询意向高", "收藏价值高", "互动共鸣高"][index],
+      top: cleanCover_(source.top),
+      bottom: cleanCover_(source.bottom),
+      reason: cleanText_(source.reason, 100),
+      score: Math.max(70, Math.min(99, Number(source.score || 90 - index * 2))),
       platforms: {
-        xiaohongshu: normalizePlatform_(item.platforms && item.platforms.xiaohongshu, {
+        xiaohongshu: normalizePlatform_(source.platforms && source.platforms.xiaohongshu, {
           titleMax: 20,
           bodyMax: 1000,
           topicMax: 8,
         }),
-        douyin: normalizePlatform_(item.platforms && item.platforms.douyin, {
+        douyin: normalizePlatform_(source.platforms && source.platforms.douyin, {
           titleMax: 30,
           bodyMax: 1000,
           topicMax: 5,
         }),
-        channels: normalizePlatform_(item.platforms && item.platforms.channels, {
+        channels: normalizePlatform_(source.platforms && source.platforms.channels, {
           titleMax: 30,
           bodyMax: 600,
           topicMax: 4,
@@ -464,6 +474,215 @@ function normalizeCopyResult_(result) {
   });
 
   return { sets: sets };
+}
+
+function finalizeCopyResult_(result, insight, trend) {
+  const sourceSets = result && Array.isArray(result.sets)
+    ? result.sets.slice(0, 3)
+    : [];
+  const sets = [];
+
+  for (let index = 0; index < 3; index += 1) {
+    const source = sourceSets[index] || {};
+    const fallback = coverFallbackFor_(insight && insight.category, index);
+    const item = {
+      eyebrow: cleanText_(source.eyebrow, 20) || ["点击吸引力", "收藏参考值", "互动讨论度"][index],
+      top: forceCoverLength_(source.top, 7, fallback.top),
+      bottom: forceCoverLength_(source.bottom, 8, fallback.bottom),
+      reason:
+        cleanText_(source.reason, 100) ||
+        cleanText_(insight && insight.contentOpportunity, 100) ||
+        "围绕图片真实内容提炼传播重点。",
+      score: Math.max(70, Math.min(99, Number(source.score || 92 - index * 3))),
+      platforms: {},
+    };
+
+    item.platforms.xiaohongshu = finalizePlatform_(
+      source.platforms && source.platforms.xiaohongshu,
+      "xiaohongshu",
+      item,
+      insight,
+      trend,
+    );
+    item.platforms.douyin = finalizePlatform_(
+      source.platforms && source.platforms.douyin,
+      "douyin",
+      item,
+      insight,
+      trend,
+    );
+    item.platforms.channels = finalizePlatform_(
+      source.platforms && source.platforms.channels,
+      "channels",
+      item,
+      insight,
+      trend,
+    );
+    sets.push(item);
+  }
+
+  return { sets: sets, autoCompleted: true };
+}
+
+function finalizePlatform_(value, platformKey, setItem, insight, trend) {
+  const limits = {
+    xiaohongshu: { titleMax: 20, bodyMax: 1000, topicMax: 8 },
+    douyin: { titleMax: 30, bodyMax: 1000, topicMax: 5 },
+    channels: { titleMax: 30, bodyMax: 600, topicMax: 4 },
+  }[platformKey];
+  const platform = normalizePlatform_(value, limits);
+  const title = platform.title || cleanText_(setItem.top + setItem.bottom, limits.titleMax);
+  const summary =
+    cleanText_(insight && insight.summary, 180) ||
+    "画面主体清晰，细节和氛围值得慢慢看。";
+  const opportunity =
+    cleanText_(insight && insight.contentOpportunity, 100) ||
+    setItem.reason;
+  const fallbackDescriptions = {
+    xiaohongshu:
+      "这张图最打动我的不是刻意制造的噱头，而是画面里真实可见的细节。" +
+      summary +
+      "。把注意力放回主体本身，反而更容易看见它的质感和表达。你最先注意到的是哪个细节？",
+    douyin:
+      "先别急着划走，这张图真正耐看的地方藏在细节里。" +
+      summary +
+      "。多看一秒，你会发现画面的重点完全不一样。你看到了吗？",
+    channels:
+      "一张值得停下来看的画面。" +
+      summary +
+      "。不依赖夸张表达，也能让真实内容被看见。",
+  };
+  const topicCandidates = []
+    .concat(platform.topics || [])
+    .concat((insight && insight.keywords) || [])
+    .concat((trend && trend.terms) || []);
+  const topics = normalizeTopics_(topicCandidates, limits.topicMax);
+  while (topics.length < 2) {
+    const fallbackTopic = topics.length ? "#真实分享" : "#图片内容";
+    if (topics.indexOf(fallbackTopic) === -1) topics.push(fallbackTopic);
+  }
+
+  return {
+    title: title,
+    description:
+      platform.description ||
+      cleanText_(fallbackDescriptions[platformKey], limits.bodyMax),
+    topics: topics,
+    audience:
+      platform.audience ||
+      cleanText_(insight && insight.audience, 80) ||
+      "关注画面审美与真实内容的人",
+    hook:
+      platform.hook ||
+      cleanText_(setItem.eyebrow, 32) ||
+      "细节悬念",
+    strategy:
+      platform.strategy ||
+      cleanText_(opportunity, 120) ||
+      "用图片真实细节建立停留和互动理由。",
+  };
+}
+
+function coverFallbackFor_(category, index) {
+  const normalized = String(category || "");
+  let group = "other";
+  if (/珠宝|首饰|手链|项链|戒指|宝石/.test(normalized)) group = "jewelry";
+  else if (/男士|男性|男生/.test(normalized)) group = "men";
+  else if (/女士|女性|女生/.test(normalized)) group = "women";
+  else if (/美食|食物|餐饮|菜品/.test(normalized)) group = "food";
+  else if (/服装|穿搭|衣服/.test(normalized)) group = "clothing";
+  else if (/空间|室内|家居|建筑/.test(normalized)) group = "space";
+  else if (/风景|自然|旅行/.test(normalized)) group = "landscape";
+  else if (/活动|现场|聚会/.test(normalized)) group = "activity";
+  else if (/产品|静物/.test(normalized)) group = "product";
+
+  const groups = {
+    jewelry: [
+      { top: "暗光珠宝更出彩", bottom: "细节藏着高级质感" },
+      { top: "这件珠宝太抓眼", bottom: "越看越有精致氛围" },
+      { top: "镜头放大珠宝美", bottom: "每处细节都值得看" },
+    ],
+    men: [
+      { top: "普通人也能出片", bottom: "真实状态更加耐看" },
+      { top: "镜头里的松弛感", bottom: "不用硬凹也能出片" },
+      { top: "男生拍照别端着", bottom: "自然一点反而更帅" },
+    ],
+    women: [
+      { top: "镜头里的松弛感", bottom: "不费力也能很出片" },
+      { top: "自然状态最耐看", bottom: "不用硬凹也有氛围" },
+      { top: "这一刻太有感觉", bottom: "每个细节都很动人" },
+    ],
+    food: [
+      { top: "这一口太有食欲", bottom: "隔着屏幕都闻到香" },
+      { top: "刚端上桌就馋了", bottom: "每一口都值得期待" },
+      { top: "这份美味藏不住", bottom: "看完真的忍不住馋" },
+    ],
+    clothing: [
+      { top: "上身效果很惊喜", bottom: "简单搭配也有气质" },
+      { top: "这套穿搭太显气", bottom: "日常照着搭就好看" },
+      { top: "基础款也能出彩", bottom: "关键就在搭配细节" },
+    ],
+    space: [
+      { top: "这个空间太舒服", bottom: "每个角落都有质感" },
+      { top: "住进理想的空间", bottom: "光线一落就有氛围" },
+      { top: "家里这样拍真美", bottom: "不用摆拍也很耐看" },
+    ],
+    landscape: [
+      { top: "这一幕真的治愈", bottom: "随手一拍都是风景" },
+      { top: "风景比想象更美", bottom: "站在这里舍不得走" },
+      { top: "把这一刻留下来", bottom: "眼前风景值得收藏" },
+    ],
+    activity: [
+      { top: "现场氛围太热烈", bottom: "隔着屏幕都被感染" },
+      { top: "这一刻值得记录", bottom: "所有热爱都在现场" },
+      { top: "镜头留住高光时", bottom: "每个瞬间都很精彩" },
+    ],
+    product: [
+      { top: "这个细节太抓眼", bottom: "越看越有高级质感" },
+      { top: "好产品经得起看", bottom: "放大细节更有说服" },
+      { top: "质感藏在细节里", bottom: "不用夸张也能出彩" },
+    ],
+    other: [
+      { top: "这一幕很有感觉", bottom: "越看越有故事氛围" },
+      { top: "画面细节太抓眼", bottom: "多看一秒更有感觉" },
+      { top: "这张图值得细看", bottom: "每个细节都有表达" },
+    ],
+  };
+  return groups[group][Math.max(0, Math.min(2, Number(index || 0)))];
+}
+
+function forceCoverLength_(value, targetLength, fallback) {
+  const cleaned = cleanCover_(value);
+  if (codePointLength_(cleaned) >= targetLength) {
+    return Array.from(cleaned).slice(0, targetLength).join("");
+  }
+  return Array.from(cleanCover_(fallback)).slice(0, targetLength).join("");
+}
+
+function getCopyValidationIssues_(result) {
+  const issues = [];
+  if (!result || !Array.isArray(result.sets) || result.sets.length !== 3) {
+    issues.push("方案数量不足");
+    return issues;
+  }
+  result.sets.forEach(function (item, index) {
+    if (codePointLength_(item.top) !== 7 || codePointLength_(item.bottom) !== 8) {
+      issues.push("第" + (index + 1) + "组封面字数");
+    }
+    if (!hasCompletePlatformPackages_({ sets: [item] })) {
+      issues.push("第" + (index + 1) + "组平台内容");
+    }
+  });
+  return issues;
+}
+
+function logCopyRepair_(stage, details) {
+  console.warn(
+    JSON.stringify({
+      stage: String(stage || "文案自动修复"),
+      details: Array.isArray(details) ? details.slice(0, 12) : [],
+    }),
+  );
 }
 
 function normalizePlatform_(value, limits) {
