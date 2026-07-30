@@ -4,201 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ff2442" />
-    <meta name="description" content="上传图片，整理固定7字上行、8字下行封面文案、发布软文与相关话题。" />
-    <meta property="og:title" content="NBO 灵感封面｜图片转发布文案" />
-    <meta property="og:description" content="一张图片，整理好整套发布文案。" />
-    <meta property="og:image" content="./og.png" />
-    <title>NBO 灵感封面｜图片转发布文案</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <meta name="description" content="识别真实图片，结合公开趋势联想，生成固定7+8字封面、三平台正文和话题。" />
+    <meta http-equiv="refresh" content="1;url=https://script.google.com/macros/s/AKfycbwE3jYEnaSh75A-5ft6T-ChSvDnKrLFHvKi8fBvMEHhyRcBgieWcKsuN-3iuuzwQIQ_/exec" />
+    <title>NBO 灵感封面｜正在进入免费智能版</title>
+    <style>
+      :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+      * { box-sizing: border-box; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; color: #171717; background: radial-gradient(circle at 80% 10%, #fff0f3, transparent 34%), #fbfaf8; }
+      main { width: min(90vw, 520px); padding: 48px 34px; text-align: center; background: rgba(255,255,255,.9); border: 1px solid #eee8e5; border-radius: 28px; box-shadow: 0 24px 70px rgba(45,30,30,.12); }
+      .mark { width: 58px; height: 58px; margin: 0 auto 22px; display: grid; place-items: center; color: white; background: #ff2442; border-radius: 17px; font: 700 34px Georgia, serif; box-shadow: 0 12px 30px rgba(255,36,66,.26); }
+      h1 { margin: 0 0 12px; font-size: clamp(26px, 6vw, 38px); letter-spacing: -.04em; }
+      p { margin: 0 0 26px; color: #76706e; line-height: 1.8; }
+      a { display: inline-flex; min-height: 48px; padding: 0 24px; align-items: center; justify-content: center; color: white; background: #ff2442; border-radius: 999px; font-weight: 700; text-decoration: none; }
+      small { display: block; margin-top: 18px; color: #aaa4a1; }
+    </style>
+    <script>
+      window.location.replace("https://script.google.com/macros/s/AKfycbwE3jYEnaSh75A-5ft6T-ChSvDnKrLFHvKi8fBvMEHhyRcBgieWcKsuN-3iuuzwQIQ_/exec");
+    </script>
   </head>
   <body>
-    <section class="access-gate" id="accessGate" aria-labelledby="gateTitle">
-      <div class="gate-shell">
-        <div class="gate-brand">
-          <span class="brand-mark">N</span>
-          <strong>NBO 灵感封面</strong>
-        </div>
-        <div class="gate-card">
-          <div class="gate-lock">●</div>
-          <h1 id="gateTitle">请输入访问密码</h1>
-          <p>这是南铂个人内容工作台<br />首次验证后，这台设备会记住180天</p>
-          <form id="accessForm">
-            <label for="accessPassword">访问密码</label>
-            <input
-              id="accessPassword"
-              name="password"
-              type="password"
-              inputmode="numeric"
-              autocomplete="current-password"
-              maxlength="20"
-              required
-            />
-            <button type="submit">验证并进入</button>
-          </form>
-          <p class="gate-error is-hidden" id="gateError" role="alert">密码不正确，请重新输入</p>
-          <small>轻量个人体验版 · 请勿存放客户隐私资料</small>
-        </div>
-      </div>
-    </section>
-
-    <main class="app-shell is-hidden" id="app">
-      <header class="topbar">
-        <a class="brand" href="#top" aria-label="NBO 灵感封面首页">
-          <span class="brand-mark">N</span>
-          <span>
-            <strong>NBO 灵感封面</strong>
-            <small>图片一传，文案即来</small>
-          </span>
-        </a>
-        <nav class="top-actions" aria-label="页面导航">
-          <a href="#works">作品区</a>
-          <button class="avatar-button" type="button" aria-label="个人版本">南</button>
-        </nav>
-      </header>
-
-      <section class="hero" id="top">
-        <div class="hero-copy">
-          <span class="kicker"><i></i> 免费个人体验版</span>
-          <h1>一张图片，整理好<br /><em>整套发布文案</em></h1>
-          <p>读取画面基础信息，生成固定15字封面标题、发布软文和相关话题。一次给你3组高意向方案。</p>
-          <div class="feature-row" aria-label="核心能力">
-            <span>上行 7 字</span><b>·</b><span>下行 8 字</span><b>·</b><span>三平台适配</span>
-          </div>
-        </div>
-
-        <div class="upload-card" id="uploadCard">
-          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" aria-label="上传需要识别的图片" />
-          <button class="upload-empty" id="uploadEmpty" type="button">
-            <span class="upload-icon"><i>＋</i></span>
-            <strong>上传一张图片开始</strong>
-            <small>点击选择或拖拽图片到这里</small>
-            <em>支持 JPG、PNG、WEBP · 图片仅在本机读取</em>
-          </button>
-          <div class="image-preview is-hidden" id="imagePreview">
-            <img id="previewImage" alt="已上传图片预览" />
-            <div class="preview-shade"></div>
-            <div class="scan-line is-hidden" id="scanLine" aria-hidden="true"></div>
-            <div class="preview-actions">
-              <button class="replace-image" id="replaceImage" type="button">重新上传</button>
-              <button class="analysis-button" id="analysisButton" type="button" disabled>
-                <span id="analysisButtonIcon">▶</span>
-                <b id="analysisButtonLabel">开始识别</b>
-              </button>
-            </div>
-            <div class="analysis-progress is-hidden" id="analysisProgress" role="status" aria-live="polite">
-              <div>
-                <span class="running-dot"></span>
-                <strong>任务正在运行</strong>
-                <em id="analysisProgressText">0%</em>
-              </div>
-              <i><b id="analysisProgressFill"></b></i>
-            </div>
-            <div class="preview-caption">
-              <span id="previewSize"></span>
-              <strong id="previewName"></strong>
-            </div>
-          </div>
-          <div class="privacy-note"><span>✓</span> 图片不上传、不保存，仅在当前浏览器分析</div>
-        </div>
-      </section>
-
-      <section class="workspace" id="works">
-        <div class="section-heading">
-          <div>
-            <span class="step-label">01 / 图片理解</span>
-            <h2>画面信息</h2>
-          </div>
-          <span class="status-pill" id="insightStatus">上传后手动开始</span>
-        </div>
-
-        <div class="insight-panel">
-          <div class="insight-main">
-            <div class="insight-orb">✦</div>
-            <div>
-              <strong id="insightTitle">等待你的图片</strong>
-              <p id="insightDescription">上传后将等待你确认，再读取尺寸、构图、色调与光线。下方已放入男士写真示例供你预览。</p>
-            </div>
-          </div>
-          <div class="insight-tags" id="insightTags"></div>
-        </div>
-
-        <div class="setting-strip">
-          <label>
-            <span>账号定位</span>
-            <input id="brandNote" value="男士写真｜自然引导｜真实耐看" maxlength="28" />
-          </label>
-          <div class="setting-hint" id="brandHint">文案将围绕你的账号定位生成</div>
-        </div>
-
-        <div class="section-heading result-heading">
-          <div>
-            <span class="step-label">02 / 高意向方案</span>
-            <h2>为你优选 3 组</h2>
-          </div>
-          <button class="refresh-button" id="refreshButton" type="button"><span>↻</span> 不满意，换一批</button>
-        </div>
-
-        <div class="copy-grid" id="copyGrid"></div>
-
-        <div class="section-heading publish-heading">
-          <div>
-            <span class="step-label">03 / 发布整理</span>
-            <h2>正文与话题</h2>
-          </div>
-          <div class="platform-tabs" role="tablist" aria-label="发布平台">
-            <button role="tab" aria-selected="true" data-platform="小红书" type="button">小红书</button>
-            <button role="tab" aria-selected="false" data-platform="抖音" type="button">抖音</button>
-            <button role="tab" aria-selected="false" data-platform="视频号" type="button">视频号</button>
-          </div>
-        </div>
-
-        <div class="publish-grid">
-          <article class="publish-card body-card">
-            <div class="publish-card-title">
-              <div>
-                <span>发布软文</span>
-                <small id="platformNote">已按小红书阅读习惯整理</small>
-              </div>
-              <button id="copyBody" type="button">复制正文</button>
-            </div>
-            <textarea id="bodyText" aria-label="发布软文" readonly></textarea>
-            <div class="text-meta">
-              <span id="bodyCount"></span>
-              <span>语气：自然分享</span>
-            </div>
-          </article>
-
-          <article class="publish-card topic-card">
-            <div class="publish-card-title">
-              <div>
-                <span>相关话题</span>
-                <small>热门词 × 精准词 × 品牌词</small>
-              </div>
-              <button id="copyTags" type="button">复制话题</button>
-            </div>
-            <div class="topic-list" id="topicList"></div>
-            <p class="beta-note">免费版使用内置相关词库，热度标签仅作为内容方向参考。</p>
-          </article>
-        </div>
-
-        <div class="export-bar">
-          <div>
-            <span class="export-check">✓</span>
-            <div>
-              <strong>方案已整理完成</strong>
-              <small id="exportDescription">封面标题 + 小红书正文 + 5个相关话题</small>
-            </div>
-          </div>
-          <button id="copyAll" type="button">一键复制整套内容</button>
-        </div>
-      </section>
-
-      <footer>
-        <span>NBO 灵感封面 · 免费个人体验版</span>
-        <span>数据只保留在当前设备</span>
-      </footer>
+    <main>
+      <div class="mark">N</div>
+      <h1>正在进入免费智能版</h1>
+      <p>真实识图 · 公开趋势 · 固定7+8字封面<br />首次输入密码后，这台设备会记住登录。</p>
+      <a href="https://script.google.com/macros/s/AKfycbwE3jYEnaSh75A-5ft6T-ChSvDnKrLFHvKi8fBvMEHhyRcBgieWcKsuN-3iuuzwQIQ_/exec">立即进入</a>
+      <small>如果没有自动跳转，请点击上方按钮</small>
     </main>
-    <div class="copy-toast is-hidden" id="copyToast">已复制</div>
-    <script src="./app.js"></script>
   </body>
 </html>

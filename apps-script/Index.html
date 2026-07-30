@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <base target="_top" />
+    <meta charset="UTF-8" />
+    <meta name="theme-color" content="#ff2442" />
+    <style>
+      :root {
+        color-scheme: light;
+        --red: #ff2442;
+        --red-soft: #fff0f3;
+        --ink: #181818;
+        --muted: #77716c;
+        --line: #ebe7e3;
+        --paper: #fff;
+        --page: #faf9f7;
+        --green: #248c65;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 92% 3%, rgba(255, 36, 66, .07), transparent 28rem),
+          var(--page);
+        color: var(--ink);
+      }
+      button, input, textarea { font: inherit; }
+      button { cursor: pointer; }
+      .is-hidden { display: none !important; }
+
+      .gate {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .gate-card {
+        width: min(100%, 420px);
+        padding: 42px 36px 34px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: rgba(255,255,255,.96);
+        box-shadow: 0 26px 75px rgba(43, 29, 25, .1);
+        text-align: center;
+      }
+      .gate-mark, .brand-mark {
+        display: grid;
+        place-items: center;
+        background: var(--red);
+        color: white;
+        font-family: Georgia, serif;
+        font-weight: 800;
+        box-shadow: 0 9px 24px rgba(255,36,66,.24);
+      }
+      .gate-mark {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 20px;
+        border-radius: 19px;
+        font-size: 32px;
+      }
+      .gate-card h1 { margin: 0 0 9px; font-size: 28px; letter-spacing: -.04em; }
+      .gate-card > p { margin: 0 0 26px; color: var(--muted); line-height: 1.7; font-size: 14px; }
+      .gate-card label { display: block; text-align: left; color: #5b5652; font-size: 12px; font-weight: 700; }
+      .gate-card input {
+        width: 100%;
+        height: 52px;
+        margin: 8px 0 14px;
+        padding: 0 16px;
+        border: 1px solid #ddd7d2;
+        border-radius: 14px;
+        outline: 0;
+        background: #fdfcfb;
+      }
+      .gate-card input:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(255,36,66,.09); }
+      .gate-card button {
+        width: 100%;
+        height: 52px;
+        border: 0;
+        border-radius: 14px;
+        background: var(--red);
+        color: white;
+        font-weight: 800;
+      }
+      .gate-error { margin-top: 12px !important; color: #d71938 !important; }
+      .gate-card small { display: block; margin-top: 18px; color: #aaa39d; font-size: 11px; }
+
+      .topbar {
+        width: min(1180px, calc(100% - 40px));
+        height: 84px;
+        margin: auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .brand-mark { width: 42px; height: 42px; border-radius: 13px; font-size: 24px; }
+      .brand strong { display: block; font-size: 15px; }
+      .brand small { color: #9b948e; font-size: 11px; }
+      .live-badge {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 13px;
+        border: 1px solid #f0dce0;
+        border-radius: 999px;
+        background: rgba(255,255,255,.82);
+        color: #766e69;
+        font-size: 12px;
+      }
+      .live-badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px #eaf8f2; }
+
+      .hero {
+        width: min(1180px, calc(100% - 40px));
+        min-height: 520px;
+        margin: 26px auto 76px;
+        padding: 68px;
+        display: grid;
+        grid-template-columns: 1.05fr .95fr;
+        align-items: center;
+        gap: 54px;
+        overflow: hidden;
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: 38px;
+        background: rgba(255,255,255,.88);
+        box-shadow: 0 28px 70px rgba(56, 41, 35, .08);
+      }
+      .hero::after {
+        content: "AI";
+        position: absolute;
+        right: 31%;
+        bottom: -92px;
+        color: rgba(255,36,66,.04);
+        font: 900 270px/1 Arial, sans-serif;
+        pointer-events: none;
+      }
+      .kicker { color: var(--red); font-size: 13px; font-weight: 800; }
+      .kicker i { display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 5px var(--red-soft); }
+      .hero h1 { margin: 28px 0 20px; font-size: clamp(42px, 5.4vw, 68px); line-height: 1.1; letter-spacing: -.065em; }
+      .hero h1 em { color: var(--red); font-style: normal; }
+      .hero-copy > p { max-width: 560px; margin: 0; color: #6f6964; font-size: 15px; line-height: 1.9; }
+      .feature-row { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 11px; color: #5e5854; font-size: 13px; font-weight: 700; }
+      .feature-row b { color: #c8c1bb; }
+
+      .upload-card {
+        min-height: 370px;
+        position: relative;
+        z-index: 1;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 27px;
+        background: #fff;
+        box-shadow: 0 22px 54px rgba(45,31,27,.1);
+      }
+      #fileInput { display: none; }
+      .upload-empty {
+        width: 100%;
+        min-height: 320px;
+        border: 0;
+        background: linear-gradient(145deg, #fff 0%, #fff8f9 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: var(--ink);
+      }
+      .upload-empty span { width: 68px; height: 68px; display: grid; place-items: center; margin-bottom: 19px; border-radius: 21px; background: var(--red-soft); color: var(--red); font-size: 31px; }
+      .upload-empty strong { font-size: 19px; }
+      .upload-empty small { margin-top: 9px; color: var(--muted); }
+      .image-preview { height: 320px; position: relative; overflow: hidden; background: #171717; }
+      .image-preview img { width: 100%; height: 100%; object-fit: contain; }
+      .preview-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.03), transparent 52%, rgba(0,0,0,.68)); pointer-events: none; }
+      .preview-caption { position: absolute; left: 18px; bottom: 17px; color: white; font-size: 12px; }
+      .preview-caption strong { display: block; margin-top: 4px; font-size: 13px; }
+      .preview-actions { position: absolute; top: 14px; right: 14px; display: flex; gap: 8px; }
+      .preview-actions button { min-height: 38px; padding: 0 15px; border-radius: 999px; color: white; font-weight: 800; font-size: 12px; backdrop-filter: blur(14px); }
+      .replace-image { border: 1px solid rgba(255,255,255,.58); background: rgba(21,21,21,.38); }
+      .analysis-button { border: 0; background: var(--red); box-shadow: 0 8px 20px rgba(255,36,66,.28); }
+      .analysis-button.running { background: #202020; }
+      .analysis-progress {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 58px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(21,21,21,.72);
+        color: white;
+        backdrop-filter: blur(14px);
+      }
+      .analysis-progress > div { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+      .analysis-progress em { margin-left: auto; font-style: normal; }
+      .analysis-progress > i { display: block; height: 4px; margin-top: 9px; border-radius: 99px; background: rgba(255,255,255,.22); overflow: hidden; }
+      .analysis-progress > i b { display: block; width: 0; height: 100%; background: var(--red); transition: width .35s ease; }
+      .running-dot { width: 7px; height: 7px; border-radius: 50%; background: #4beaab; animation: pulse 1s infinite; }
+      @keyframes pulse { 50% { opacity: .35; transform: scale(.72); } }
+      .scan-line { position: absolute; left: 0; right: 0; top: 8%; height: 2px; background: linear-gradient(90deg, transparent, var(--red), transparent); box-shadow: 0 0 18px var(--red); animation: scan 2s linear infinite; }
+      @keyframes scan { to { transform: translateY(270px); } }
+      .privacy-note { height: 50px; display: flex; align-items: center; justify-content: center; gap: 7px; color: #aaa39d; font-size: 11px; }
+      .privacy-note span { color: var(--green); }
+
+      .workspace { width: min(1100px, calc(100% - 40px)); margin: 0 auto; padding-bottom: 90px; }
+      .section-heading { margin: 70px 0 22px; display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+      .step-label { color: var(--red); font-size: 11px; font-weight: 900; letter-spacing: .08em; }
+      .section-heading h2 { margin: 8px 0 0; font-size: 30px; letter-spacing: -.045em; }
+      .status-pill {
+        padding: 8px 13px;
+        border: 1px solid #d7eee4;
+        border-radius: 999px;
+        background: #f1fbf7;
+        color: var(--green);
+        font-size: 11px;
+      }
+      .insight-panel, .setting-strip, .copy-card, .publish-card, .export-bar, .trend-panel {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.94);
+      }
+      .insight-panel {
+        min-height: 130px;
+        padding: 30px;
+        border-radius: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 28px;
+      }
+      .insight-main { display: flex; align-items: center; gap: 18px; }
+      .insight-orb { flex: 0 0 auto; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 17px; background: #202020; color: white; font-size: 25px; }
+      .insight-main strong { font-size: 16px; }
+      .insight-main p { max-width: 650px; margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+      .insight-tags, .trend-list { display: flex; flex-wrap: wrap; gap: 8px; }
+      .insight-tags span, .trend-list span { padding: 8px 10px; border-radius: 9px; background: #f7f5f3; color: #716b66; font-size: 11px; }
+      .setting-strip {
+        margin-top: 14px;
+        padding: 20px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .setting-strip label { flex: 1; display: flex; align-items: center; gap: 14px; }
+      .setting-strip label span { flex: 0 0 auto; color: #978f89; font-size: 11px; }
+      .setting-strip input { width: 100%; border: 0; border-bottom: 1px solid #ded8d3; outline: 0; background: transparent; padding: 7px 0; color: #4f4945; }
+      .setting-hint { color: #aaa39c; font-size: 10px; }
+      .trend-panel { margin-top: 14px; padding: 20px; border-radius: 18px; }
+      .trend-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+      .trend-head strong { font-size: 12px; }
+      .trend-head small { color: #aaa39c; font-size: 10px; }
+
+      .refresh-button {
+        padding: 10px 16px;
+        border: 1px solid #ddd7d1;
+        border-radius: 999px;
+        background: #fff;
+        color: #5d5752;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .refresh-button:disabled { opacity: .5; cursor: wait; }
+      .copy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+      .copy-card { min-height: 330px; padding: 26px; border-radius: 23px; cursor: pointer; transition: .2s ease; }
+      .copy-card:hover { transform: translateY(-3px); box-shadow: 0 16px 38px rgba(55,40,35,.08); }
+      .copy-card.selected { border: 2px solid #ff7186; box-shadow: 0 12px 34px rgba(255,36,66,.09); }
+      .card-topline { display: flex; align-items: center; gap: 10px; font-size: 10px; }
+      .rank { color: #c9c0ba; font: 800 13px Georgia, serif; }
+      .intent { color: var(--red); font-weight: 800; }
+      .score { margin-left: auto; font: 800 22px Georgia, serif; }
+      .score small { margin-left: 2px; color: #aaa19b; font: 10px sans-serif; }
+      .cover-copy { margin: 32px 0 24px; }
+      .cover-copy > div { display: flex; align-items: center; gap: 9px; }
+      .cover-copy strong { font-size: clamp(21px, 2vw, 29px); line-height: 1.55; letter-spacing: -.04em; }
+      .count { padding: 3px 6px; border-radius: 7px; background: #eaf8f1; color: var(--green); font-size: 9px; font-weight: 800; }
+      .count.invalid { background: #fff0f1; color: var(--red); }
+      .copy-card p { color: #8d8580; font-size: 11px; line-height: 1.8; }
+
+      .platform-tabs { display: flex; padding: 4px; border-radius: 12px; background: #ece9e6; }
+      .platform-tabs button { padding: 8px 12px; border: 0; border-radius: 9px; background: transparent; color: #8d857f; font-size: 11px; font-weight: 700; }
+      .platform-tabs button[aria-selected="true"] { background: white; color: var(--ink); box-shadow: 0 3px 10px rgba(44,31,27,.08); }
+      .publish-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 18px; }
+      .publish-card { min-height: 330px; padding: 25px; border-radius: 22px; }
+      .publish-card-title { display: flex; align-items: center; justify-content: space-between; }
+      .publish-card-title span { display: block; font-size: 14px; font-weight: 800; }
+      .publish-card-title small { display: block; margin-top: 4px; color: #aaa29c; font-size: 9px; }
+      .publish-card-title button, .export-bar button {
+        padding: 9px 12px;
+        border: 1px solid #e1dcd7;
+        border-radius: 10px;
+        background: white;
+        color: #615b56;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      #bodyText { width: 100%; height: 220px; margin-top: 18px; resize: none; border: 0; outline: 0; background: transparent; color: #514b47; font-size: 12px; line-height: 1.9; }
+      .text-meta { display: flex; justify-content: space-between; color: #b0a8a1; font-size: 9px; }
+      .topic-list { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+      .topic-list button { width: 100%; padding: 11px 13px; border: 0; border-radius: 11px; background: #f7f5f3; color: #655f5b; text-align: left; font-size: 11px; }
+      .source-note { margin: 18px 0 0; color: #b0a8a1; font-size: 9px; line-height: 1.6; }
+      .export-bar {
+        margin-top: 18px;
+        padding: 20px 24px;
+        border-radius: 19px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .export-bar > div { display: flex; align-items: center; gap: 12px; }
+      .export-check { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: #eaf8f1; color: var(--green); }
+      .export-bar strong { display: block; font-size: 13px; }
+      .export-bar small { color: #aaa29c; font-size: 9px; }
+      .export-bar button { border: 0; background: var(--red); color: white; padding: 12px 16px; }
+      footer { width: min(1100px, calc(100% - 40px)); margin: 0 auto 35px; display: flex; justify-content: space-between; color: #b3aca6; font-size: 10px; }
+      .toast { position: fixed; left: 50%; bottom: 28px; z-index: 20; transform: translateX(-50%); padding: 11px 18px; border-radius: 999px; background: #202020; color: white; font-size: 11px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
+
+      @media (max-width: 900px) {
+        .hero { grid-template-columns: 1fr; padding: 42px; }
+        .copy-grid { grid-template-columns: 1fr; }
+        .copy-card { min-height: auto; }
+        .publish-grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 600px) {
+        .topbar, .hero, .workspace, footer { width: min(100% - 24px, 1100px); }
+        .topbar { height: 72px; }
+        .live-badge span { display: none; }
+        .hero { margin-top: 10px; padding: 30px 20px; border-radius: 26px; gap: 34px; }
+        .hero h1 { margin-top: 20px; font-size: 43px; }
+        .hero-copy > p { font-size: 13px; }
+        .upload-card { min-height: 340px; }
+        .image-preview, .upload-empty { min-height: 290px; height: 290px; }
+        .insight-panel { align-items: flex-start; flex-direction: column; }
+        .setting-strip { align-items: flex-start; flex-direction: column; }
+        .setting-strip label { width: 100%; align-items: flex-start; flex-direction: column; }
+        .section-heading { align-items: flex-start; }
+        .result-heading, .publish-heading { flex-direction: column; }
+        .copy-grid { gap: 12px; }
+        .copy-card { padding: 22px; }
+        .cover-copy strong { font-size: 26px; }
+        .platform-tabs { width: 100%; }
+        .platform-tabs button { flex: 1; }
+        .export-bar { align-items: flex-start; flex-direction: column; gap: 16px; }
+        .export-bar button { width: 100%; }
+        footer { flex-direction: column; gap: 7px; }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="gate" id="accessGate">
+      <div class="gate-card">
+        <div class="gate-mark">N</div>
+        <h1>请输入访问密码</h1>
+        <p>南铂个人智能内容工作台<br />首次验证后，这台设备记住 180 天</p>
+        <form id="accessForm">
+          <label for="accessPassword">访问密码</label>
+          <input id="accessPassword" type="password" inputmode="numeric" autocomplete="current-password" required />
+          <button id="accessButton" type="submit">验证并进入</button>
+        </form>
+        <p class="gate-error is-hidden" id="gateError">密码不正确，请重新输入</p>
+        <small>免费智能版 · 图片发送至 Gemini 分析但不在本工具保存</small>
+      </div>
+    </section>
+
+    <main class="is-hidden" id="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">N</span>
+          <span><strong>NBO 灵感封面</strong><small>真实识图 · 公开趋势 · 三平台文案</small></span>
+        </div>
+        <div class="live-badge"><i></i><span>免费智能版在线</span></div>
+      </header>
+
+      <section class="hero">
+        <div class="hero-copy">
+          <span class="kicker"><i></i> FREE AI PERSONAL STUDIO</span>
+          <h1>看懂图片，再写<br /><em>当下能发的文案</em></h1>
+          <p>先识别画面真实主体，再结合当前公开搜索联想，生成固定 7+8 字封面、三平台正文与相关话题。拒绝图片和文案货不对版。</p>
+          <div class="feature-row"><span>真实图像理解</span><b>·</b><span>公开趋势采集</span><b>·</b><span>3 组高意向</span></div>
+        </div>
+
+        <div class="upload-card" id="uploadCard">
+          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" />
+          <button class="upload-empty" id="uploadEmpty" type="button">
+            <span>＋</span><strong>上传一张图片开始</strong><small>支持 JPG、PNG、WEBP</small>
+          </button>
+          <div class="image-preview is-hidden" id="imagePreview">
+            <img id="previewImage" alt="上传图片预览" />
+            <div class="preview-shade"></div>
+            <div class="scan-line is-hidden" id="scanLine"></div>
+            <div class="preview-actions">
+              <button class="replace-image" id="replaceImage" type="button">重新上传</button>
+              <button class="analysis-button" id="analysisButton" type="button"><span id="analysisIcon">▶</span> <b id="analysisLabel">开始识别</b></button>
+            </div>
+            <div class="analysis-progress is-hidden" id="analysisProgress">
+              <div><span class="running-dot"></span><strong id="progressStage">正在读取画面</strong><em id="progressText">0%</em></div>
+              <i><b id="progressFill"></b></i>
+            </div>
+            <div class="preview-caption"><span id="previewSize"></span><strong id="previewName"></strong></div>
+          </div>
+          <div class="privacy-note"><span>✓</span> 图片仅用于本次 AI 分析，不在本工具保存</div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <div class="section-heading">
+          <div><span class="step-label">01 / 真实图片理解</span><h2>画面证据</h2></div>
+          <span class="status-pill" id="insightStatus">等待上传图片</span>
+        </div>
+        <div class="insight-panel">
+          <div class="insight-main">
+            <div class="insight-orb">✦</div>
+            <div><strong id="insightTitle">不会预设图片类别</strong><p id="insightDescription">珠宝就写珠宝，人物就写人物。上传后点击“开始识别”，AI 才会运行。</p></div>
+          </div>
+          <div class="insight-tags" id="insightTags"><span>先看真实主体</span><span>再判断发布方向</span></div>
+        </div>
+        <div class="setting-strip">
+          <label><span>账号补充要求</span><input id="brandNote" value="根据图片真实内容生成；只有男士写真才使用南铂摄影定位" maxlength="60" /></label>
+          <div class="setting-hint">可写产品卖点或本次发布目的，不能替代图片事实</div>
+        </div>
+        <div class="trend-panel is-hidden" id="trendPanel">
+          <div class="trend-head"><strong>当前公开趋势信号</strong><small id="trendMeta"></small></div>
+          <div class="trend-list" id="trendList"></div>
+        </div>
+
+        <div class="section-heading result-heading">
+          <div><span class="step-label">02 / 高意向方案</span><h2>为你优选 3 组</h2></div>
+          <button class="refresh-button" id="refreshButton" type="button" disabled>↻ 不满意，换一批</button>
+        </div>
+        <div class="copy-grid" id="copyGrid">
+          <article class="copy-card"><p>识别完成后，3 组 7+8 字封面文案会出现在这里。</p></article>
+          <article class="copy-card"><p>每组都会严格校验：上行 7 字，下行 8 字。</p></article>
+          <article class="copy-card"><p>文案根据图片和公开趋势生成，不再使用固定男士写真模板。</p></article>
+        </div>
+
+        <div class="section-heading publish-heading">
+          <div><span class="step-label">03 / 发布整理</span><h2>正文与话题</h2></div>
+          <div class="platform-tabs" role="tablist">
+            <button role="tab" aria-selected="true" data-platform="小红书">小红书</button>
+            <button role="tab" aria-selected="false" data-platform="抖音">抖音</button>
+            <button role="tab" aria-selected="false" data-platform="视频号">视频号</button>
+          </div>
+        </div>
+        <div class="publish-grid">
+          <article class="publish-card">
+            <div class="publish-card-title"><div><span>发布软文</span><small id="platformNote">识别后按小红书习惯整理</small></div><button id="copyBody">复制正文</button></div>
+            <textarea id="bodyText" readonly placeholder="这里会出现与图片匹配的发布正文"></textarea>
+            <div class="text-meta"><span id="bodyCount">0 字</span><span>不编造图片外信息</span></div>
+          </article>
+          <article class="publish-card">
+            <div class="publish-card-title"><div><span>相关话题</span><small>精准词 × 公开联想词 × 内容词</small></div><button id="copyTags">复制话题</button></div>
+            <div class="topic-list" id="topicList"></div>
+            <p class="source-note">趋势信号来自公开搜索联想，不代表小红书或抖音官方热榜；会显示来源与采集时间。</p>
+          </article>
+        </div>
+        <div class="export-bar">
+          <div><span class="export-check">✓</span><div><strong id="exportTitle">等待生成</strong><small id="exportDescription">封面标题 + 三平台正文 + 相关话题</small></div></div>
+          <button id="copyAll">一键复制整套内容</button>
+        </div>
+      </section>
+      <footer><span>NBO 灵感封面 · 免费智能版</span><span>真实识图，不套模板 · 公开趋势，来源透明</span></footer>
+    </main>
+    <div class="toast is-hidden" id="toast">已复制</div>
+
+    <script>
+      const ACCESS_TOKEN_KEY = "nbo_ai_access_token";
+      const ACCESS_UNTIL_KEY = "nbo_ai_access_until";
+      const ACCESS_DAYS = 180;
+      const state = {
+        accessToken: "",
+        imageDataUrl: "",
+        imageName: "",
+        imageSize: "",
+        running: false,
+        runId: 0,
+        progress: 0,
+        progressTimer: null,
+        result: null,
+        selected: 0,
+        platform: "小红书",
+      };
+
+      const $ = (selector) => document.querySelector(selector);
+      const accessGate = $("#accessGate");
+      const app = $("#app");
+      const accessForm = $("#accessForm");
+      const accessPassword = $("#accessPassword");
+      const accessButton = $("#accessButton");
+      const gateError = $("#gateError");
+      const fileInput = $("#fileInput");
+      const uploadEmpty = $("#uploadEmpty");
+      const imagePreview = $("#imagePreview");
+      const previewImage = $("#previewImage");
+      const previewSize = $("#previewSize");
+      const previewName = $("#previewName");
+      const replaceImage = $("#replaceImage");
+      const analysisButton = $("#analysisButton");
+      const analysisIcon = $("#analysisIcon");
+      const analysisLabel = $("#analysisLabel");
+      const analysisProgress = $("#analysisProgress");
+      const progressStage = $("#progressStage");
+      const progressText = $("#progressText");
+      const progressFill = $("#progressFill");
+      const scanLine = $("#scanLine");
+      const insightStatus = $("#insightStatus");
+      const insightTitle = $("#insightTitle");
+      const insightDescription = $("#insightDescription");
+      const insightTags = $("#insightTags");
+      const brandNote = $("#brandNote");
+      const trendPanel = $("#trendPanel");
+      const trendMeta = $("#trendMeta");
+      const trendList = $("#trendList");
+      const refreshButton = $("#refreshButton");
+      const copyGrid = $("#copyGrid");
+      const bodyText = $("#bodyText");
+      const bodyCount = $("#bodyCount");
+      const platformNote = $("#platformNote");
+      const topicList = $("#topicList");
+      const exportTitle = $("#exportTitle");
+      const exportDescription = $("#exportDescription");
+      const toast = $("#toast");
+
+      function showApp() {
+        accessGate.classList.add("is-hidden");
+        app.classList.remove("is-hidden");
+      }
+
+      function restoreAccess() {
+        const until = Number(localStorage.getItem(ACCESS_UNTIL_KEY) || 0);
+        const token = localStorage.getItem(ACCESS_TOKEN_KEY) || "";
+        if (token && until > Date.now()) {
+          state.accessToken = token;
+          showApp();
+        }
+      }
+
+      accessForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        accessButton.disabled = true;
+        accessButton.textContent = "正在验证…";
+        gateError.classList.add("is-hidden");
+        google.script.run
+          .withSuccessHandler((result) => {
+            accessButton.disabled = false;
+            accessButton.textContent = "验证并进入";
+            if (!result || !result.ok) {
+              gateError.classList.remove("is-hidden");
+              accessPassword.select();
+              return;
+            }
+            state.accessToken = result.token;
+            localStorage.setItem(ACCESS_TOKEN_KEY, result.token);
+            localStorage.setItem(ACCESS_UNTIL_KEY, String(Date.now() + ACCESS_DAYS * 86400000));
+            accessPassword.value = "";
+            showApp();
+          })
+          .withFailureHandler(() => {
+            accessButton.disabled = false;
+            accessButton.textContent = "验证并进入";
+            gateError.textContent = "验证服务暂时不可用，请稍后再试";
+            gateError.classList.remove("is-hidden");
+          })
+          .verifyAccess(accessPassword.value.trim());
+      });
+
+      function chooseFile() {
+        if (!state.running) fileInput.click();
+      }
+
+      uploadEmpty.addEventListener("click", chooseFile);
+      replaceImage.addEventListener("click", chooseFile);
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        stopRun("已更换图片");
+        try {
+          const prepared = await prepareImage(file);
+          state.imageDataUrl = prepared.dataUrl;
+          state.imageName = file.name;
+          state.imageSize = prepared.width + " × " + prepared.height;
+          previewImage.src = prepared.previewUrl;
+          previewSize.textContent = state.imageSize;
+          previewName.textContent = file.name;
+          uploadEmpty.classList.add("is-hidden");
+          imagePreview.classList.remove("is-hidden");
+          insightStatus.textContent = "已就绪，等待开始";
+          insightTitle.textContent = "图片已准备好";
+          insightDescription.textContent = "点击图片右上角“开始识别”后，才会发送至 Gemini 进行真实画面理解。";
+          setTags(["等待真实识图", "可随时重新上传"]);
+          state.result = null;
+          refreshButton.disabled = true;
+        } catch (error) {
+          showToast(error.message || "图片读取失败");
+        }
+      });
+
+      analysisButton.addEventListener("click", () => {
+        if (state.running) {
+          stopRun("已停止，本次结果将不采用");
+          return;
+        }
+        if (!state.imageDataUrl) {
+          chooseFile();
+          return;
+        }
+        startAnalysis();
+      });
+
+      function startAnalysis() {
+        state.running = true;
+        state.runId += 1;
+        const runId = state.runId;
+        state.progress = 4;
+        analysisButton.classList.add("running");
+        analysisIcon.textContent = "■";
+        analysisLabel.textContent = "停止任务";
+        analysisProgress.classList.remove("is-hidden");
+        scanLine.classList.remove("is-hidden");
+        insightStatus.textContent = "AI 正在识别";
+        insightTitle.textContent = "正在读取真实画面";
+        insightDescription.textContent = "先判断主体和可见证据，再抓取相关公开搜索联想，最后生成三套文案。";
+        setTags(["读取主体", "分析构图", "核对事实", "采集公开联想"]);
+        updateProgress();
+        state.progressTimer = setInterval(() => {
+          if (!state.running || state.progress >= 88) return;
+          state.progress += state.progress < 52 ? 4 : 2;
+          updateProgress();
+        }, 700);
+
+        google.script.run
+          .withSuccessHandler((result) => {
+            if (!state.running || runId !== state.runId) return;
+            finishAnalysis(result);
+          })
+          .withFailureHandler((error) => {
+            if (!state.running || runId !== state.runId) return;
+            failAnalysis(error && error.message ? error.message : "识别失败，请重试");
+          })
+          .analyzeImage({
+            accessToken: state.accessToken,
+            imageDataUrl: state.imageDataUrl,
+            brandNote: brandNote.value.trim(),
+            seed: Date.now(),
+          });
+      }
+
+      function stopRun(message) {
+        if (!state.running) return;
+        state.running = false;
+        state.runId += 1;
+        clearInterval(state.progressTimer);
+        analysisButton.classList.remove("running");
+        analysisIcon.textContent = "▶";
+        analysisLabel.textContent = "重新开始";
+        analysisProgress.classList.add("is-hidden");
+        scanLine.classList.add("is-hidden");
+        insightStatus.textContent = "任务已停止";
+        insightTitle.textContent = "本次识别已停止";
+        insightDescription.textContent = message || "你可以重新上传图片，或点击“重新开始”。";
+        setTags(["结果已忽略", "图片未保存"]);
+      }
+
+      function finishAnalysis(result) {
+        state.running = false;
+        clearInterval(state.progressTimer);
+        state.progress = 100;
+        updateProgress();
+        setTimeout(() => analysisProgress.classList.add("is-hidden"), 500);
+        scanLine.classList.add("is-hidden");
+        analysisButton.classList.remove("running");
+        analysisIcon.textContent = "↻";
+        analysisLabel.textContent = "重新识别";
+        state.result = result;
+        state.selected = 0;
+        insightStatus.textContent = "真实识别已完成";
+        insightTitle.textContent = result.insight.category + "｜已看懂图片";
+        insightDescription.textContent = result.insight.summary;
+        setTags(result.insight.evidence);
+        trendPanel.classList.remove("is-hidden");
+        trendMeta.textContent = result.trendSource + " · " + result.trendTime;
+        renderTrendTerms(result.trends);
+        renderCards();
+        renderPublish();
+        refreshButton.disabled = false;
+        exportTitle.textContent = "方案已整理完成";
+        exportDescription.textContent = "3 组固定 7+8 字封面 + 三平台正文 + 6 个话题";
+      }
+
+      function failAnalysis(message) {
+        state.running = false;
+        clearInterval(state.progressTimer);
+        analysisProgress.classList.add("is-hidden");
+        scanLine.classList.add("is-hidden");
+        analysisButton.classList.remove("running");
+        analysisIcon.textContent = "↻";
+        analysisLabel.textContent = "重新尝试";
+        insightStatus.textContent = "识别未完成";
+        insightTitle.textContent = "这次没有生成成功";
+        insightDescription.textContent = message;
+        setTags(["可重新尝试", "不会采用错误结果"]);
+        showToast(message);
+      }
+
+      function updateProgress() {
+        const value = Math.min(100, state.progress);
+        progressText.textContent = value + "%";
+        progressFill.style.width = value + "%";
+        progressStage.textContent =
+          value < 28 ? "正在读取画面" :
+          value < 54 ? "正在判断真实主体" :
+          value < 78 ? "正在采集公开趋势" :
+          value < 96 ? "正在生成三套文案" : "正在完成校验";
+      }
+
+      refreshButton.addEventListener("click", () => {
+        if (!state.result || refreshButton.disabled) return;
+        refreshButton.disabled = true;
+        refreshButton.textContent = "正在换一批…";
+        google.script.run
+          .withSuccessHandler((result) => {
+            state.result.sets = result.sets;
+            state.result.context = result.context;
+            state.selected = 0;
+            renderCards();
+            renderPublish();
+            refreshButton.disabled = false;
+            refreshButton.textContent = "↻ 不满意，换一批";
+            showToast("已换成 3 组新方案");
+          })
+          .withFailureHandler((error) => {
+            refreshButton.disabled = false;
+            refreshButton.textContent = "↻ 不满意，换一批";
+            showToast(error && error.message ? error.message : "刷新失败，请稍后重试");
+          })
+          .refreshCopy({
+            accessToken: state.accessToken,
+            context: state.result.context,
+            brandNote: brandNote.value.trim(),
+            seed: Date.now(),
+          });
+      });
+
+      function renderCards() {
+        copyGrid.replaceChildren();
+        state.result.sets.forEach((item, index) => {
+          const card = document.createElement("article");
+          card.className = "copy-card" + (index === state.selected ? " selected" : "");
+          const topLength = Array.from(item.top).length;
+          const bottomLength = Array.from(item.bottom).length;
+          card.innerHTML =
+            '<div class="card-topline"><span class="rank">0' + (index + 1) + '</span><span class="intent"></span><span class="score">' +
+            item.score + '<small>分</small></span></div>' +
+            '<div class="cover-copy"><div><strong></strong><span class="count ' + (topLength === 7 ? "" : "invalid") + '">' + topLength + '/7</span></div>' +
+            '<div><strong></strong><span class="count ' + (bottomLength === 8 ? "" : "invalid") + '">' + bottomLength + '/8</span></div></div><p></p>';
+          card.querySelector(".intent").textContent = item.eyebrow;
+          card.querySelectorAll(".cover-copy strong")[0].textContent = item.top;
+          card.querySelectorAll(".cover-copy strong")[1].textContent = item.bottom;
+          card.querySelector("p").textContent = item.reason;
+          card.addEventListener("click", () => {
+            state.selected = index;
+            renderCards();
+            renderPublish();
+          });
+          copyGrid.appendChild(card);
+        });
+      }
+
+      function renderPublish() {
+        if (!state.result) return;
+        const item = state.result.sets[state.selected];
+        const text = item.bodies[state.platform] || "";
+        bodyText.value = text;
+        bodyCount.textContent = Array.from(text).length + " 字";
+        platformNote.textContent = "已按" + state.platform + "阅读习惯整理";
+        topicList.replaceChildren();
+        item.tags.forEach((tag) => {
+          const button = document.createElement("button");
+          button.textContent = tag;
+          button.addEventListener("click", () => copyText(tag, "话题已复制"));
+          topicList.appendChild(button);
+        });
+      }
+
+      function renderTrendTerms(terms) {
+        trendList.replaceChildren();
+        (terms || []).slice(0, 10).forEach((term) => {
+          const span = document.createElement("span");
+          span.textContent = term;
+          trendList.appendChild(span);
+        });
+      }
+
+      function setTags(tags) {
+        insightTags.replaceChildren();
+        (tags || []).forEach((tag) => {
+          const span = document.createElement("span");
+          span.textContent = tag;
+          insightTags.appendChild(span);
+        });
+      }
+
+      document.querySelectorAll("[data-platform]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.platform = button.dataset.platform;
+          document.querySelectorAll("[data-platform]").forEach((item) => item.setAttribute("aria-selected", String(item === button)));
+          renderPublish();
+        });
+      });
+
+      $("#copyBody").addEventListener("click", () => copyText(bodyText.value, "正文已复制"));
+      $("#copyTags").addEventListener("click", () => {
+        if (!state.result) return showToast("请先完成识别");
+        copyText(state.result.sets[state.selected].tags.join(" "), "话题已复制");
+      });
+      $("#copyAll").addEventListener("click", () => {
+        if (!state.result) return showToast("请先完成识别");
+        const item = state.result.sets[state.selected];
+        copyText(
+          item.top + "\n" + item.bottom + "\n\n" + item.bodies[state.platform] + "\n\n" + item.tags.join(" "),
+          "整套内容已复制",
+        );
+      });
+
+      function copyText(text, message) {
+        if (!text) return showToast("暂无可复制内容");
+        navigator.clipboard.writeText(text).then(() => showToast(message)).catch(() => {
+          const area = document.createElement("textarea");
+          area.value = text;
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand("copy");
+          area.remove();
+          showToast(message);
+        });
+      }
+
+      let toastTimer;
+      function showToast(message) {
+        clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.remove("is-hidden");
+        toastTimer = setTimeout(() => toast.classList.add("is-hidden"), 2400);
+      }
+
+      function prepareImage(file) {
+        return new Promise((resolve, reject) => {
+          if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return reject(new Error("请上传 JPG、PNG 或 WEBP 图片"));
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("图片读取失败"));
+          reader.onload = () => {
+            const image = new Image();
+            image.onerror = () => reject(new Error("图片格式无法识别"));
+            image.onload = () => {
+              const maxSide = 1600;
+              const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+              const width = Math.max(1, Math.round(image.naturalWidth * scale));
+              const height = Math.max(1, Math.round(image.naturalHeight * scale));
+              const canvas = document.createElement("canvas");
+              canvas.width = width;
+              canvas.height = height;
+              const context = canvas.getContext("2d");
+              context.fillStyle = "#ffffff";
+              context.fillRect(0, 0, width, height);
+              context.drawImage(image, 0, 0, width, height);
+              resolve({
+                dataUrl: canvas.toDataURL("image/jpeg", .84),
+                previewUrl: reader.result,
+                width: image.naturalWidth,
+                height: image.naturalHeight,
+              });
+            };
+            image.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      restoreAccess();
+    </script>
+  </body>
+</html>
