@@ -55,6 +55,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.doesNotMatch(page, /window\.location\.replace\(AI_APP_URL\)/);
   assert.match(code, /setXFrameOptionsMode\(HtmlService\.XFrameOptionsMode\.ALLOWALL\)/);
   assert.match(publicEntry, /<iframe/);
+  assert.match(publicEntry, /iframe \{[^}]*height: 100%;[^}]*top: 0;/);
+  assert.doesNotMatch(publicEntry, /top:\s*-48px|calc\(100%\s*\+\s*48px\)/);
   assert.doesNotMatch(publicEntry, /http-equiv="refresh"|window\.location\.replace/);
   assert.match(layout, /NBO 灵感封面｜图片转发布文案/);
   assert.doesNotMatch(

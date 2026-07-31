@@ -77,9 +77,9 @@ body {
 
 .embedded-app-frame {
   width: 100%;
-  height: calc(100dvh + 48px);
+  height: 100dvh;
   position: absolute;
-  top: -48px;
+  top: 0;
   left: 0;
   border: 0;
   background: #faf9f7;
