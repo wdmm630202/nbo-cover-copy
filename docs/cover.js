@@ -1,5 +1,7 @@
 const ACCESS_KEY = "nbo_cover_access_until";
 const SETTINGS_KEY = "nbo_cover_settings_v1";
+const COPY_SYNC_KEY = "nbo-cover-copy-sync-v1";
+const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const ACCESS_DAYS = 180;
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
@@ -27,6 +29,62 @@ const $ = (selector) => document.querySelector(selector);
 const canvas = $("#coverCanvas");
 const accessGate = $("#accessGate");
 const coverPage = $("#coverPage");
+let syncedCopy = null;
+
+function normalizeSyncedCopy(value) {
+  if (!value || typeof value !== "object") return null;
+  const topText = typeof value.topText === "string" ? value.topText.trim().slice(0, 18) : "";
+  const bottomText = typeof value.bottomText === "string" ? value.bottomText.trim().slice(0, 18) : "";
+  if (!topText || !bottomText) return null;
+  return {
+    version: 1,
+    topText,
+    bottomText,
+    platform: ["小红书", "抖音", "视频号"].includes(value.platform) ? value.platform : "小红书",
+    selectionIndex: Math.max(0, Math.min(2, Number(value.selectionIndex) || 0)),
+    updatedAt: Number(value.updatedAt) || Date.now(),
+  };
+}
+
+function updateSyncUi() {
+  const ready = Boolean(syncedCopy);
+  $("#copySync").classList.toggle("ready", ready);
+  $("#copySyncTitle").textContent = ready ? "已连接文案页当前方案" : "等待文案页方案";
+  $("#copySyncDetail").textContent = ready
+    ? `${syncedCopy.platform} · 方案 ${String(syncedCopy.selectionIndex + 1).padStart(2, "0")} · 不会覆盖照片与构图`
+    : "识别完成并选择方案后，可同步两行封面文字";
+  ["syncAllCopy", "syncTopCopy", "syncBottomCopy"].forEach((id) => {
+    $(`#${id}`).disabled = !ready;
+  });
+}
+
+function acceptSyncedCopy(value, live = false) {
+  const next = normalizeSyncedCopy(value);
+  if (!next) return;
+  syncedCopy = next;
+  updateSyncUi();
+  if (live) setStatus("文案页有新方案，可按需同步到封面");
+}
+
+try {
+  acceptSyncedCopy(JSON.parse(localStorage.getItem(COPY_SYNC_KEY) || "null"));
+} catch {
+  updateSyncUi();
+}
+
+window.addEventListener("storage", (event) => {
+  if (event.key !== COPY_SYNC_KEY || !event.newValue) return;
+  try {
+    acceptSyncedCopy(JSON.parse(event.newValue), true);
+  } catch {
+    return;
+  }
+});
+
+if ("BroadcastChannel" in window) {
+  const syncChannel = new BroadcastChannel(COPY_SYNC_CHANNEL);
+  syncChannel.addEventListener("message", (event) => acceptSyncedCopy(event.data, true));
+}
 
 $("#copyWorkspaceSwitch").addEventListener("click", () => {
   if (window.opener && !window.opener.closed) {
@@ -36,6 +94,26 @@ $("#copyWorkspaceSwitch").addEventListener("click", () => {
 
   window.open("./", "nbo-copy-studio");
 });
+
+function applySyncedCopy(field) {
+  if (!syncedCopy) return setStatus("请先在文案页完成识别并选择一组方案");
+  if (field !== "bottomText") state.topText = syncedCopy.topText;
+  if (field !== "topText") state.bottomText = syncedCopy.bottomText;
+  updateUi();
+  saveSettings();
+  draw();
+  setStatus(
+    field === "all"
+      ? "两行封面文案已同步，照片和构图保持不变"
+      : field === "topText"
+        ? "上行文案已同步"
+        : "下行文案已同步",
+  );
+}
+
+$("#syncAllCopy").addEventListener("click", () => applySyncedCopy("all"));
+$("#syncTopCopy").addEventListener("click", () => applySyncedCopy("topText"));
+$("#syncBottomCopy").addEventListener("click", () => applySyncedCopy("bottomText"));
 
 function unlock() {
   localStorage.setItem(ACCESS_KEY, String(Date.now() + ACCESS_DAYS * 86400000));

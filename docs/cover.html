@@ -45,13 +45,23 @@
         <div class="studio-grid">
           <aside class="panel controls">
             <div class="panel-heading"><b>01</b><span><strong>照片与文字</strong><small>先放原片，再放两行主文案</small></span></div>
+            <div class="copy-sync" id="copySync">
+              <div><strong id="copySyncTitle">等待文案页方案</strong><small id="copySyncDetail">识别完成并选择方案后，可同步两行封面文字</small></div>
+              <button id="syncAllCopy" type="button" disabled>全部同步</button>
+            </div>
             <label class="upload" id="uploadBox">
               <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" />
               <strong id="uploadTitle">上传照片</strong>
               <small id="fileName">支持 JPG、PNG、WEBP</small>
             </label>
-            <label class="field"><span>上行主标题 <b>固定纯白</b></span><input id="topText" maxlength="18" value="男人的高级感" /></label>
-            <label class="field"><span>下行主标题 <b class="yellow">固定品牌黄</b></span><input id="bottomText" maxlength="18" value="藏在自然状态里" /></label>
+            <div class="field">
+              <div class="field-title"><span>上行主标题 <b>固定纯白</b></span><button id="syncTopCopy" type="button" disabled>同步文案</button></div>
+              <input id="topText" aria-label="上行主标题" maxlength="18" value="男人的高级感" />
+            </div>
+            <div class="field">
+              <div class="field-title"><span>下行主标题 <b class="yellow">固定品牌黄</b></span><button id="syncBottomCopy" type="button" disabled>同步文案</button></div>
+              <input id="bottomText" aria-label="下行主标题" maxlength="18" value="藏在自然状态里" />
+            </div>
             <label class="field"><span>补充小字 <b>可不填</b></span><textarea id="subtitle" maxlength="38">不被定义的自己，才是最有张力的表达</textarea></label>
             <div class="platforms" id="platforms">
               <button type="button" class="active" data-platform="douyin"><strong>抖音</strong><span>9:16</span></button>

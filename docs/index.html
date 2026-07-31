@@ -51,7 +51,7 @@
       href="./cover.html"
       target="nbo-cover-studio"
       aria-label="在独立标签页打开封面制作，保留当前文案结果"
-    ><span>新服务</span>制作封面</a>
+    ><span id="coverEntryBadge">新服务</span>制作封面</a>
     <div class="loading" aria-hidden="true">
       <div class="mark">N</div>
       <strong>正在进入南铂智能文案</strong>
@@ -65,5 +65,59 @@
         referrerpolicy="strict-origin-when-cross-origin"
       ></iframe>
     </div>
+    <script>
+      (() => {
+        const storageKey = "nbo-cover-copy-sync-v1";
+        const channelName = "nbo-cover-copy-sync-channel-v1";
+        const frame = document.querySelector("iframe");
+        const badge = document.querySelector("#coverEntryBadge");
+
+        try {
+          const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+          if (saved && saved.topText && saved.bottomText) badge.textContent = "可同步";
+        } catch {}
+
+        window.addEventListener("message", (event) => {
+          let hostname = "";
+          try {
+            hostname = new URL(event.origin).hostname;
+          } catch {
+            return;
+          }
+          const trusted =
+            hostname === "script.google.com" ||
+            hostname === "script.googleusercontent.com" ||
+            hostname.endsWith(".script.googleusercontent.com");
+          if (
+            !trusted ||
+            event.source !== frame.contentWindow ||
+            event.data?.type !== "NBO_COVER_COPY_SELECTED"
+          ) {
+            return;
+          }
+
+          const source = event.data.payload || {};
+          const payload = {
+            version: 1,
+            topText: typeof source.topText === "string" ? source.topText.trim().slice(0, 18) : "",
+            bottomText: typeof source.bottomText === "string" ? source.bottomText.trim().slice(0, 18) : "",
+            platform: ["小红书", "抖音", "视频号"].includes(source.platform) ? source.platform : "小红书",
+            selectionIndex: Math.max(0, Math.min(2, Number(source.selectionIndex) || 0)),
+            updatedAt: Number(source.updatedAt) || Date.now(),
+          };
+          if (!payload.topText || !payload.bottomText) return;
+
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(payload));
+            badge.textContent = "可同步";
+            if ("BroadcastChannel" in window) {
+              const channel = new BroadcastChannel(channelName);
+              channel.postMessage(payload);
+              channel.close();
+            }
+          } catch {}
+        });
+      })();
+    </script>
   </body>
 </html>

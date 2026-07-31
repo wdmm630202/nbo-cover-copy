@@ -38,7 +38,7 @@ test("公开入口显示中文密码验证页并记住登录状态", async () =>
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
-  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, coverPage, coverStudio, coverConfig, copyWorkspaceSwitch] = await Promise.all([
+  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, coverPage, coverStudio, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -50,6 +50,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
     readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/cover-config.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CopyWorkspaceSwitch.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/CoverWorkspaceEntry.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/workspace-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../apps-script/Index.html", import.meta.url), "utf8"),
   ]);
 
   assert.match(
@@ -66,8 +69,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicEntry, /iframe \{[^}]*height: 100%;[^}]*top: 0;/);
   assert.doesNotMatch(publicEntry, /top:\s*-48px|calc\(100%\s*\+\s*48px\)/);
   assert.doesNotMatch(publicEntry, /http-equiv="refresh"|window\.location\.replace/);
-  assert.match(page, /href="\/cover"/);
-  assert.match(page, /target="nbo-cover-studio"/);
+  assert.match(page, /CoverWorkspaceEntry/);
+  assert.match(coverWorkspaceEntry, /href="\/cover"/);
+  assert.match(coverWorkspaceEntry, /target="nbo-cover-studio"/);
   assert.match(layout, /NBO 自媒体工作台｜智能文案与封面制作/);
   assert.match(layout, /og-workbench\.png/);
   assert.match(coverPage, /南铂封面制作台|CoverStudio/);
@@ -81,6 +85,15 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /#FEE800/);
   assert.match(coverStudio, /主页 3:4 安全区/);
   assert.match(coverStudio, /图片不上传、不保存/);
+  assert.match(coverStudio, /全部同步/);
+  assert.match(coverStudio, /同步文案/);
+  assert.match(coverStudio, /照片和构图保持不变/);
+  assert.match(coverStudio, /BroadcastChannel/);
+  assert.match(workspaceSync, /nbo-cover-copy-sync-v1/);
+  assert.match(coverWorkspaceEntry, /NBO_COVER_COPY_SELECTED|COVER_COPY_MESSAGE_TYPE/);
+  assert.match(coverWorkspaceEntry, /localStorage\.setItem/);
+  assert.match(aiPage, /NBO_COVER_COPY_SELECTED/);
+  assert.match(aiPage, /publishCoverSelection/);
   assert.match(coverConfig, /1080/);
   assert.match(coverConfig, /1920/);
   assert.match(coverConfig, /COVER_RULES_VERSION/);
@@ -88,11 +101,18 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /访问密码/);
   assert.match(publicCover, /id="copyWorkspaceSwitch"/);
   assert.match(publicCover, /切换到文案页/);
+  assert.match(publicCover, /id="syncAllCopy"/);
+  assert.match(publicCover, /同步文案/);
   assert.doesNotMatch(publicCover, /返回智能文案/);
   assert.match(publicCoverScript, /0817/);
   assert.match(publicCoverScript, /window\.opener/);
   assert.match(publicCoverScript, /window\.opener\.focus\(\)/);
   assert.match(publicCoverScript, /window\.open\("\.\/", "nbo-copy-studio"\)/);
+  assert.match(publicCoverScript, /nbo-cover-copy-sync-v1/);
+  assert.match(publicCoverScript, /BroadcastChannel/);
+  assert.match(publicCoverScript, /applySyncedCopy/);
+  assert.match(publicEntry, /NBO_COVER_COPY_SELECTED/);
+  assert.match(publicEntry, /localStorage\.setItem/);
   assert.match(publicCoverScript, /image\/jpeg/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);
   assert.doesNotMatch(

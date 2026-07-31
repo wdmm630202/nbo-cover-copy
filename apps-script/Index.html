@@ -1282,6 +1282,22 @@
         topicHint.style.color = "#aaa29c";
         topicHint.style.fontSize = "9px";
         topicList.appendChild(topicHint);
+        publishCoverSelection(item);
+      }
+
+      function publishCoverSelection(item) {
+        if (!item || !item.top || !item.bottom || window.parent === window) return;
+        window.parent.postMessage({
+          type: "NBO_COVER_COPY_SELECTED",
+          payload: {
+            version: 1,
+            topText: String(item.top).trim().slice(0, 18),
+            bottomText: String(item.bottom).trim().slice(0, 18),
+            platform: state.platform,
+            selectionIndex: state.selected,
+            updatedAt: Date.now(),
+          },
+        }, "*");
       }
 
       function renderTrendTerms(terms) {

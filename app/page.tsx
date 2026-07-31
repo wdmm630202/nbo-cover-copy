@@ -1,4 +1,4 @@
-import Link from "next/link";
+import CoverWorkspaceEntry from "./CoverWorkspaceEntry";
 
 const AI_APP_URL =
   "https://script.google.com/macros/s/AKfycbwE3jYEnaSh75A-5ft6T-ChSvDnKrLFHvKi8fBvMEHhyRcBgieWcKsuN-3iuuzwQIQ_/exec?nbo_embed=1";
@@ -6,15 +6,7 @@ const AI_APP_URL =
 export default function Home() {
   return (
     <main className="embedded-app-shell">
-      <Link
-        className="cover-maker-entry"
-        href="/cover"
-        target="nbo-cover-studio"
-        aria-label="在独立标签页打开封面制作，保留当前文案结果"
-      >
-        <span>新服务</span>
-        制作封面
-      </Link>
+      <CoverWorkspaceEntry />
       <div className="embedded-app-loading" aria-hidden="true">
         <div className="embedded-app-mark">N</div>
         <strong>正在进入南铂智能文案</strong>

@@ -16,6 +16,12 @@ import {
   PLATFORM_PRESETS,
   PlatformPreset,
 } from "./cover-config";
+import {
+  COVER_COPY_SYNC_CHANNEL,
+  COVER_COPY_SYNC_KEY,
+  CoverCopySync,
+  normalizeCoverCopySync,
+} from "../workspace-sync";
 
 type StudioSettings = {
   platformId: PlatformPreset["id"];
@@ -323,6 +329,7 @@ export default function CoverStudio() {
   const [fileName, setFileName] = useState("");
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
+  const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -346,6 +353,44 @@ export default function CoverStudio() {
   }, [settings]);
 
   useEffect(() => {
+    const acceptSync = (value: unknown, isLiveUpdate = false) => {
+      const next = normalizeCoverCopySync(value);
+      if (!next) return;
+      setSyncedCopy(next);
+      if (isLiveUpdate) setNotice("文案页有新方案，可按需同步到封面");
+    };
+
+    const timer = window.setTimeout(() => {
+      try {
+        acceptSync(JSON.parse(window.localStorage.getItem(COVER_COPY_SYNC_KEY) || "null"));
+      } catch {
+        setSyncedCopy(null);
+      }
+    }, 0);
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== COVER_COPY_SYNC_KEY || !event.newValue) return;
+      try {
+        acceptSync(JSON.parse(event.newValue), true);
+      } catch {
+        return;
+      }
+    };
+
+    const channel = "BroadcastChannel" in window
+      ? new BroadcastChannel(COVER_COPY_SYNC_CHANNEL)
+      : null;
+    if (channel) channel.onmessage = (event) => acceptSync(event.data, true);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("storage", handleStorage);
+      channel?.close();
+    };
+  }, []);
+
+  useEffect(() => {
     if (canvasRef.current) {
       drawCover(canvasRef.current, image, settings, preset, true);
     }
@@ -357,6 +402,26 @@ export default function CoverStudio() {
     },
     [],
   );
+
+  const applySyncedCopy = useCallback((field: "topText" | "bottomText" | "all") => {
+    if (!syncedCopy) {
+      setNotice("请先在文案页完成识别并选择一组方案");
+      return;
+    }
+
+    setSettings((current) => ({
+      ...current,
+      topText: field === "bottomText" ? current.topText : syncedCopy.topText,
+      bottomText: field === "topText" ? current.bottomText : syncedCopy.bottomText,
+    }));
+    setNotice(
+      field === "all"
+        ? "两行封面文案已同步，照片和构图保持不变"
+        : field === "topText"
+          ? "上行文案已同步"
+          : "下行文案已同步",
+    );
+  }, [syncedCopy]);
 
   const loadFile = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -443,6 +508,20 @@ export default function CoverStudio() {
             </div>
           </div>
 
+          <div className={`studio-copy-sync ${syncedCopy ? "is-ready" : ""}`}>
+            <div>
+              <strong>{syncedCopy ? "已连接文案页当前方案" : "等待文案页方案"}</strong>
+              <small>
+                {syncedCopy
+                  ? `${syncedCopy.platform} · 方案 ${String(syncedCopy.selectionIndex + 1).padStart(2, "0")} · 不会覆盖照片与构图`
+                  : "识别完成并选择方案后，可同步两行封面文字"}
+              </small>
+            </div>
+            <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("all")}>
+              全部同步
+            </button>
+          </div>
+
           <div
             className={`studio-upload ${dragging ? "is-dragging" : ""}`}
             onDragOver={(event) => {
@@ -464,24 +543,32 @@ export default function CoverStudio() {
             </button>
           </div>
 
-          <label className="studio-field">
-            <span>上行主标题 <b>固定纯白</b></span>
+          <div className="studio-field">
+            <div className="studio-field-heading">
+              <span>上行主标题 <b>固定纯白</b></span>
+              <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("topText")}>同步文案</button>
+            </div>
             <input
+              aria-label="上行主标题"
               value={settings.topText}
               maxLength={18}
               onChange={(event) => updateSetting("topText", event.target.value)}
               placeholder="例如：男人的高级感"
             />
-          </label>
-          <label className="studio-field">
-            <span>下行主标题 <b className="yellow">固定品牌黄</b></span>
+          </div>
+          <div className="studio-field">
+            <div className="studio-field-heading">
+              <span>下行主标题 <b className="yellow">固定品牌黄</b></span>
+              <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("bottomText")}>同步文案</button>
+            </div>
             <input
+              aria-label="下行主标题"
               value={settings.bottomText}
               maxLength={18}
               onChange={(event) => updateSetting("bottomText", event.target.value)}
               placeholder="例如：藏在自然状态里"
             />
-          </label>
+          </div>
           <label className="studio-field">
             <span>补充小字 <b>可不填</b></span>
             <textarea
