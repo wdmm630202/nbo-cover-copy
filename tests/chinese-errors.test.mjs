@@ -248,3 +248,68 @@ test("爆款生成先现查趋势、发散十二个角度并筛选三组", async
   assert.match(page, /跨来源信号与图片事实共同决策/);
   assert.match(page, /图片与数据共同决策 · 智能字数首选/);
 });
+
+test("识别任务不受滑动复制影响并能自动追回后台结果", async () => {
+  const [source, page] = await Promise.all([
+    readFile(new URL("apps-script/Code.gs", root), "utf8"),
+    readFile(new URL("apps-script/Index.html", root), "utf8"),
+  ]);
+
+  assert.match(source, /function analyzeImageJob\(/);
+  assert.match(source, /function getAnalysisJobStatus\(/);
+  assert.match(source, /function cancelAnalysisJob\(/);
+  assert.match(source, /CacheService\.getScriptCache\(\)/);
+  assert.match(source, /status: "succeeded"/);
+  assert.match(source, /status: "failed"/);
+
+  assert.match(page, /\.analyzeImageJob\(\{/);
+  assert.match(page, /\.getAnalysisJobStatus\(\{/);
+  assert.match(page, /scheduleAnalysisPoll/);
+  assert.match(page, /正在自动追回后台结果/);
+  assert.match(page, /滑动、复制不会影响任务/);
+  assert.match(page, /下方全部内容已经同步更新/);
+  assert.match(page, /previewTaskState/);
+  assert.match(page, /taskNotice/);
+  assert.match(page, /识别成功/);
+  assert.match(page, /识别失败/);
+
+  const cacheValues = new Map();
+  const context = {
+    console,
+    CacheService: {
+      getScriptCache() {
+        return {
+          putAll(entries) {
+            Object.entries(entries).forEach(([key, value]) => cacheValues.set(key, value));
+          },
+          get(key) {
+            return cacheValues.get(key) || null;
+          },
+          getAll(keys) {
+            return Object.fromEntries(
+              keys.filter((key) => cacheValues.has(key)).map((key) => [key, cacheValues.get(key)]),
+            );
+          },
+        };
+      },
+    },
+  };
+  runInNewContext(
+    `${source}
+globalThis.__jobCacheTest = {
+  writeAnalysisJob_,
+  readAnalysisJob_
+};`,
+    context,
+  );
+  const jobId = "nbo_background_job_123";
+  const cached = {
+    status: "succeeded",
+    result: { description: "中文结果".repeat(20000) },
+  };
+  context.__jobCacheTest.writeAnalysisJob_(jobId, cached);
+  assert.equal(
+    JSON.stringify(context.__jobCacheTest.readAnalysisJob_(jobId)),
+    JSON.stringify(cached),
+  );
+});

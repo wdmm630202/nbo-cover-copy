@@ -198,6 +198,45 @@
       .analysis-progress > i b { display: block; width: 0; height: 100%; background: var(--red); transition: width .35s ease; }
       .running-dot { width: 7px; height: 7px; border-radius: 50%; background: #4beaab; animation: pulse 1s infinite; }
       @keyframes pulse { 50% { opacity: .35; transform: scale(.72); } }
+      .preview-task-state {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        z-index: 3;
+        max-width: 160px;
+        min-width: 124px;
+        padding: 13px 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transform: translateY(-50%);
+        border: 1px solid rgba(255,255,255,.24);
+        border-radius: 16px;
+        background: rgba(24,24,24,.84);
+        color: white;
+        box-shadow: 0 14px 34px rgba(0,0,0,.28);
+        backdrop-filter: blur(16px);
+        pointer-events: none;
+      }
+      .preview-task-state > span {
+        width: 29px;
+        height: 29px;
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: rgba(255,255,255,.14);
+        font-size: 18px;
+        font-weight: 900;
+      }
+      .preview-task-state strong, .preview-task-state small { display: block; }
+      .preview-task-state strong { font-size: 12px; }
+      .preview-task-state small { margin-top: 3px; color: rgba(255,255,255,.7); font-size: 9px; line-height: 1.45; }
+      .preview-task-state.running > span { background: var(--red); animation: pulse 1s infinite; }
+      .preview-task-state.succeeded { border-color: rgba(75,234,171,.55); }
+      .preview-task-state.succeeded > span { background: var(--green); color: white; }
+      .preview-task-state.failed { border-color: rgba(255,36,66,.75); }
+      .preview-task-state.failed > span { background: var(--red); color: white; }
       .scan-line { position: absolute; left: 0; right: 0; top: 8%; height: 2px; background: linear-gradient(90deg, transparent, var(--red), transparent); box-shadow: 0 0 18px var(--red); animation: scan 2s linear infinite; }
       @keyframes scan { to { transform: translateY(270px); } }
       .privacy-note { height: 50px; display: flex; align-items: center; justify-content: center; gap: 7px; color: #aaa39d; font-size: 11px; }
@@ -436,7 +475,45 @@
       .export-bar small { color: #aaa29c; font-size: 9px; }
       .export-bar button { border: 0; background: var(--red); color: white; padding: 12px 16px; }
       footer { width: min(1100px, calc(100% - 40px)); margin: 0 auto 35px; display: flex; justify-content: space-between; color: #b3aca6; font-size: 10px; }
-      .toast { position: fixed; left: 50%; bottom: 28px; z-index: 20; transform: translateX(-50%); padding: 11px 18px; border-radius: 999px; background: #202020; color: white; font-size: 11px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
+      .task-notice {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        z-index: 30;
+        width: max-content;
+        max-width: calc(100% - 28px);
+        min-height: 54px;
+        padding: 9px 17px 9px 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transform: translateX(-50%);
+        border: 1px solid rgba(255,255,255,.18);
+        border-radius: 17px;
+        background: rgba(31,31,31,.94);
+        color: white;
+        box-shadow: 0 18px 48px rgba(0,0,0,.28);
+        backdrop-filter: blur(18px);
+        pointer-events: none;
+      }
+      .task-notice > span {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--red);
+        font-size: 20px;
+        font-weight: 900;
+      }
+      .task-notice strong, .task-notice small { display: block; }
+      .task-notice strong { font-size: 12px; }
+      .task-notice small { margin-top: 3px; color: rgba(255,255,255,.68); font-size: 9px; }
+      .task-notice.succeeded > span { background: var(--green); }
+      .task-notice.failed > span { background: var(--red); }
+      .task-notice.running > span { animation: pulse 1s infinite; }
+      .toast { position: fixed; left: 50%; bottom: 88px; z-index: 31; transform: translateX(-50%); padding: 11px 18px; border-radius: 999px; background: #202020; color: white; font-size: 11px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
 
       @media (max-width: 900px) {
         .hero { grid-template-columns: 1fr; padding: 42px; }
@@ -522,6 +599,10 @@
             <div class="analysis-progress is-hidden" id="analysisProgress">
               <div><span class="running-dot"></span><strong id="progressStage">正在读取画面</strong><em id="progressText">0%</em></div>
               <i><b id="progressFill"></b></i>
+            </div>
+            <div class="preview-task-state is-hidden" id="previewTaskState" role="status" aria-live="polite">
+              <span id="previewTaskIcon">●</span>
+              <div><strong id="previewTaskTitle">识别进行中</strong><small id="previewTaskDetail">滑动、复制不会影响任务</small></div>
             </div>
             <div class="preview-caption"><span id="previewSize"></span><strong id="previewName"></strong></div>
           </div>
@@ -617,6 +698,10 @@
       </section>
       <footer><span>NBO 灵感封面 · 免费智能版</span><span>图片与数据共同决策 · 智能字数首选 · 来源透明</span></footer>
     </main>
+    <div class="task-notice is-hidden" id="taskNotice" role="status" aria-live="assertive">
+      <span id="taskNoticeIcon">●</span>
+      <div><strong id="taskNoticeTitle">识别进行中</strong><small id="taskNoticeDetail">可以继续滑动和复制，任务不会中断</small></div>
+    </div>
     <div class="toast is-hidden" id="toast">已复制</div>
 
     <script>
@@ -656,8 +741,12 @@
         imageSize: "",
         running: false,
         runId: 0,
+        jobId: "",
         progress: 0,
         progressTimer: null,
+        pollTimer: null,
+        pollAttempts: 0,
+        noticeTimer: null,
         result: null,
         selected: 0,
         platform: "小红书",
@@ -686,6 +775,14 @@
       const progressText = $("#progressText");
       const progressFill = $("#progressFill");
       const scanLine = $("#scanLine");
+      const previewTaskState = $("#previewTaskState");
+      const previewTaskIcon = $("#previewTaskIcon");
+      const previewTaskTitle = $("#previewTaskTitle");
+      const previewTaskDetail = $("#previewTaskDetail");
+      const taskNotice = $("#taskNotice");
+      const taskNoticeIcon = $("#taskNoticeIcon");
+      const taskNoticeTitle = $("#taskNoticeTitle");
+      const taskNoticeDetail = $("#taskNoticeDetail");
       const insightStatus = $("#insightStatus");
       const insightTitle = $("#insightTitle");
       const insightDescription = $("#insightDescription");
@@ -829,6 +926,7 @@
           insightTitle.textContent = "图片已准备好";
           insightDescription.textContent = "点击图片右上角“开始识别”后才会开始分析；如遇繁忙，系统会自动重试并切换备用服务。";
           setTags(["等待真实识图", "自动重试", "备用服务"]);
+          setTaskFeedback("ready", "图片已就绪", "点击开始后，可继续滑动和复制");
           state.result = null;
           refreshButton.disabled = true;
           coverApplyButton.disabled = true;
@@ -853,6 +951,9 @@
         state.running = true;
         state.runId += 1;
         const runId = state.runId;
+        const jobId = createAnalysisJobId();
+        state.jobId = jobId;
+        state.pollAttempts = 0;
         state.progress = 4;
         analysisButton.classList.add("running");
         analysisIcon.textContent = "■";
@@ -861,26 +962,30 @@
         scanLine.classList.remove("is-hidden");
         insightStatus.textContent = "AI 正在识别";
         insightTitle.textContent = "正在读取真实画面";
-        insightDescription.textContent = "先读取真实画面，再生成三平台文案；如遇排队会自动重试和切换，不需要你反复点击。";
+        insightDescription.textContent = "任务已交给后台持续处理。你可以继续向下滑动、复制现有内容或切换平台，不会影响本次识别。";
         setTags(["读取主体", "分析构图", "稳定服务", "自动重试", "备用服务"]);
+        setTaskFeedback("running", "识别进行中", "可以继续滑动和复制，任务不会中断");
         updateProgress();
         state.progressTimer = setInterval(() => {
           if (!state.running || state.progress >= 96) return;
           state.progress += state.progress < 52 ? 4 : 2;
           updateProgress();
         }, 700);
+        scheduleAnalysisPoll(runId, jobId, 1600);
 
         google.script.run
-          .withSuccessHandler((result) => {
-            if (!state.running || runId !== state.runId) return;
-            finishAnalysis(result);
+          .withSuccessHandler((response) => {
+            handleAnalysisJobResponse(response, runId, jobId);
           })
-          .withFailureHandler((error) => {
+          .withFailureHandler(() => {
             if (!state.running || runId !== state.runId) return;
-            failAnalysis(toChineseErrorMessage(error, "识别没有完成，请点击“重新尝试”。"));
+            insightStatus.textContent = "后台任务仍在运行";
+            insightDescription.textContent = "网页连接刚才有短暂波动，系统正在自动追回后台结果。请正常滑动或复制，不要重复点击开始。";
+            setTaskFeedback("running", "正在追回结果", "后台没有停止，请继续正常操作");
           })
-          .analyzeImage({
+          .analyzeImageJob({
             accessToken: state.accessToken,
+            jobId: jobId,
             imageDataUrl: state.imageDataUrl,
             brandNote: brandNote.value.trim(),
             coverConfig: getCoverConfig(),
@@ -888,11 +993,68 @@
           });
       }
 
+      function createAnalysisJobId() {
+        return "nbo_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
+      }
+
+      function scheduleAnalysisPoll(runId, jobId, delay) {
+        clearTimeout(state.pollTimer);
+        state.pollTimer = setTimeout(() => pollAnalysisJob(runId, jobId), delay || 2200);
+      }
+
+      function pollAnalysisJob(runId, jobId) {
+        if (!state.running || runId !== state.runId || jobId !== state.jobId) return;
+        state.pollAttempts += 1;
+        google.script.run
+          .withSuccessHandler((response) => {
+            if (!state.running || runId !== state.runId || jobId !== state.jobId) return;
+            if (handleAnalysisJobResponse(response, runId, jobId)) return;
+            if (state.pollAttempts >= 180) {
+              failAnalysis("后台处理等待时间过长，请点击“重新尝试”。", runId, jobId);
+              return;
+            }
+            scheduleAnalysisPoll(runId, jobId, 2200);
+          })
+          .withFailureHandler(() => {
+            if (!state.running || runId !== state.runId || jobId !== state.jobId) return;
+            scheduleAnalysisPoll(runId, jobId, 2600);
+          })
+          .getAnalysisJobStatus({
+            accessToken: state.accessToken,
+            jobId: jobId,
+          });
+      }
+
+      function handleAnalysisJobResponse(response, runId, jobId) {
+        if (!state.running || runId !== state.runId || jobId !== state.jobId || !response) return false;
+        if (response.status === "succeeded" && response.result) {
+          finishAnalysis(response.result, runId, jobId);
+          return true;
+        }
+        if (response.status === "failed") {
+          failAnalysis(response.message || "识别没有完成，请点击“重新尝试”。", runId, jobId);
+          return true;
+        }
+        if (response.status === "cancelled") {
+          stopRun("任务已按你的要求停止");
+          return true;
+        }
+        return false;
+      }
+
       function stopRun(message) {
         if (!state.running) return;
+        const stoppedJobId = state.jobId;
         state.running = false;
         state.runId += 1;
         clearInterval(state.progressTimer);
+        clearTimeout(state.pollTimer);
+        if (stoppedJobId) {
+          google.script.run.cancelAnalysisJob({
+            accessToken: state.accessToken,
+            jobId: stoppedJobId,
+          });
+        }
         analysisButton.classList.remove("running");
         analysisIcon.textContent = "▶";
         analysisLabel.textContent = "重新开始";
@@ -902,11 +1064,14 @@
         insightTitle.textContent = "本次识别已停止";
         insightDescription.textContent = message || "你可以重新上传图片，或点击“重新开始”。";
         setTags(["结果已忽略", "图片未保存"]);
+        setTaskFeedback("stopped", "任务已停止", "本次结果不会覆盖下方内容");
       }
 
-      function finishAnalysis(result) {
+      function finishAnalysis(result, runId, jobId) {
+        if (!state.running || runId !== state.runId || jobId !== state.jobId) return;
         state.running = false;
         clearInterval(state.progressTimer);
+        clearTimeout(state.pollTimer);
         state.progress = 100;
         updateProgress();
         setTimeout(() => analysisProgress.classList.add("is-hidden"), 500);
@@ -933,11 +1098,14 @@
         coverApplyButton.disabled = state.coverMode !== "manual";
         exportTitle.textContent = "方案已整理完成";
         exportDescription.textContent = "3 组数据优选封面 + 三平台独立标题、描述、话题";
+        setTaskFeedback("succeeded", "识别成功", "下方全部内容已经同步更新");
       }
 
-      function failAnalysis(message) {
+      function failAnalysis(message, runId, jobId) {
+        if (runId && (!state.running || runId !== state.runId || jobId !== state.jobId)) return;
         state.running = false;
         clearInterval(state.progressTimer);
+        clearTimeout(state.pollTimer);
         analysisProgress.classList.add("is-hidden");
         scanLine.classList.add("is-hidden");
         analysisButton.classList.remove("running");
@@ -947,7 +1115,38 @@
         insightTitle.textContent = "这次没有生成成功";
         insightDescription.textContent = message;
         setTags(["已自动重试", "已尝试备用服务", "不会采用错误结果"]);
+        setTaskFeedback("failed", "识别失败", "旧内容已保留，可点击重新尝试");
         showToast(message);
+      }
+
+      function setTaskFeedback(status, title, detail) {
+        const feedback = {
+          ready: { icon: "✓", className: "ready" },
+          running: { icon: "●", className: "running" },
+          succeeded: { icon: "✓", className: "succeeded" },
+          failed: { icon: "×", className: "failed" },
+          stopped: { icon: "■", className: "stopped" },
+        }[status];
+        if (!feedback) return;
+
+        clearTimeout(state.noticeTimer);
+        previewTaskState.className = "preview-task-state " + feedback.className;
+        previewTaskIcon.textContent = feedback.icon;
+        previewTaskTitle.textContent = title;
+        previewTaskDetail.textContent = detail;
+        previewTaskState.classList.remove("is-hidden");
+
+        taskNotice.className = "task-notice " + feedback.className;
+        taskNoticeIcon.textContent = feedback.icon;
+        taskNoticeTitle.textContent = title;
+        taskNoticeDetail.textContent = detail;
+        taskNotice.classList.remove("is-hidden");
+
+        if (status === "ready") {
+          taskNotice.classList.add("is-hidden");
+        } else if (status === "succeeded" || status === "stopped") {
+          state.noticeTimer = setTimeout(() => taskNotice.classList.add("is-hidden"), 5200);
+        }
       }
 
       function updateProgress() {

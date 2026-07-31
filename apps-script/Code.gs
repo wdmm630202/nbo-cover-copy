@@ -10,6 +10,8 @@ const GEMINI_RETRY_ROUNDS = 2;
 const MAX_IMAGE_BASE64_LENGTH = 7000000;
 const TREND_CACHE_SECONDS = 600;
 const VIRAL_CANDIDATE_COUNT = 12;
+const ANALYSIS_JOB_CACHE_SECONDS = 1800;
+const ANALYSIS_JOB_CHUNK_SIZE = 24000;
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
@@ -75,6 +77,119 @@ function analyzeImage(payload) {
     };
   } catch (error) {
     throw new Error(toChineseError_(error));
+  }
+}
+
+function analyzeImageJob(payload) {
+  assertAccess_(payload);
+  const jobId = normalizeAnalysisJobId_(payload.jobId);
+  writeAnalysisJob_(jobId, {
+    status: "running",
+    updatedAt: new Date().toISOString(),
+  });
+
+  try {
+    const result = analyzeImage(payload);
+    const current = readAnalysisJob_(jobId);
+    if (current && current.status === "cancelled") {
+      return { status: "cancelled", jobId: jobId };
+    }
+
+    const completed = {
+      status: "succeeded",
+      jobId: jobId,
+      result: result,
+      updatedAt: new Date().toISOString(),
+    };
+    writeAnalysisJob_(jobId, completed);
+    return completed;
+  } catch (error) {
+    const current = readAnalysisJob_(jobId);
+    if (current && current.status === "cancelled") {
+      return { status: "cancelled", jobId: jobId };
+    }
+
+    const message = toChineseError_(error);
+    writeAnalysisJob_(jobId, {
+      status: "failed",
+      jobId: jobId,
+      message: message,
+      updatedAt: new Date().toISOString(),
+    });
+    throw new Error(message);
+  }
+}
+
+function getAnalysisJobStatus(payload) {
+  assertAccess_(payload);
+  const jobId = normalizeAnalysisJobId_(payload.jobId);
+  return readAnalysisJob_(jobId) || {
+    status: "pending",
+    jobId: jobId,
+  };
+}
+
+function cancelAnalysisJob(payload) {
+  assertAccess_(payload);
+  const jobId = normalizeAnalysisJobId_(payload.jobId);
+  writeAnalysisJob_(jobId, {
+    status: "cancelled",
+    jobId: jobId,
+    updatedAt: new Date().toISOString(),
+  });
+  return { ok: true };
+}
+
+function normalizeAnalysisJobId_(value) {
+  const jobId = String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 64);
+  if (jobId.length < 12) {
+    throw new Error("任务编号无效，请重新开始识别。");
+  }
+  return jobId;
+}
+
+function analysisJobCacheKey_(jobId) {
+  return "nbo_analysis_job_" + jobId;
+}
+
+function writeAnalysisJob_(jobId, value) {
+  const cache = CacheService.getScriptCache();
+  const key = analysisJobCacheKey_(jobId);
+  const serialized = JSON.stringify(value);
+  const chunks = Math.max(1, Math.ceil(serialized.length / ANALYSIS_JOB_CHUNK_SIZE));
+  const entries = {};
+
+  entries[key + "_meta"] = JSON.stringify({ chunks: chunks });
+  for (let index = 0; index < chunks; index += 1) {
+    entries[key + "_" + index] = serialized.slice(
+      index * ANALYSIS_JOB_CHUNK_SIZE,
+      (index + 1) * ANALYSIS_JOB_CHUNK_SIZE,
+    );
+  }
+  cache.putAll(entries, ANALYSIS_JOB_CACHE_SECONDS);
+}
+
+function readAnalysisJob_(jobId) {
+  const cache = CacheService.getScriptCache();
+  const key = analysisJobCacheKey_(jobId);
+  const metaRaw = cache.get(key + "_meta");
+  if (!metaRaw) return null;
+
+  try {
+    const meta = JSON.parse(metaRaw);
+    const chunkCount = Math.max(1, Number(meta.chunks || 1));
+    const keys = [];
+    for (let index = 0; index < chunkCount; index += 1) {
+      keys.push(key + "_" + index);
+    }
+    const values = cache.getAll(keys);
+    const serialized = keys.map((chunkKey) => values[chunkKey] || "").join("");
+    return serialized ? JSON.parse(serialized) : null;
+  } catch (error) {
+    return null;
   }
 }
 
