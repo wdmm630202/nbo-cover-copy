@@ -66,6 +66,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicEntry, /<iframe/);
   assert.match(publicEntry, /href="\.\/cover\.html"/);
   assert.match(publicEntry, /target="nbo-cover-studio"/);
+  assert.match(publicEntry, /class="workspace-nav"/);
+  assert.match(publicEntry, /position: fixed/);
   assert.match(publicEntry, /iframe \{[^}]*height: 100%;[^}]*top: 0;/);
   assert.doesNotMatch(publicEntry, /top:\s*-48px|calc\(100%\s*\+\s*48px\)/);
   assert.doesNotMatch(publicEntry, /http-equiv="refresh"|window\.location\.replace/);
@@ -87,13 +89,19 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /图片不上传、不保存/);
   assert.match(coverStudio, /全部同步/);
   assert.match(coverStudio, /同步文案/);
+  assert.match(coverStudio, /同步封面/);
   assert.match(coverStudio, /照片和构图保持不变/);
   assert.match(coverStudio, /BroadcastChannel/);
   assert.match(workspaceSync, /nbo-cover-copy-sync-v1/);
+  assert.match(workspaceSync, /NBO_COVER_IMAGE_READY/);
+  assert.match(workspaceSync, /NBO_COVER_IMAGE_REQUEST/);
   assert.match(coverWorkspaceEntry, /NBO_COVER_COPY_SELECTED|COVER_COPY_MESSAGE_TYPE/);
+  assert.match(coverWorkspaceEntry, /COVER_IMAGE_MESSAGE_TYPE/);
   assert.match(coverWorkspaceEntry, /localStorage\.setItem/);
   assert.match(aiPage, /NBO_COVER_COPY_SELECTED/);
+  assert.match(aiPage, /NBO_COVER_IMAGE_READY/);
   assert.match(aiPage, /publishCoverSelection/);
+  assert.match(aiPage, /publishCoverImage/);
   assert.match(coverConfig, /1080/);
   assert.match(coverConfig, /1920/);
   assert.match(coverConfig, /COVER_RULES_VERSION/);
@@ -102,6 +110,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /id="copyWorkspaceSwitch"/);
   assert.match(publicCover, /切换到文案页/);
   assert.match(publicCover, /id="syncAllCopy"/);
+  assert.match(publicCover, /id="syncCoverImage"/);
   assert.match(publicCover, /同步文案/);
   assert.doesNotMatch(publicCover, /返回智能文案/);
   assert.match(publicCoverScript, /0817/);
@@ -111,7 +120,10 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /nbo-cover-copy-sync-v1/);
   assert.match(publicCoverScript, /BroadcastChannel/);
   assert.match(publicCoverScript, /applySyncedCopy/);
+  assert.match(publicCoverScript, /applySyncedImage/);
+  assert.match(publicCoverScript, /NBO_COVER_IMAGE_REQUEST/);
   assert.match(publicEntry, /NBO_COVER_COPY_SELECTED/);
+  assert.match(publicEntry, /NBO_COVER_IMAGE_READY/);
   assert.match(publicEntry, /localStorage\.setItem/);
   assert.match(publicCoverScript, /image\/jpeg/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);

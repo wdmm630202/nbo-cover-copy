@@ -15,15 +15,35 @@
       .mark { width: 52px; height: 52px; margin-bottom: 8px; display: grid; place-items: center; color: white; background: #ff2442; border-radius: 16px; font: 800 30px/1 Georgia, serif; box-shadow: 0 10px 26px rgba(255,36,66,.24); }
       .viewport { width: 100%; height: 100%; position: relative; z-index: 1; overflow: hidden; }
       iframe { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: 0; background: #faf9f7; }
+      .workspace-nav {
+        width: min(1180px, calc(100% - 40px));
+        height: 84px;
+        padding: 0 4px;
+        position: fixed;
+        z-index: 5;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 20px;
+        border-bottom: 1px solid rgba(232,226,220,.82);
+        background: rgba(250,249,247,.94);
+        box-shadow: 0 12px 26px rgba(43,36,31,.04);
+        backdrop-filter: blur(18px);
+      }
+      .workspace-brand { display: flex; align-items: center; gap: 11px; }
+      .workspace-brand > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+      .workspace-brand-mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: #ff2442; color: #fff; font: 800 23px/1 Georgia, serif; box-shadow: 0 8px 22px rgba(255,36,66,.22); }
+      .workspace-brand strong { font-size: 14px; }
+      .workspace-brand small { color: #9a938c; font-size: 9px; }
+      .workspace-online { justify-self: end; padding: 9px 13px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid #e9e3dd; border-radius: 999px; background: rgba(255,255,255,.8); color: #6e6761; font-size: 10px; white-space: nowrap; }
+      .workspace-online i { width: 7px; height: 7px; border-radius: 50%; background: #26a26a; box-shadow: 0 0 0 4px rgba(38,162,106,.1); }
       .cover-entry {
         min-width: 126px;
         height: 48px;
         padding: 0 18px;
-        position: fixed;
-        z-index: 5;
-        left: 50%;
-        top: 18px;
-        transform: translateX(-50%);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -41,17 +61,26 @@
       }
       .cover-entry span { padding: 4px 7px; border-radius: 999px; background: #ff2442; font-size: 9px; }
       @media (max-width: 640px) {
-        .cover-entry { min-width: 112px; height: 43px; left: 50%; top: 10px; font-size: 12px; }
+        .workspace-nav { width: 100%; height: 68px; padding: 0 10px; grid-template-columns: 1fr auto; }
+        .workspace-brand small, .workspace-online { display: none; }
+        .cover-entry { min-width: 112px; height: 43px; font-size: 12px; }
       }
     </style>
   </head>
   <body>
-    <a
-      class="cover-entry"
-      href="./cover.html"
-      target="nbo-cover-studio"
-      aria-label="在独立标签页打开封面制作，保留当前文案结果"
-    ><span id="coverEntryBadge">新服务</span>制作封面</a>
+    <header class="workspace-nav">
+      <div class="workspace-brand">
+        <span class="workspace-brand-mark">N</span>
+        <span><strong>NBO 灵感封面</strong><small>真实识图 · 公开趋势 · 三平台文案</small></span>
+      </div>
+      <a
+        class="cover-entry"
+        href="./cover.html"
+        target="nbo-cover-studio"
+        aria-label="在独立标签页打开封面制作，保留当前文案结果"
+      ><span id="coverEntryBadge">新服务</span>制作封面</a>
+      <div class="workspace-online"><i></i>免费智能版在线</div>
+    </header>
     <div class="loading" aria-hidden="true">
       <div class="mark">N</div>
       <strong>正在进入南铂智能文案</strong>
@@ -71,6 +100,10 @@
         const channelName = "nbo-cover-copy-sync-channel-v1";
         const frame = document.querySelector("iframe");
         const badge = document.querySelector("#coverEntryBadge");
+        const channel = "BroadcastChannel" in window
+          ? new BroadcastChannel(channelName)
+          : null;
+        let imagePayload = null;
 
         try {
           const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
@@ -88,13 +121,28 @@
             hostname === "script.google.com" ||
             hostname === "script.googleusercontent.com" ||
             hostname.endsWith(".script.googleusercontent.com");
-          if (
-            !trusted ||
-            event.source !== frame.contentWindow ||
-            event.data?.type !== "NBO_COVER_COPY_SELECTED"
-          ) {
+          if (!trusted || event.source !== frame.contentWindow) return;
+
+          if (event.data?.type === "NBO_COVER_IMAGE_READY") {
+            const source = event.data.payload || {};
+            if (
+              typeof source.dataUrl !== "string" ||
+              !/^data:image\/(?:jpeg|png|webp);base64,/i.test(source.dataUrl) ||
+              source.dataUrl.length > 48000000
+            ) return;
+            imagePayload = {
+              dataUrl: source.dataUrl,
+              fileName: typeof source.fileName === "string" && source.fileName.trim()
+                ? source.fileName.trim().slice(0, 160)
+                : "文案页封面照片",
+              updatedAt: Number(source.updatedAt) || Date.now(),
+            };
+            badge.textContent = "可同步";
+            channel?.postMessage({ type: "NBO_COVER_IMAGE_READY", payload: imagePayload });
             return;
           }
+
+          if (event.data?.type !== "NBO_COVER_COPY_SELECTED") return;
 
           const source = event.data.payload || {};
           const payload = {
@@ -110,13 +158,16 @@
           try {
             localStorage.setItem(storageKey, JSON.stringify(payload));
             badge.textContent = "可同步";
-            if ("BroadcastChannel" in window) {
-              const channel = new BroadcastChannel(channelName);
-              channel.postMessage(payload);
-              channel.close();
-            }
+            channel?.postMessage(payload);
           } catch {}
         });
+
+        if (channel) {
+          channel.addEventListener("message", (event) => {
+            if (event.data?.type !== "NBO_COVER_IMAGE_REQUEST" || !imagePayload) return;
+            channel.postMessage({ type: "NBO_COVER_IMAGE_READY", payload: imagePayload });
+          });
+        }
       })();
     </script>
   </body>

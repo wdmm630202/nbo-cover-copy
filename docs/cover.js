@@ -2,6 +2,8 @@ const ACCESS_KEY = "nbo_cover_access_until";
 const SETTINGS_KEY = "nbo_cover_settings_v1";
 const COPY_SYNC_KEY = "nbo-cover-copy-sync-v1";
 const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
+const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
+const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
@@ -30,6 +32,10 @@ const canvas = $("#coverCanvas");
 const accessGate = $("#accessGate");
 const coverPage = $("#coverPage");
 let syncedCopy = null;
+let syncedImage = null;
+const syncChannel = "BroadcastChannel" in window
+  ? new BroadcastChannel(COPY_SYNC_CHANNEL)
+  : null;
 
 function normalizeSyncedCopy(value) {
   if (!value || typeof value !== "object") return null;
@@ -46,21 +52,41 @@ function normalizeSyncedCopy(value) {
   };
 }
 
+function normalizeSyncedImage(value) {
+  if (!value || typeof value !== "object") return null;
+  if (
+    typeof value.dataUrl !== "string" ||
+    !/^data:image\/(?:jpeg|png|webp);base64,/i.test(value.dataUrl) ||
+    value.dataUrl.length > 48000000
+  ) return null;
+  return {
+    dataUrl: value.dataUrl,
+    fileName: typeof value.fileName === "string" && value.fileName.trim()
+      ? value.fileName.trim().slice(0, 160)
+      : "文案页封面照片",
+    updatedAt: Number(value.updatedAt) || Date.now(),
+  };
+}
+
 function updateSyncUi() {
-  const ready = Boolean(syncedCopy);
-  $("#copySync").classList.toggle("ready", ready);
-  $("#copySyncTitle").textContent = ready
+  const copyReady = Boolean(syncedCopy);
+  const imageReady = Boolean(syncedImage);
+  $("#copySync").classList.toggle("ready", copyReady || imageReady);
+  $("#copySyncTitle").textContent = copyReady
     ? `${syncedCopy.topText} / ${syncedCopy.bottomText}`
     : "等待文案页方案";
-  $("#copySyncTitle").title = ready
+  $("#copySyncTitle").title = copyReady
     ? `${syncedCopy.topText} / ${syncedCopy.bottomText}`
     : "";
-  $("#copySyncDetail").textContent = ready
-    ? `${syncedCopy.platform} · 方案 ${String(syncedCopy.selectionIndex + 1).padStart(2, "0")} · 不会覆盖照片与构图`
-    : "识别完成并选择方案后，可同步两行封面文字";
-  ["syncAllCopy", "syncTopCopy", "syncBottomCopy"].forEach((id) => {
-    $(`#${id}`).disabled = !ready;
-  });
+  $("#copySyncDetail").textContent = copyReady
+    ? `${syncedCopy.platform} · 方案 ${String(syncedCopy.selectionIndex + 1).padStart(2, "0")} · ${imageReady ? "封面照片已就绪" : "等待封面照片"} · 不会自动覆盖`
+    : imageReady
+      ? "封面照片已就绪，可单独同步"
+      : "识别完成并选择方案后，可同步封面照片与文字";
+  $("#syncAllCopy").disabled = !copyReady && !imageReady;
+  $("#syncTopCopy").disabled = !copyReady;
+  $("#syncBottomCopy").disabled = !copyReady;
+  $("#syncCoverImage").disabled = !imageReady;
 }
 
 function acceptSyncedCopy(value, live = false) {
@@ -71,11 +97,18 @@ function acceptSyncedCopy(value, live = false) {
   if (live) setStatus("文案页有新方案，可按需同步到封面");
 }
 
+function acceptSyncedImage(value, live = false) {
+  const next = normalizeSyncedImage(value);
+  if (!next) return;
+  syncedImage = next;
+  updateSyncUi();
+  if (live) setStatus("文案页封面照片已就绪，可按需同步");
+}
+
 try {
   acceptSyncedCopy(JSON.parse(localStorage.getItem(COPY_SYNC_KEY) || "null"));
-} catch {
-  updateSyncUi();
-}
+} catch {}
+updateSyncUi();
 
 window.addEventListener("storage", (event) => {
   if (event.key !== COPY_SYNC_KEY || !event.newValue) return;
@@ -86,9 +119,15 @@ window.addEventListener("storage", (event) => {
   }
 });
 
-if ("BroadcastChannel" in window) {
-  const syncChannel = new BroadcastChannel(COPY_SYNC_CHANNEL);
-  syncChannel.addEventListener("message", (event) => acceptSyncedCopy(event.data, true));
+if (syncChannel) {
+  syncChannel.addEventListener("message", (event) => {
+    if (event.data?.type === IMAGE_MESSAGE_TYPE) {
+      acceptSyncedImage(event.data.payload, true);
+      return;
+    }
+    acceptSyncedCopy(event.data, true);
+  });
+  syncChannel.postMessage({ type: IMAGE_REQUEST_TYPE });
 }
 
 $("#copyWorkspaceSwitch").addEventListener("click", () => {
@@ -116,9 +155,44 @@ function applySyncedCopy(field) {
   );
 }
 
-$("#syncAllCopy").addEventListener("click", () => applySyncedCopy("all"));
+function applySyncedImage(quiet = false) {
+  if (!syncedImage) return setStatus("文案页原图暂不可用，请保持文案页打开并重新上传图片");
+  const nextImage = new Image();
+  nextImage.onload = () => {
+    state.image = nextImage;
+    state.fileName = syncedImage.fileName;
+    $("#uploadTitle").textContent = "更换照片";
+    $("#fileName").textContent = syncedImage.fileName;
+    draw();
+    if (!quiet) setStatus("文案页封面照片已同步，文字和构图保持不变");
+  };
+  nextImage.onerror = () => setStatus("封面照片读取没有完成，请在文案页重新上传");
+  nextImage.src = syncedImage.dataUrl;
+}
+
+function applyAllSync() {
+  if (!syncedCopy && !syncedImage) return setStatus("请先在文案页上传图片并选择一组方案");
+  if (syncedCopy) {
+    state.topText = syncedCopy.topText;
+    state.bottomText = syncedCopy.bottomText;
+    updateUi();
+    saveSettings();
+    draw();
+  }
+  if (syncedImage) applySyncedImage(true);
+  setStatus(
+    syncedCopy && syncedImage
+      ? "封面照片和两行文案已同步，构图设置保持不变"
+      : syncedImage
+        ? "封面照片已同步，文字和构图保持不变"
+        : "两行封面文案已同步，照片和构图保持不变",
+  );
+}
+
+$("#syncAllCopy").addEventListener("click", applyAllSync);
 $("#syncTopCopy").addEventListener("click", () => applySyncedCopy("topText"));
 $("#syncBottomCopy").addEventListener("click", () => applySyncedCopy("bottomText"));
+$("#syncCoverImage").addEventListener("click", () => applySyncedImage());
 
 function unlock() {
   localStorage.setItem(ACCESS_KEY, String(Date.now() + ACCESS_DAYS * 86400000));

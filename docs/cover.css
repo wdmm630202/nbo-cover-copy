@@ -20,7 +20,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .access-card button { width: 100%; height: 50px; margin-top: 14px; border: 0; border-radius: 13px; background: var(--red); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
 .access-card small { min-height: 18px; margin-top: 12px; display: block; color: var(--red); font-size: 10px; }
 .cover-page { min-height: 100vh; padding-bottom: 60px; }
-.studio-header { width: min(1480px, calc(100% - 40px)); min-height: 76px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.studio-header { width: min(1480px, calc(100% - 40px)); min-height: 76px; margin: 0 auto; position: sticky; z-index: 20; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: rgba(247,245,242,.92); backdrop-filter: blur(16px); }
 .brand { display: flex; align-items: center; gap: 11px; color: var(--ink); text-decoration: none; }
 .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: #202020; color: #fff; font: 800 23px/1 Georgia, serif; box-shadow: 0 8px 20px rgba(0,0,0,.16); }
 .brand > span:last-child, .header-actions, .panel-heading > span, .preview-toolbar > span, .export-row > span { display: flex; flex-direction: column; gap: 2px; }
@@ -50,11 +50,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .copy-sync button, .field-title button { border: 0; border-radius: 999px; background: var(--red); color: #fff; font-weight: 750; cursor: pointer; }
 .copy-sync button { min-height: 34px; padding: 0 12px; font-size: 9px; }
 .copy-sync button:disabled, .field-title button:disabled { background: #ded9d4; color: #9b948e; cursor: default; }
+.upload-wrap { position: relative; }
 .upload { min-height: 76px; padding: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1.5px dashed #d8d0c8; border-radius: 15px; background: #faf8f5; cursor: pointer; }
 .upload.dragging { border-color: var(--red); background: #fff1f3; }
 .upload input { display: none; }
 .upload strong { font-size: 13px; }
 .upload small { max-width: 250px; overflow: hidden; color: #9a928b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.image-sync { min-height: 28px; padding: 0 10px; position: absolute; z-index: 2; top: 8px; right: 8px; border: 0; border-radius: 999px; background: var(--red); color: #fff; font-size: 8px; font-weight: 750; cursor: pointer; }
+.image-sync:disabled { background: #ded9d4; color: #9b948e; cursor: default; }
 .field { margin-top: 14px; display: block; }
 .field > span, .field-title { margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; color: #5f5954; font-size: 10px; font-weight: 700; }
 .field span b, .field-title b { color: #a29b94; font-size: 9px; }

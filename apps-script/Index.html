@@ -918,6 +918,7 @@
           state.imageName = file.name;
           state.imageSize = prepared.width + " × " + prepared.height;
           previewImage.src = prepared.previewUrl;
+          publishCoverImage(prepared.previewUrl, file.name);
           previewSize.textContent = state.imageSize;
           previewName.textContent = file.name;
           uploadEmpty.classList.add("is-hidden");
@@ -1295,6 +1296,18 @@
             bottomText: String(item.bottom).trim().slice(0, 18),
             platform: state.platform,
             selectionIndex: state.selected,
+            updatedAt: Date.now(),
+          },
+        }, "*");
+      }
+
+      function publishCoverImage(dataUrl, fileName) {
+        if (!dataUrl || window.parent === window) return;
+        window.parent.postMessage({
+          type: "NBO_COVER_IMAGE_READY",
+          payload: {
+            dataUrl: dataUrl,
+            fileName: String(fileName || "文案页封面照片").trim().slice(0, 160),
             updatedAt: Date.now(),
           },
         }, "*");

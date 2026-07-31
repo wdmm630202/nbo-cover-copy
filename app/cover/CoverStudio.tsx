@@ -19,8 +19,12 @@ import {
 import {
   COVER_COPY_SYNC_CHANNEL,
   COVER_COPY_SYNC_KEY,
+  COVER_IMAGE_MESSAGE_TYPE,
+  COVER_IMAGE_REQUEST_TYPE,
   CoverCopySync,
+  CoverImageSync,
   normalizeCoverCopySync,
+  normalizeCoverImageSync,
 } from "../workspace-sync";
 
 type StudioSettings = {
@@ -330,6 +334,7 @@ export default function CoverStudio() {
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
+  const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -359,6 +364,12 @@ export default function CoverStudio() {
       setSyncedCopy(next);
       if (isLiveUpdate) setNotice("文案页有新方案，可按需同步到封面");
     };
+    const acceptImageSync = (value: unknown, isLiveUpdate = false) => {
+      const next = normalizeCoverImageSync(value);
+      if (!next) return;
+      setSyncedImage(next);
+      if (isLiveUpdate) setNotice("文案页封面照片已就绪，可按需同步");
+    };
 
     const timer = window.setTimeout(() => {
       try {
@@ -380,7 +391,16 @@ export default function CoverStudio() {
     const channel = "BroadcastChannel" in window
       ? new BroadcastChannel(COVER_COPY_SYNC_CHANNEL)
       : null;
-    if (channel) channel.onmessage = (event) => acceptSync(event.data, true);
+    if (channel) {
+      channel.onmessage = (event) => {
+        if (event.data?.type === COVER_IMAGE_MESSAGE_TYPE) {
+          acceptImageSync(event.data.payload, true);
+          return;
+        }
+        acceptSync(event.data, true);
+      };
+      channel.postMessage({ type: COVER_IMAGE_REQUEST_TYPE });
+    }
     window.addEventListener("storage", handleStorage);
 
     return () => {
@@ -422,6 +442,46 @@ export default function CoverStudio() {
           : "下行文案已同步",
     );
   }, [syncedCopy]);
+
+  const applySyncedImage = useCallback((quiet = false) => {
+    if (!syncedImage) {
+      setNotice("文案页原图暂不可用，请保持文案页打开并重新上传图片");
+      return;
+    }
+
+    const nextImage = new Image();
+    nextImage.onload = () => {
+      setImage(nextImage);
+      setFileName(syncedImage.fileName);
+      if (!quiet) setNotice("文案页封面照片已同步，文字和构图保持不变");
+    };
+    nextImage.onerror = () => {
+      setNotice("封面照片读取没有完成，请在文案页重新上传");
+    };
+    nextImage.src = syncedImage.dataUrl;
+  }, [syncedImage]);
+
+  const applyAllSync = useCallback(() => {
+    if (!syncedCopy && !syncedImage) {
+      setNotice("请先在文案页上传图片并选择一组方案");
+      return;
+    }
+    if (syncedCopy) {
+      setSettings((current) => ({
+        ...current,
+        topText: syncedCopy.topText,
+        bottomText: syncedCopy.bottomText,
+      }));
+    }
+    if (syncedImage) applySyncedImage(true);
+    setNotice(
+      syncedCopy && syncedImage
+        ? "封面照片和两行文案已同步，构图设置保持不变"
+        : syncedImage
+          ? "封面照片已同步，文字和构图保持不变"
+          : "两行封面文案已同步，照片和构图保持不变",
+    );
+  }, [applySyncedImage, syncedCopy, syncedImage]);
 
   const loadFile = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -508,18 +568,20 @@ export default function CoverStudio() {
             </div>
           </div>
 
-          <div className={`studio-copy-sync ${syncedCopy ? "is-ready" : ""}`}>
+          <div className={`studio-copy-sync ${syncedCopy || syncedImage ? "is-ready" : ""}`}>
             <div>
               <strong title={syncedCopy ? `${syncedCopy.topText} / ${syncedCopy.bottomText}` : undefined}>
                 {syncedCopy ? `${syncedCopy.topText} / ${syncedCopy.bottomText}` : "等待文案页方案"}
               </strong>
               <small>
                 {syncedCopy
-                  ? `${syncedCopy.platform} · 方案 ${String(syncedCopy.selectionIndex + 1).padStart(2, "0")} · 不会覆盖照片与构图`
-                  : "识别完成并选择方案后，可同步两行封面文字"}
+                  ? `${syncedCopy.platform} · 方案 ${String(syncedCopy.selectionIndex + 1).padStart(2, "0")} · ${syncedImage ? "封面照片已就绪" : "等待封面照片"} · 不会自动覆盖`
+                  : syncedImage
+                    ? "封面照片已就绪，可单独同步"
+                    : "识别完成并选择方案后，可同步封面照片与文字"}
               </small>
             </div>
-            <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("all")}>
+            <button type="button" disabled={!syncedCopy && !syncedImage} onClick={applyAllSync}>
               全部同步
             </button>
           </div>
@@ -539,9 +601,17 @@ export default function CoverStudio() {
               accept="image/jpeg,image/png,image/webp"
               onChange={handleFile}
             />
-            <button type="button" onClick={() => fileInputRef.current?.click()}>
+            <button className="studio-upload-main" type="button" onClick={() => fileInputRef.current?.click()}>
               <b>{image ? "更换照片" : "上传照片"}</b>
               <span>{fileName || "支持 JPG、PNG、WEBP"}</span>
+            </button>
+            <button
+              className="studio-image-sync"
+              type="button"
+              disabled={!syncedImage}
+              onClick={() => applySyncedImage()}
+            >
+              同步封面
             </button>
           </div>
 
