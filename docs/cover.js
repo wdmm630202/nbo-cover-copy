@@ -49,7 +49,12 @@ function normalizeSyncedCopy(value) {
 function updateSyncUi() {
   const ready = Boolean(syncedCopy);
   $("#copySync").classList.toggle("ready", ready);
-  $("#copySyncTitle").textContent = ready ? "已连接文案页当前方案" : "等待文案页方案";
+  $("#copySyncTitle").textContent = ready
+    ? `${syncedCopy.topText} / ${syncedCopy.bottomText}`
+    : "等待文案页方案";
+  $("#copySyncTitle").title = ready
+    ? `${syncedCopy.topText} / ${syncedCopy.bottomText}`
+    : "";
   $("#copySyncDetail").textContent = ready
     ? `${syncedCopy.platform} · 方案 ${String(syncedCopy.selectionIndex + 1).padStart(2, "0")} · 不会覆盖照片与构图`
     : "识别完成并选择方案后，可同步两行封面文字";

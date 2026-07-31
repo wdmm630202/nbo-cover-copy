@@ -510,7 +510,9 @@ export default function CoverStudio() {
 
           <div className={`studio-copy-sync ${syncedCopy ? "is-ready" : ""}`}>
             <div>
-              <strong>{syncedCopy ? "已连接文案页当前方案" : "等待文案页方案"}</strong>
+              <strong title={syncedCopy ? `${syncedCopy.topText} / ${syncedCopy.bottomText}` : undefined}>
+                {syncedCopy ? `${syncedCopy.topText} / ${syncedCopy.bottomText}` : "等待文案页方案"}
+              </strong>
               <small>
                 {syncedCopy
                   ? `${syncedCopy.platform} · 方案 ${String(syncedCopy.selectionIndex + 1).padStart(2, "0")} · 不会覆盖照片与构图`
