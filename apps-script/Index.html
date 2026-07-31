@@ -566,8 +566,8 @@
             智能推荐（首选）
             <span>由图片、当下数据和平台受众自动决定字数</span>
           </button>
-          <label class="length-field is-disabled" id="topLengthField">上行 <input id="topLengthInput" type="number" min="3" max="16" value="7" disabled /> 字</label>
-          <label class="length-field is-disabled" id="bottomLengthField">下行 <input id="bottomLengthInput" type="number" min="3" max="16" value="8" disabled /> 字</label>
+          <label class="length-field is-disabled" id="topLengthField">上行 <input id="topLengthInput" type="number" min="3" max="16" value="7" readonly aria-disabled="true" /> 字</label>
+          <label class="length-field is-disabled" id="bottomLengthField">下行 <input id="bottomLengthInput" type="number" min="3" max="16" value="8" readonly aria-disabled="true" /> 字</label>
           <button class="cover-apply" id="coverApplyButton" type="button" disabled>按此设置重新生成</button>
           <div class="cover-decision" id="coverDecision">当前采用智能推荐：不硬凑 7+8，系统会为每组选择更自然、更适合封面阅读的长度。点击上下行字数即可切换为手动模式。</div>
         </div>
@@ -774,8 +774,10 @@
         state.coverMode = mode === "manual" ? "manual" : "smart";
         const manual = state.coverMode === "manual";
         smartModeButton.setAttribute("aria-pressed", String(!manual));
-        topLengthInput.disabled = !manual;
-        bottomLengthInput.disabled = !manual;
+        topLengthInput.readOnly = !manual;
+        bottomLengthInput.readOnly = !manual;
+        topLengthInput.setAttribute("aria-disabled", String(!manual));
+        bottomLengthInput.setAttribute("aria-disabled", String(!manual));
         topLengthField.classList.toggle("is-disabled", !manual);
         bottomLengthField.classList.toggle("is-disabled", !manual);
         coverApplyButton.disabled = !manual || !state.result;
