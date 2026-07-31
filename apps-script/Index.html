@@ -250,6 +250,28 @@
       .trend-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
       .trend-head strong { font-size: 12px; }
       .trend-head small { color: #aaa39c; font-size: 10px; }
+      .trend-method {
+        margin-top: 14px;
+        padding: 16px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        border: 1px solid #ffe0e5;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #fff5f7, #fffdfd);
+      }
+      .trend-method-badge {
+        padding: 7px 9px;
+        border-radius: 9px;
+        background: var(--red);
+        color: white;
+        font-size: 10px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .trend-method strong { display: block; margin-bottom: 5px; color: #403a36; font-size: 12px; }
+      .trend-method p { margin: 0; color: #827a75; font-size: 10px; line-height: 1.7; }
 
       .refresh-button {
         padding: 10px 16px;
@@ -413,8 +435,8 @@
         <div class="hero-copy">
           <span class="kicker"><i></i> FREE AI PERSONAL STUDIO</span>
           <h1>看懂图片，再写<br /><em>当下能发的文案</em></h1>
-          <p>固定 7+8 字只负责封面；标题、描述和话题则按小红书、抖音、视频号的不同受众分别生成。每次先看懂图片，再决定钩子、表情和转化方向。</p>
-          <div class="feature-row"><span>真实图像理解</span><b>·</b><span>双服务自动切换</span><b>·</b><span>三平台独立文案</span></div>
+          <p>固定 7+8 字只负责封面；每次生成前现查公开趋势，先发散 12 个不同创意角度，再按图片、受众和平台筛出最值得发布的 3 组。</p>
+          <div class="feature-row"><span>本次实时采集</span><b>·</b><span>12 选 3 创意筛选</span><b>·</b><span>三平台独立判断</span></div>
         </div>
 
         <div class="upload-card" id="uploadCard">
@@ -457,8 +479,15 @@
           <div class="setting-hint">可写产品卖点或本次发布目的，不能替代图片事实</div>
         </div>
         <div class="trend-panel is-hidden" id="trendPanel">
-          <div class="trend-head"><strong>当前公开趋势信号</strong><small id="trendMeta"></small></div>
+          <div class="trend-head"><strong>本次现查的公开趋势信号</strong><small id="trendMeta"></small></div>
           <div class="trend-list" id="trendList"></div>
+          <div class="trend-method">
+            <span class="trend-method-badge">前沿筛选</span>
+            <div>
+              <strong>先发散 12 个创意角度，只保留最有机会的 3 个</strong>
+              <p id="trendSelection">图片相关性优先，过时套话和无关热点自动降权，三个平台分别判断。</p>
+            </div>
+          </div>
         </div>
 
         <div class="section-heading result-heading">
@@ -509,7 +538,7 @@
           <button id="copyAll">复制当前平台整套内容</button>
         </div>
       </section>
-      <footer><span>NBO 灵感封面 · 免费智能版</span><span>真实识图，不套模板 · 公开趋势，来源透明</span></footer>
+      <footer><span>NBO 灵感封面 · 免费智能版</span><span>本次现查，不套模板 · 12 选 3，来源透明</span></footer>
     </main>
     <div class="toast is-hidden" id="toast">已复制</div>
 
@@ -587,6 +616,7 @@
       const trendPanel = $("#trendPanel");
       const trendMeta = $("#trendMeta");
       const trendList = $("#trendList");
+      const trendSelection = $("#trendSelection");
       const refreshButton = $("#refreshButton");
       const copyGrid = $("#copyGrid");
       const titleText = $("#titleText");
@@ -760,9 +790,7 @@
         insightTitle.textContent = result.insight.category + "｜已看懂图片";
         insightDescription.textContent = result.insight.summary + (result.insight.contentOpportunity ? "｜传播机会：" + result.insight.contentOpportunity : "");
         setTags((result.insight.evidence || []).concat(result.insight.emotionalTone ? ["画面情绪：" + result.insight.emotionalTone] : []));
-        trendPanel.classList.remove("is-hidden");
-        trendMeta.textContent = result.trendSource + " · " + result.trendTime;
-        renderTrendTerms(result.trends);
+        renderTrendSignals(result);
         renderCards();
         renderPublish();
         refreshButton.disabled = false;
@@ -805,7 +833,12 @@
           .withSuccessHandler((result) => {
             state.result.sets = result.sets;
             state.result.context = result.context;
+            state.result.trends = result.trends;
+            state.result.trendSource = result.trendSource;
+            state.result.trendTime = result.trendTime;
+            state.result.strategyMeta = result.strategyMeta;
             state.selected = 0;
+            renderTrendSignals(state.result);
             renderCards();
             renderPublish();
             refreshButton.disabled = false;
@@ -901,6 +934,19 @@
           span.textContent = term;
           trendList.appendChild(span);
         });
+      }
+
+      function renderTrendSignals(result) {
+        const strategy = result.strategyMeta || {};
+        trendPanel.classList.remove("is-hidden");
+        trendMeta.textContent =
+          (result.trendSource || "图片语义相关词") +
+          " · " +
+          (result.trendTime || "本次生成");
+        trendSelection.textContent =
+          strategy.selection ||
+          "先发散不同角度，再按图片相关性、新鲜度、平台匹配和用户价值筛选；过时套话与无关热点自动降权。";
+        renderTrendTerms(result.trends);
       }
 
       function setTags(tags) {

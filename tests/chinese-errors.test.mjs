@@ -67,6 +67,7 @@ test("繁忙时只重试临时错误并自动切换免费稳定模型", async ()
   assert.doesNotMatch(source, /gemini-2\.5-flash/);
   assert.doesNotMatch(source, /gemini-3-flash-preview/);
   assert.match(source, /thinkingLevel:\s*"minimal"/);
+  assert.match(source, /\{ thinkingLevel: "low", temperature: 0\.9 \}/);
   assert.match(source, /maxOutputTokens:/);
   assert.doesNotMatch(source, /temperature:\s*temperature/);
 
@@ -147,4 +148,26 @@ globalThis.__copyTest = {
       assert.ok(item.platforms[key].topics.length >= 2);
     });
   });
+});
+
+test("爆款生成先现查趋势、发散十二个角度并筛选三组", async () => {
+  const [source, page] = await Promise.all([
+    readFile(new URL("apps-script/Code.gs", root), "utf8"),
+    readFile(new URL("apps-script/Index.html", root), "utf8"),
+  ]);
+
+  assert.match(source, /const TREND_CACHE_SECONDS = 600/);
+  assert.match(source, /const VIRAL_CANDIDATE_COUNT = 12/);
+  assert.match(source, /Google公开搜索联想/);
+  assert.match(source, /Bing公开搜索联想/);
+  assert.match(source, /百度公开搜索联想/);
+  assert.match(source, /先发散12个不同创意角度/);
+  assert.match(source, /图片相关性30分、新鲜度20分、平台匹配20分/);
+  assert.match(source, /过时套话和无关热词自动降权/);
+  assert.match(source, /一个热词只有与图片至少一半内容强相关时才可采用/);
+  assert.match(source, /sets\.sort/);
+
+  assert.match(page, /本次现查的公开趋势信号/);
+  assert.match(page, /先发散 12 个创意角度，只保留最有机会的 3 个/);
+  assert.match(page, /本次现查，不套模板 · 12 选 3/);
 });

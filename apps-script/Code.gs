@@ -8,6 +8,8 @@ const GEMINI_COPY_MODELS = [
 ];
 const GEMINI_RETRY_ROUNDS = 2;
 const MAX_IMAGE_BASE64_LENGTH = 7000000;
+const TREND_CACHE_SECONDS = 600;
+const VIRAL_CANDIDATE_COUNT = 12;
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
@@ -40,7 +42,8 @@ function analyzeImage(payload) {
       INSIGHT_SCHEMA,
       image,
       GEMINI_INSIGHT_MODELS,
-      2048
+      2048,
+      { thinkingLevel: "minimal", temperature: 0.2 }
     );
     const trend = collectPublicTrends_(insight.searchQueries || [], insight.keywords || []);
     const result = generateCopy_(insight, trend, brandNote, seed);
@@ -59,6 +62,7 @@ function analyzeImage(payload) {
       trends: trend.terms,
       trendSource: trend.sources.join(" + "),
       trendTime: trend.time,
+      strategyMeta: buildStrategyMeta_(trend),
       sets: result.sets,
       context: {
         insight: insight,
@@ -80,14 +84,22 @@ function refreshCopy(payload) {
 
     const brandNote = cleanText_(payload.brandNote || payload.context.brandNote, 120);
     const seed = Number(payload.seed || Date.now());
-    const result = generateCopy_(payload.context.insight, payload.context.trends, brandNote, seed);
+    const trend = collectPublicTrends_(
+      payload.context.insight.searchQueries || [],
+      payload.context.insight.keywords || [],
+    );
+    const result = generateCopy_(payload.context.insight, trend, brandNote, seed);
 
     return {
       ok: true,
       sets: result.sets,
+      trends: trend.terms,
+      trendSource: trend.sources.join(" + "),
+      trendTime: trend.time,
+      strategyMeta: buildStrategyMeta_(trend),
       context: {
         insight: payload.context.insight,
-        trends: payload.context.trends,
+        trends: trend,
         brandNote: brandNote,
       },
     };
@@ -99,7 +111,14 @@ function refreshCopy(payload) {
 function generateCopy_(insight, trend, brandNote, seed) {
   const prompt = buildCopyPrompt_(insight, trend, brandNote, seed);
   let result = normalizeCopyResult_(
-    callGeminiJson_(prompt, COPY_SCHEMA, null, GEMINI_COPY_MODELS, 8192)
+    callGeminiJson_(
+      prompt,
+      COPY_SCHEMA,
+      null,
+      GEMINI_COPY_MODELS,
+      8192,
+      { thinkingLevel: "low", temperature: 0.9 },
+    )
   );
   const issues = getCopyValidationIssues_(result);
 
@@ -116,7 +135,7 @@ function generateCopy_(insight, trend, brandNote, seed) {
   return result;
 }
 
-function callGeminiJson_(prompt, schema, image, modelOrder, maxOutputTokens) {
+function callGeminiJson_(prompt, schema, image, modelOrder, maxOutputTokens, options) {
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
   if (!apiKey) throw new Error("智能服务尚未完成后台配置。");
   const models = Array.isArray(modelOrder) && modelOrder.length
@@ -133,14 +152,20 @@ function callGeminiJson_(prompt, schema, image, modelOrder, maxOutputTokens) {
     });
   }
 
+  const generationOptions = options || {};
   const requestBody = {
     contents: [{ role: "user", parts: parts }],
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: schema,
       thinkingConfig: {
-        thinkingLevel: "minimal",
+        thinkingLevel: generationOptions.thinkingLevel || "minimal",
       },
+      temperature: Number(
+        typeof generationOptions.temperature === "number"
+          ? generationOptions.temperature
+          : 0.4,
+      ),
       maxOutputTokens: Number(maxOutputTokens || 8192),
     },
   };
@@ -236,6 +261,15 @@ function diagnoseGeminiService() {
     INSIGHT_SCHEMA,
     null
   );
+}
+
+function diagnoseTrendService() {
+  const result = collectPublicTrends_(
+    ["男士写真", "男士写真怎么拍", "男士写真风格", "男士写真本月新需求"],
+    ["男士写真", "自然引导", "明码实价"],
+  );
+  console.log(JSON.stringify(result));
+  return result;
 }
 
 function parseGeminiJson_(text) {
@@ -337,6 +371,17 @@ function toChineseError_(error, statusCode) {
 
 function collectPublicTrends_(queries, fallbackKeywords) {
   const cleanQueries = normalizeTextArray_(queries, 4, 30);
+  const cache = CacheService.getScriptCache();
+  const cacheKey = buildTrendCacheKey_(cleanQueries);
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (error) {
+      // Ignore malformed cache data and collect a fresh set of signals.
+    }
+  }
+
   const requests = [];
 
   cleanQueries.forEach(function (query) {
@@ -352,9 +397,16 @@ function collectPublicTrends_(queries, fallbackKeywords) {
       muteHttpExceptions: true,
       headers: { "User-Agent": "Mozilla/5.0 NBO-Cover-Copy/1.0" },
     });
+    requests.push({
+      url:
+        "https://www.baidu.com/sugrec?prod=pc&wd=" +
+        encodeURIComponent(query),
+      muteHttpExceptions: true,
+      headers: { "User-Agent": "Mozilla/5.0 NBO-Cover-Copy/1.0" },
+    });
   });
 
-  const terms = [];
+  const signalMap = {};
   const sources = [];
 
   if (requests.length) {
@@ -362,14 +414,19 @@ function collectPublicTrends_(queries, fallbackKeywords) {
     responses.forEach(function (response, index) {
       if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) return;
       try {
-        const parsed = JSON.parse(response.getContentText());
-        const suggestions = Array.isArray(parsed[1]) ? parsed[1] : [];
-        suggestions.forEach(function (item) {
-          const value = typeof item === "string" ? item : item && item.phrase;
-          const cleaned = cleanText_(value, 32);
-          if (cleaned && cleaned.length >= 2 && terms.indexOf(cleaned) === -1) terms.push(cleaned);
+        const engineIndex = index % 3;
+        const suggestions = parseTrendSuggestions_(
+          response.getContentText(),
+          engineIndex,
+        );
+        const source = [
+          "Google公开搜索联想",
+          "Bing公开搜索联想",
+          "百度公开搜索联想",
+        ][engineIndex];
+        suggestions.slice(0, 10).forEach(function (item, rank) {
+          addTrendSignal_(signalMap, item, source, rank, false);
         });
-        const source = index % 2 === 0 ? "Google公开搜索联想" : "Bing公开搜索联想";
         if (suggestions.length && sources.indexOf(source) === -1) sources.push(source);
       } catch (error) {
         // Public suggestion endpoints can occasionally return a non-JSON response.
@@ -378,26 +435,121 @@ function collectPublicTrends_(queries, fallbackKeywords) {
   }
 
   normalizeTextArray_(fallbackKeywords, 8, 18).forEach(function (item) {
-    if (terms.indexOf(item) === -1) terms.push(item);
+    addTrendSignal_(signalMap, item, "图片语义相关词", 10, true);
   });
 
-  return {
-    terms: terms.slice(0, 12),
+  const rankedTerms = Object.keys(signalMap)
+    .map(function (key) {
+      const item = signalMap[key];
+      item.totalScore = item.score + item.sources.length * 10;
+      return item;
+    })
+    .sort(function (left, right) {
+      if (right.totalScore !== left.totalScore) return right.totalScore - left.totalScore;
+      return left.value.localeCompare(right.value, "zh-CN");
+    })
+    .slice(0, 15)
+    .map(function (item) {
+      return item.value;
+    });
+
+  const collectedAt = new Date();
+  const result = {
+    terms: rankedTerms,
     sources: sources.length ? sources : ["图片语义相关词"],
-    time: Utilities.formatDate(new Date(), "Asia/Shanghai", "yyyy-MM-dd HH:mm"),
+    time: Utilities.formatDate(collectedAt, "Asia/Shanghai", "yyyy-MM-dd HH:mm"),
+    collectedAt: collectedAt.toISOString(),
+    freshness: "本次生成前现查，最多缓存10分钟",
+  };
+
+  cache.put(cacheKey, JSON.stringify(result), TREND_CACHE_SECONDS);
+  return result;
+}
+
+function buildTrendCacheKey_(queries) {
+  const digest = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    JSON.stringify(queries || []),
+    Utilities.Charset.UTF_8,
+  );
+  const encoded = Utilities.base64EncodeWebSafe(digest)
+    .replace(/=+$/g, "")
+    .slice(0, 36);
+  return "nbo_trend_v2_" + encoded;
+}
+
+function parseTrendSuggestions_(text, engineIndex) {
+  const parsed = JSON.parse(String(text || ""));
+  if (engineIndex === 2) {
+    return (Array.isArray(parsed.g) ? parsed.g : [])
+      .map(function (item) {
+        return item && item.q;
+      })
+      .filter(Boolean);
+  }
+  return Array.isArray(parsed[1])
+    ? parsed[1].map(function (item) {
+        return typeof item === "string" ? item : item && item.phrase;
+      }).filter(Boolean)
+    : [];
+}
+
+function addTrendSignal_(signalMap, value, source, rank, isFallback) {
+  const cleaned = cleanText_(value, 36)
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned || codePointLength_(cleaned) < 2) return;
+
+  const key = cleaned.toLowerCase();
+  if (!signalMap[key]) {
+    signalMap[key] = {
+      value: cleaned,
+      score: 0,
+      sources: [],
+    };
+  }
+
+  const item = signalMap[key];
+  item.score += isFallback
+    ? 3
+    : 22 + Math.max(0, 10 - Number(rank || 0)) * 2;
+  if (/2026|今年|最近|最新|本月|当下|趋势|新/.test(cleaned)) {
+    item.score += 6;
+  }
+  if (item.sources.indexOf(source) === -1) item.sources.push(source);
+}
+
+function buildStrategyMeta_(trend) {
+  return {
+    mode: "实时趋势爆款筛选",
+    candidateCount: VIRAL_CANDIDATE_COUNT,
+    selectedCount: 3,
+    freshness: trend && trend.freshness
+      ? trend.freshness
+      : "本次生成前采集公开信号",
+    selection:
+      "先发散12个不同创意角度，再按图片相关性、新鲜度、平台匹配、用户价值、互动潜力和事实安全筛出3组。",
+    guardrail:
+      "过时套话和无关热词自动降权；热点与图片不匹配时宁可不用。",
   };
 }
 
 function buildInsightPrompt_(brandNote) {
+  const currentTime = Utilities.formatDate(
+    new Date(),
+    "Asia/Shanghai",
+    "yyyy-MM-dd HH:mm",
+  );
   return [
     "你是最严谨的中文图片内容分析员。只根据上传图片中真实可见的证据判断，不要套用固定行业模板。",
+    "当前北京时间：" + currentTime + "。后续搜索词必须服务于当下选题，不要依赖过期案例。",
     "必须先判断图片到底是：男士写真、女士写真、珠宝首饰、服装、美食、产品静物、风景、空间、活动或其他。",
     "如果图片不是男士写真，禁止写男士、摄影师引导、写真套餐等无关内容。",
     "禁止猜测图片中看不见的品牌、价格、城市、材质证书、人物身份和促销信息。",
     "summary 要具体写出主体、颜色、构图、光线、氛围和可发布角度。",
     "evidence 只列真实可见的画面证据。",
     "keywords 是图片内容相关的中文关键词。",
-    "searchQueries 给出 4 个适合查询当下公开搜索联想的中文短语，兼顾品类词、用户问题词和内容风格词。",
+    "searchQueries 给出 4 个用于本次实时查询的中文短语：品类核心词、用户真实问题、画面风格或场景词、当月新需求词各1个。不要四条都写成宽泛大词。",
     "audience 写最可能对此内容感兴趣的人群，但不要过度推断。",
     "contentOpportunity 写这张图最值得放大的传播机会，例如悬念、反差、审美、知识、信任、避坑或购买灵感；必须基于图片。",
     "emotionalTone 写画面真实情绪，如克制、自信、松弛、治愈、精致、热闹或专业。",
@@ -406,22 +558,33 @@ function buildInsightPrompt_(brandNote) {
 }
 
 function buildCopyPrompt_(insight, trend, brandNote, seed) {
+  const currentTime = Utilities.formatDate(
+    new Date(),
+    "Asia/Shanghai",
+    "yyyy-MM-dd HH:mm",
+  );
   return [
-    "你是中文社交媒体前沿内容策略师，负责小红书、抖音、视频号。你必须先理解图片、受众和传播目标，再写文案，禁止套模板。",
+    "你是中文社交媒体前沿内容策略师，负责小红书、抖音、视频号。你的任务不是套爆款公式，而是用当前信号判断这张图片此刻最值得怎么发。",
+    "当前北京时间：" + currentTime + "。模型记忆中的旧案例只能作背景，不能覆盖本次实时采集结果。",
     "图片理解：" + JSON.stringify(insight),
     "当前公开搜索联想词：" + JSON.stringify(trend.terms || []),
     "趋势来源：" + JSON.stringify(trend.sources || []) + "，采集时间：" + String(trend.time || ""),
+    "趋势时效说明：" + String(trend.freshness || "本次生成前采集"),
     "账号补充要求：" + (brandNote || "根据图片真实内容自动匹配"),
     "本次创意种子：" + String(seed),
     "",
-    "请生成恰好 3 组不同角度的高意向方案，并按最可能获得点击、停留、收藏、互动或咨询的综合潜力排序。",
+    "在内部先完成以下创意筛选，但不要输出中间过程：",
+    "A. 围绕图片真实证据、用户未满足需求和当前公开信号，发散恰好12个不同创意角度；角度要覆盖反常识、细节发现、决策帮助、真实证明、身份共鸣、结果想象、问题解决等不同机制。",
+    "B. 淘汰货不对版、无事实支撑、只换同义词、追无关热点、与三平台受众不匹配以及已经审美疲劳的角度。",
+    "C. 按图片相关性30分、新鲜度20分、平台匹配20分、用户价值15分、互动或咨询潜力10分、事实安全5分进行比较。",
+    "D. 最终只返回综合分最高且钩子机制明显不同的3组，并按潜力从高到低排列。爆款只代表高概率思维，禁止承诺一定爆。",
     "硬性规则：",
     "1. top 必须恰好 7 个中文字符，bottom 必须恰好 8 个中文字符；不含空格、标点、英文和数字。",
     "2. 7+8 合计固定 15 字，是三平台通用的封面字。必须自然、具体、有画面钩子，不能像通用鸡汤。",
     "3. 文案必须与图片主体一致。珠宝就写珠宝，风景就写风景，人物就写人物；禁止货不对版。",
     "4. 只有图片明确是男士写真时，才可使用“明码实价、拍得明白、自然引导、真实耐看”等南铂定位。",
     "5. 不得捏造品牌、价格、优惠、城市、稀缺性、功效、材质证书或图片中没有的事实。",
-    "6. 公开搜索联想只用于选题方向，不得伪装成小红书或抖音官方热榜。",
+    "6. 公开搜索联想只用于选题方向，不得伪装成小红书或抖音官方热榜。一个热词只有与图片至少一半内容强相关时才可采用；不相关就舍弃。",
     "7. 每组都要分别生成小红书、抖音、视频号的 title、description、topics、audience、hook、strategy，三个平台禁止使用同一套标题或描述。",
     "8. 小红书：title 最多20个字符，偏搜索、收藏、经验分享或决策帮助；description 建议180-420字，像真实笔记；topics 5-8个。",
     "9. 抖音：title 最多30个字符，前半句必须快速抓人；description 建议60-180字，短句、有节奏、可有一个明确互动或咨询动作；topics 3-5个。",
@@ -431,6 +594,10 @@ function buildCopyPrompt_(insight, trend, brandNote, seed) {
     "13. audience 写该平台最可能停留的人群，strategy 用一句话解释为什么这样写，不要说空泛的“增加曝光”。",
     "14. topics 优先图片精准词、用户搜索词和公开联想词，不堆砌无关大词，每个词都以#开头。",
     "15. eyebrow 是简短的传播角度，reason 解释为什么适合这张图。三组角度必须明显不同，不得只是换同义词。",
+    "16. 小红书优先考虑真实搜索需求、收藏价值和决策帮助；抖音不能只追单个热点，要同时看关联词、目标人群和内容供需缺口；视频号优先可信观点、关系传播和真实价值。",
+    "17. “高级感、氛围感拉满、绝绝子、封神、谁懂、建议收藏、太出片、普通人也能、不是而是”等已被大量使用的套话默认降权，除非图片证据和本次实时信号都证明它仍是最佳表达。",
+    "18. 可以借鉴当前流行的表达结构，但禁止复制公开内容原句。每组必须有原创措辞和明确的信息增量。",
+    "19. score 必须真实反映上述六项评分，不要为了好看全部打高分；三组允许有明显分差。",
   ].join("\n");
 }
 
@@ -515,6 +682,9 @@ function finalizeCopyResult_(result, insight, trend) {
     sets.push(item);
   }
 
+  sets.sort(function (left, right) {
+    return Number(right.score || 0) - Number(left.score || 0);
+  });
   return { sets: sets, autoCompleted: true };
 }
 
