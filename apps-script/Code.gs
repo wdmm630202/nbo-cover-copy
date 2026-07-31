@@ -36,6 +36,7 @@ function analyzeImage(payload) {
     const image = parseImage_(payload.imageDataUrl);
     const brandNote = cleanText_(payload.brandNote, 120);
     const seed = Number(payload.seed || Date.now());
+    const coverConfig = normalizeCoverConfig_(payload.coverConfig);
 
     const insight = callGeminiJson_(
       buildInsightPrompt_(brandNote),
@@ -46,7 +47,7 @@ function analyzeImage(payload) {
       { thinkingLevel: "minimal", temperature: 0.2 }
     );
     const trend = collectPublicTrends_(insight.searchQueries || [], insight.keywords || []);
-    const result = generateCopy_(insight, trend, brandNote, seed);
+    const result = generateCopy_(insight, trend, brandNote, seed, coverConfig);
 
     return {
       ok: true,
@@ -62,12 +63,14 @@ function analyzeImage(payload) {
       trends: trend.terms,
       trendSource: trend.sources.join(" + "),
       trendTime: trend.time,
-      strategyMeta: buildStrategyMeta_(trend),
+      strategyMeta: buildStrategyMeta_(trend, result.coverConfig),
+      coverConfig: result.coverConfig,
       sets: result.sets,
       context: {
         insight: insight,
         trends: trend,
         brandNote: brandNote,
+        coverConfig: result.coverConfig,
       },
     };
   } catch (error) {
@@ -84,11 +87,20 @@ function refreshCopy(payload) {
 
     const brandNote = cleanText_(payload.brandNote || payload.context.brandNote, 120);
     const seed = Number(payload.seed || Date.now());
+    const coverConfig = normalizeCoverConfig_(
+      payload.coverConfig || payload.context.coverConfig,
+    );
     const trend = collectPublicTrends_(
       payload.context.insight.searchQueries || [],
       payload.context.insight.keywords || [],
     );
-    const result = generateCopy_(payload.context.insight, trend, brandNote, seed);
+    const result = generateCopy_(
+      payload.context.insight,
+      trend,
+      brandNote,
+      seed,
+      coverConfig,
+    );
 
     return {
       ok: true,
@@ -96,11 +108,13 @@ function refreshCopy(payload) {
       trends: trend.terms,
       trendSource: trend.sources.join(" + "),
       trendTime: trend.time,
-      strategyMeta: buildStrategyMeta_(trend),
+      strategyMeta: buildStrategyMeta_(trend, result.coverConfig),
+      coverConfig: result.coverConfig,
       context: {
         insight: payload.context.insight,
         trends: trend,
         brandNote: brandNote,
+        coverConfig: result.coverConfig,
       },
     };
   } catch (error) {
@@ -108,8 +122,15 @@ function refreshCopy(payload) {
   }
 }
 
-function generateCopy_(insight, trend, brandNote, seed) {
-  const prompt = buildCopyPrompt_(insight, trend, brandNote, seed);
+function generateCopy_(insight, trend, brandNote, seed, coverConfig) {
+  const normalizedCoverConfig = normalizeCoverConfig_(coverConfig);
+  const prompt = buildCopyPrompt_(
+    insight,
+    trend,
+    brandNote,
+    seed,
+    normalizedCoverConfig,
+  );
   let result = normalizeCopyResult_(
     callGeminiJson_(
       prompt,
@@ -120,14 +141,19 @@ function generateCopy_(insight, trend, brandNote, seed) {
       { thinkingLevel: "low", temperature: 0.9 },
     )
   );
-  const issues = getCopyValidationIssues_(result);
+  const issues = getCopyValidationIssues_(result, normalizedCoverConfig);
 
   if (issues.length) {
     logCopyRepair_("检测到缺项，立即转为本地补全", issues);
   }
 
-  result = finalizeCopyResult_(result, insight, trend);
-  const finalIssues = getCopyValidationIssues_(result);
+  result = finalizeCopyResult_(
+    result,
+    insight,
+    trend,
+    normalizedCoverConfig,
+  );
+  const finalIssues = getCopyValidationIssues_(result, normalizedCoverConfig);
   if (finalIssues.length) {
     logCopyRepair_("最终结果仍有缺项", finalIssues);
   }
@@ -370,7 +396,7 @@ function toChineseError_(error, statusCode) {
 }
 
 function collectPublicTrends_(queries, fallbackKeywords) {
-  const cleanQueries = normalizeTextArray_(queries, 4, 30);
+  const cleanQueries = buildTrendQueries_(queries);
   const cache = CacheService.getScriptCache();
   const cacheKey = buildTrendCacheKey_(cleanQueries);
   const cached = cache.get(cacheKey);
@@ -460,10 +486,29 @@ function collectPublicTrends_(queries, fallbackKeywords) {
     time: Utilities.formatDate(collectedAt, "Asia/Shanghai", "yyyy-MM-dd HH:mm"),
     collectedAt: collectedAt.toISOString(),
     freshness: "本次生成前现查，最多缓存10分钟",
+    queryScope: "品类、用户问题、画面风格、当月需求及三平台相关表达",
   };
 
   cache.put(cacheKey, JSON.stringify(result), TREND_CACHE_SECONDS);
   return result;
+}
+
+function buildTrendQueries_(queries) {
+  const baseQueries = normalizeTextArray_(queries, 4, 30);
+  const categoryQuery = baseQueries[0] || "";
+  return normalizeTextArray_(
+    baseQueries.concat(
+      categoryQuery
+        ? [
+            categoryQuery + " 小红书",
+            categoryQuery + " 抖音",
+            categoryQuery + " 视频号",
+          ]
+        : [],
+    ),
+    7,
+    36,
+  );
 }
 
 function buildTrendCacheKey_(queries) {
@@ -519,18 +564,46 @@ function addTrendSignal_(signalMap, value, source, rank, isFallback) {
   if (item.sources.indexOf(source) === -1) item.sources.push(source);
 }
 
-function buildStrategyMeta_(trend) {
+function normalizeCoverConfig_(value) {
+  const source = value || {};
+  const mode = source.mode === "manual" ? "manual" : "smart";
+  const requestedTop = Number(source.topLength);
+  const requestedBottom = Number(source.bottomLength);
+  const topLength = Number.isFinite(requestedTop)
+    ? Math.max(3, Math.min(16, requestedTop))
+    : 7;
+  const bottomLength = Number.isFinite(requestedBottom)
+    ? Math.max(3, Math.min(16, requestedBottom))
+    : 8;
   return {
-    mode: "实时趋势爆款筛选",
+    mode: mode,
+    topLength: Math.round(topLength),
+    bottomLength: Math.round(bottomLength),
+  };
+}
+
+function buildStrategyMeta_(trend, coverConfig) {
+  const normalizedCoverConfig = normalizeCoverConfig_(coverConfig);
+  const coverDecision = normalizedCoverConfig.mode === "manual"
+    ? "已按你的明确设置生成：上行" +
+      normalizedCoverConfig.topLength +
+      "字，下行" +
+      normalizedCoverConfig.bottomLength +
+      "字。"
+    : "智能推荐为首选：不预设固定字数，按画面信息量、当前表达趋势、封面阅读速度和平台受众自动决定每行长度。";
+  return {
+    mode: "全网公开信号智能决策",
     candidateCount: VIRAL_CANDIDATE_COUNT,
     selectedCount: 3,
+    coverMode: normalizedCoverConfig.mode,
+    coverDecision: coverDecision,
     freshness: trend && trend.freshness
       ? trend.freshness
       : "本次生成前采集公开信号",
     selection:
-      "先发散12个不同创意角度，再按图片相关性、新鲜度、平台匹配、用户价值、互动潜力和事实安全筛出3组。",
+      "同时分析图片事实、跨搜索来源共识、平台相关表达和当前用户需求；先发散12个创意角度，再按数据表现筛出3组。",
     guardrail:
-      "过时套话和无关热词自动降权；热点与图片不匹配时宁可不用。",
+      "运营者个人情绪和审美偏好不能覆盖图片与数据；过时套话、单一来源信号和无关热词自动降权。",
   };
 }
 
@@ -553,16 +626,31 @@ function buildInsightPrompt_(brandNote) {
     "audience 写最可能对此内容感兴趣的人群，但不要过度推断。",
     "contentOpportunity 写这张图最值得放大的传播机会，例如悬念、反差、审美、知识、信任、避坑或购买灵感；必须基于图片。",
     "emotionalTone 写画面真实情绪，如克制、自信、松弛、治愈、精致、热闹或专业。",
-    "账号补充要求：" + (brandNote || "根据图片真实内容自动匹配"),
+    "事实补充：" + (brandNote || "无。完全根据图片与当前公开信号判断"),
+    "事实补充只用于确认图片外但可验证的信息，不能把运营者的个人情绪、审美偏好或主观想法当成传播结论。",
   ].join("\n");
 }
 
-function buildCopyPrompt_(insight, trend, brandNote, seed) {
+function buildCopyPrompt_(insight, trend, brandNote, seed, coverConfig) {
   const currentTime = Utilities.formatDate(
     new Date(),
     "Asia/Shanghai",
     "yyyy-MM-dd HH:mm",
   );
+  const normalizedCoverConfig = normalizeCoverConfig_(coverConfig);
+  const coverRules = normalizedCoverConfig.mode === "manual"
+    ? [
+        "1. 本次由用户明确设置字数：top 必须恰好 " +
+          normalizedCoverConfig.topLength +
+          " 个中文字符，bottom 必须恰好 " +
+          normalizedCoverConfig.bottomLength +
+          " 个中文字符；不含空格、标点、英文和数字。",
+        "2. 手动字数只是排版要求，具体措辞仍必须由图片事实、当前数据和平台受众决定，不能沿用运营者个人情绪。",
+      ]
+    : [
+        "1. 本次使用智能推荐字数。禁止为了统一排版硬凑7+8；top 和 bottom 各自可在4至14个中文字符之间自由决定，三组也可以采用不同长度。",
+        "2. 每组字数必须由画面信息密度、当前高相关表达、封面一眼可读性和目标受众共同决定。表达完整优先，能短则短，需要信息量时可以更长。",
+      ];
   return [
     "你是中文社交媒体前沿内容策略师，负责小红书、抖音、视频号。你的任务不是套爆款公式，而是用当前信号判断这张图片此刻最值得怎么发。",
     "当前北京时间：" + currentTime + "。模型记忆中的旧案例只能作背景，不能覆盖本次实时采集结果。",
@@ -570,17 +658,18 @@ function buildCopyPrompt_(insight, trend, brandNote, seed) {
     "当前公开搜索联想词：" + JSON.stringify(trend.terms || []),
     "趋势来源：" + JSON.stringify(trend.sources || []) + "，采集时间：" + String(trend.time || ""),
     "趋势时效说明：" + String(trend.freshness || "本次生成前采集"),
-    "账号补充要求：" + (brandNote || "根据图片真实内容自动匹配"),
+    "可验证事实补充：" + (brandNote || "无"),
     "本次创意种子：" + String(seed),
     "",
     "在内部先完成以下创意筛选，但不要输出中间过程：",
     "A. 围绕图片真实证据、用户未满足需求和当前公开信号，发散恰好12个不同创意角度；角度要覆盖反常识、细节发现、决策帮助、真实证明、身份共鸣、结果想象、问题解决等不同机制。",
     "B. 淘汰货不对版、无事实支撑、只换同义词、追无关热点、与三平台受众不匹配以及已经审美疲劳的角度。",
-    "C. 按图片相关性30分、新鲜度20分、平台匹配20分、用户价值15分、互动或咨询潜力10分、事实安全5分进行比较。",
+    "C. 按图片相关性30分、跨来源数据与新鲜度20分、平台匹配20分、用户价值15分、互动或咨询潜力10分、事实安全5分进行比较。多来源共同出现的需求高于单一来源词，真实搜索意图高于流行口号。",
     "D. 最终只返回综合分最高且钩子机制明显不同的3组，并按潜力从高到低排列。爆款只代表高概率思维，禁止承诺一定爆。",
+    "E. 画面情绪只是一项可见证据，不得直接沿用运营者、博主或客户的个人情感。主观补充不能推翻图片、实时数据和平台受众共同得出的结论。",
     "硬性规则：",
-    "1. top 必须恰好 7 个中文字符，bottom 必须恰好 8 个中文字符；不含空格、标点、英文和数字。",
-    "2. 7+8 合计固定 15 字，是三平台通用的封面字。必须自然、具体、有画面钩子，不能像通用鸡汤。",
+    coverRules[0],
+    coverRules[1],
     "3. 文案必须与图片主体一致。珠宝就写珠宝，风景就写风景，人物就写人物；禁止货不对版。",
     "4. 只有图片明确是男士写真时，才可使用“明码实价、拍得明白、自然引导、真实耐看”等南铂定位。",
     "5. 不得捏造品牌、价格、优惠、城市、稀缺性、功效、材质证书或图片中没有的事实。",
@@ -637,7 +726,8 @@ function normalizeCopyResult_(result) {
   return { sets: sets };
 }
 
-function finalizeCopyResult_(result, insight, trend) {
+function finalizeCopyResult_(result, insight, trend, coverConfig) {
+  const normalizedCoverConfig = normalizeCoverConfig_(coverConfig);
   const sourceSets = result && Array.isArray(result.sets)
     ? result.sets.slice(0, 3)
     : [];
@@ -648,8 +738,18 @@ function finalizeCopyResult_(result, insight, trend) {
     const fallback = coverFallbackFor_(insight && insight.category, index);
     const item = {
       eyebrow: cleanText_(source.eyebrow, 20) || ["点击吸引力", "收藏参考值", "互动讨论度"][index],
-      top: forceCoverLength_(source.top, 7, fallback.top),
-      bottom: forceCoverLength_(source.bottom, 8, fallback.bottom),
+      top: finalizeCoverLine_(
+        source.top,
+        normalizedCoverConfig,
+        "top",
+        fallback.top,
+      ),
+      bottom: finalizeCoverLine_(
+        source.bottom,
+        normalizedCoverConfig,
+        "bottom",
+        fallback.bottom,
+      ),
       reason:
         cleanText_(source.reason, 100) ||
         cleanText_(insight && insight.contentOpportunity, 100) ||
@@ -685,7 +785,11 @@ function finalizeCopyResult_(result, insight, trend) {
   sets.sort(function (left, right) {
     return Number(right.score || 0) - Number(left.score || 0);
   });
-  return { sets: sets, autoCompleted: true };
+  return {
+    sets: sets,
+    autoCompleted: true,
+    coverConfig: normalizedCoverConfig,
+  };
 }
 
 function finalizePlatform_(value, platformKey, setItem, insight, trend) {
@@ -820,17 +924,39 @@ function forceCoverLength_(value, targetLength, fallback) {
   if (codePointLength_(cleaned) >= targetLength) {
     return Array.from(cleaned).slice(0, targetLength).join("");
   }
-  return Array.from(cleanCover_(fallback)).slice(0, targetLength).join("");
+  const emergency = cleanCover_(
+    (cleaned || "") +
+    (fallback || "") +
+    "真实画面值得认真看见每个细节都有新的表达",
+  );
+  return Array.from(emergency).slice(0, targetLength).join("");
 }
 
-function getCopyValidationIssues_(result) {
+function finalizeCoverLine_(value, coverConfig, lineKey, fallback) {
+  const normalizedCoverConfig = normalizeCoverConfig_(coverConfig);
+  const targetLength = lineKey === "top"
+    ? normalizedCoverConfig.topLength
+    : normalizedCoverConfig.bottomLength;
+  if (normalizedCoverConfig.mode === "manual") {
+    return forceCoverLength_(value, targetLength, fallback);
+  }
+
+  const cleaned = cleanCover_(value);
+  const length = codePointLength_(cleaned);
+  if (length >= 4 && length <= 14) return cleaned;
+  return cleanCover_(fallback);
+}
+
+function getCopyValidationIssues_(result, coverConfig) {
+  const normalizedCoverConfig = normalizeCoverConfig_(coverConfig);
   const issues = [];
   if (!result || !Array.isArray(result.sets) || result.sets.length !== 3) {
     issues.push("方案数量不足");
     return issues;
   }
   result.sets.forEach(function (item, index) {
-    if (codePointLength_(item.top) !== 7 || codePointLength_(item.bottom) !== 8) {
+    if (!hasValidCoverLine_(item.top, normalizedCoverConfig, "top") ||
+        !hasValidCoverLine_(item.bottom, normalizedCoverConfig, "bottom")) {
       issues.push("第" + (index + 1) + "组封面字数");
     }
     if (!hasCompletePlatformPackages_({ sets: [item] })) {
@@ -868,9 +994,22 @@ function normalizeTopics_(value, limit) {
   }).filter(Boolean);
 }
 
-function hasExactCoverLengths_(result) {
+function hasValidCoverLine_(value, coverConfig, lineKey) {
+  const normalizedCoverConfig = normalizeCoverConfig_(coverConfig);
+  const length = codePointLength_(value);
+  if (normalizedCoverConfig.mode === "manual") {
+    const targetLength = lineKey === "top"
+      ? normalizedCoverConfig.topLength
+      : normalizedCoverConfig.bottomLength;
+    return length === targetLength;
+  }
+  return length >= 4 && length <= 14;
+}
+
+function hasValidCoverLengths_(result, coverConfig) {
   return result.sets.every(function (item) {
-    return codePointLength_(item.top) === 7 && codePointLength_(item.bottom) === 8;
+    return hasValidCoverLine_(item.top, coverConfig, "top") &&
+      hasValidCoverLine_(item.bottom, coverConfig, "bottom");
   });
 }
 

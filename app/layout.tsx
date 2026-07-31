@@ -9,7 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
     headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const imageUrl = `${protocol}://${host}/og.png`;
   const title = "NBO 灵感封面｜图片转发布文案";
-  const description = "上传一张图片，生成固定7字上行、8字下行的封面文案，以及三平台发布软文和相关话题。";
+  const description = "上传一张图片，结合当下公开趋势智能决定封面字数与表达，并生成小红书、抖音、视频号三平台发布文案。";
 
   return {
     title,

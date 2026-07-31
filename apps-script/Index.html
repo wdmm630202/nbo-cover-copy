@@ -283,6 +283,70 @@
         font-weight: 700;
       }
       .refresh-button:disabled { opacity: .5; cursor: wait; }
+      .cover-controls {
+        margin: -16px 0 18px;
+        padding: 14px;
+        display: grid;
+        grid-template-columns: minmax(210px, 1fr) auto auto auto;
+        gap: 10px;
+        align-items: stretch;
+        border: 1px solid #f0e8e3;
+        border-radius: 17px;
+        background: rgba(255,255,255,.92);
+      }
+      .cover-mode-button,
+      .cover-apply {
+        border: 1px solid #e5ddd8;
+        border-radius: 12px;
+        background: #faf8f7;
+        color: #6f6762;
+        font-size: 11px;
+        font-weight: 800;
+      }
+      .cover-mode-button {
+        padding: 11px 14px;
+        text-align: left;
+      }
+      .cover-mode-button span { display: block; margin-top: 4px; color: #aaa19b; font-size: 9px; font-weight: 500; }
+      .cover-mode-button[aria-pressed="true"] {
+        border-color: #ff6f84;
+        background: #fff3f5;
+        color: var(--red);
+        box-shadow: 0 7px 20px rgba(255,36,66,.08);
+      }
+      .length-field {
+        min-width: 118px;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #e5ddd8;
+        border-radius: 12px;
+        background: #fff;
+        color: #7e756f;
+        font-size: 10px;
+      }
+      .length-field input {
+        width: 42px;
+        border: 0;
+        border-bottom: 1px solid #d8cec8;
+        outline: 0;
+        background: transparent;
+        color: var(--ink);
+        text-align: center;
+        font-weight: 800;
+      }
+      .length-field.is-disabled { opacity: .42; }
+      .cover-apply { padding: 10px 14px; white-space: nowrap; }
+      .cover-apply:not(:disabled) { border-color: var(--red); background: var(--red); color: white; }
+      .cover-apply:disabled { opacity: .4; }
+      .cover-decision {
+        grid-column: 1 / -1;
+        padding: 0 3px;
+        color: #928983;
+        font-size: 10px;
+        line-height: 1.6;
+      }
       .copy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
       .copy-card { min-height: 390px; padding: 26px; border-radius: 23px; cursor: pointer; transition: .2s ease; }
       .copy-card:hover { transform: translateY(-3px); box-shadow: 0 16px 38px rgba(55,40,35,.08); }
@@ -400,6 +464,9 @@
         .cover-copy strong { font-size: 26px; }
         .platform-tabs { width: 100%; }
         .platform-tabs button { flex: 1; }
+        .cover-controls { grid-template-columns: 1fr 1fr; }
+        .cover-mode-button, .cover-apply { grid-column: 1 / -1; }
+        .length-field { min-width: 0; }
         .export-bar { align-items: flex-start; flex-direction: column; gap: 16px; }
         .export-bar button { width: 100%; }
         footer { flex-direction: column; gap: 7px; }
@@ -435,8 +502,8 @@
         <div class="hero-copy">
           <span class="kicker"><i></i> FREE AI PERSONAL STUDIO</span>
           <h1>看懂图片，再写<br /><em>当下能发的文案</em></h1>
-          <p>固定 7+8 字只负责封面；每次生成前现查公开趋势，先发散 12 个不同创意角度，再按图片、受众和平台筛出最值得发布的 3 组。</p>
-          <div class="feature-row"><span>本次实时采集</span><b>·</b><span>12 选 3 创意筛选</span><b>·</b><span>三平台独立判断</span></div>
+          <p>不预设固定字数和个人情绪；每次先看图片、再聚合当下公开数据，让 12 个创意方向竞争，选出最适合这张图的 3 组。</p>
+          <div class="feature-row"><span>全网公开信号</span><b>·</b><span>智能字数首选</span><b>·</b><span>三平台独立判断</span></div>
         </div>
 
         <div class="upload-card" id="uploadCard">
@@ -475,17 +542,17 @@
           <div class="insight-tags" id="insightTags"><span>先看真实主体</span><span>再判断发布方向</span></div>
         </div>
         <div class="setting-strip">
-          <label><span>账号补充要求</span><input id="brandNote" value="根据图片真实内容生成；只有男士写真才使用南铂摄影定位" maxlength="60" /></label>
-          <div class="setting-hint">可写产品卖点或本次发布目的，不能替代图片事实</div>
+          <label><span>可验证事实补充</span><input id="brandNote" placeholder="可不填；只写图片外但确定属实的信息" maxlength="60" /></label>
+          <div class="setting-hint">个人情绪和审美偏好不会覆盖图片与数据判断</div>
         </div>
         <div class="trend-panel is-hidden" id="trendPanel">
           <div class="trend-head"><strong>本次现查的公开趋势信号</strong><small id="trendMeta"></small></div>
           <div class="trend-list" id="trendList"></div>
           <div class="trend-method">
-            <span class="trend-method-badge">前沿筛选</span>
+            <span class="trend-method-badge">数据决策</span>
             <div>
-              <strong>先发散 12 个创意角度，只保留最有机会的 3 个</strong>
-              <p id="trendSelection">图片相关性优先，过时套话和无关热点自动降权，三个平台分别判断。</p>
+              <strong>跨来源信号与图片事实共同决策，只保留最有机会的 3 个</strong>
+              <p id="trendSelection">多来源共识优先，个人情绪、过时套话和无关热点自动降权，三个平台分别判断。</p>
             </div>
           </div>
         </div>
@@ -494,9 +561,19 @@
           <div><span class="step-label">02 / 通用封面文案</span><h2>为你优选 3 组</h2></div>
           <button class="refresh-button" id="refreshButton" type="button" disabled>↻ 不满意，换一批</button>
         </div>
+        <div class="cover-controls">
+          <button class="cover-mode-button" id="smartModeButton" type="button" aria-pressed="true">
+            智能推荐（首选）
+            <span>由图片、当下数据和平台受众自动决定字数</span>
+          </button>
+          <label class="length-field is-disabled" id="topLengthField">上行 <input id="topLengthInput" type="number" min="3" max="16" value="7" disabled /> 字</label>
+          <label class="length-field is-disabled" id="bottomLengthField">下行 <input id="bottomLengthInput" type="number" min="3" max="16" value="8" disabled /> 字</label>
+          <button class="cover-apply" id="coverApplyButton" type="button" disabled>按此设置重新生成</button>
+          <div class="cover-decision" id="coverDecision">当前采用智能推荐：不硬凑 7+8，系统会为每组选择更自然、更适合封面阅读的长度。点击上下行字数即可切换为手动模式。</div>
+        </div>
         <div class="copy-grid" id="copyGrid">
           <article class="copy-card"><p>识别完成后，3 组通用封面文案会出现在这里。</p></article>
-          <article class="copy-card"><p>每组严格校验上行 7 字、下行 8 字，并支持逐行复制。</p></article>
+          <article class="copy-card"><p>智能模式不预设固定字数；需要统一排版时，也可手动设定上下行字数。</p></article>
           <article class="copy-card"><p>选择一组封面后，下方会显示三个平台各自独立的发布包。</p></article>
         </div>
 
@@ -534,11 +611,11 @@
           </article>
         </div>
         <div class="export-bar">
-          <div><span class="export-check">✓</span><div><strong id="exportTitle">等待生成</strong><small id="exportDescription">通用封面 7+8 字 + 当前平台标题、描述、话题</small></div></div>
+            <div><span class="export-check">✓</span><div><strong id="exportTitle">等待生成</strong><small id="exportDescription">智能封面文案 + 当前平台标题、描述、话题</small></div></div>
           <button id="copyAll">复制当前平台整套内容</button>
         </div>
       </section>
-      <footer><span>NBO 灵感封面 · 免费智能版</span><span>本次现查，不套模板 · 12 选 3，来源透明</span></footer>
+      <footer><span>NBO 灵感封面 · 免费智能版</span><span>图片与数据共同决策 · 智能字数首选 · 来源透明</span></footer>
     </main>
     <div class="toast is-hidden" id="toast">已复制</div>
 
@@ -584,6 +661,7 @@
         result: null,
         selected: 0,
         platform: "小红书",
+        coverMode: "smart",
       };
 
       const $ = (selector) => document.querySelector(selector);
@@ -618,6 +696,13 @@
       const trendList = $("#trendList");
       const trendSelection = $("#trendSelection");
       const refreshButton = $("#refreshButton");
+      const smartModeButton = $("#smartModeButton");
+      const topLengthField = $("#topLengthField");
+      const bottomLengthField = $("#bottomLengthField");
+      const topLengthInput = $("#topLengthInput");
+      const bottomLengthInput = $("#bottomLengthInput");
+      const coverApplyButton = $("#coverApplyButton");
+      const coverDecision = $("#coverDecision");
       const copyGrid = $("#copyGrid");
       const titleText = $("#titleText");
       const titleCount = $("#titleCount");
@@ -677,6 +762,47 @@
           .verifyAccess(accessPassword.value.trim());
       });
 
+      function getCoverConfig() {
+        return {
+          mode: state.coverMode,
+          topLength: Math.max(3, Math.min(16, Number(topLengthInput.value || 7))),
+          bottomLength: Math.max(3, Math.min(16, Number(bottomLengthInput.value || 8))),
+        };
+      }
+
+      function setCoverMode(mode) {
+        state.coverMode = mode === "manual" ? "manual" : "smart";
+        const manual = state.coverMode === "manual";
+        smartModeButton.setAttribute("aria-pressed", String(!manual));
+        topLengthInput.disabled = !manual;
+        bottomLengthInput.disabled = !manual;
+        topLengthField.classList.toggle("is-disabled", !manual);
+        bottomLengthField.classList.toggle("is-disabled", !manual);
+        coverApplyButton.disabled = !manual || !state.result;
+        coverDecision.textContent = manual
+          ? "手动模式：上行 " + getCoverConfig().topLength + " 字、下行 " + getCoverConfig().bottomLength + " 字。字数只控制排版，具体表达仍由图片和当下数据决定。"
+          : "当前采用智能推荐：不硬凑 7+8，系统会为每组选择更自然、更适合封面阅读的长度。";
+      }
+
+      smartModeButton.addEventListener("click", () => {
+        setCoverMode("smart");
+        if (state.result) requestRefreshCopy("正在按智能字数重算…", "已按智能字数重新优选");
+      });
+      [topLengthField, bottomLengthField].forEach((field) => {
+        field.addEventListener("click", () => {
+          setCoverMode("manual");
+          const input = field.querySelector("input");
+          if (input) input.focus();
+        });
+      });
+      [topLengthInput, bottomLengthInput].forEach((input) => {
+        input.addEventListener("input", () => setCoverMode("manual"));
+      });
+      coverApplyButton.addEventListener("click", () => {
+        if (!state.result) return showToast("请先完成图片识别");
+        requestRefreshCopy("正在按指定字数生成…", "已按指定字数生成 3 组新方案");
+      });
+
       function chooseFile() {
         if (!state.running) fileInput.click();
       }
@@ -703,6 +829,7 @@
           setTags(["等待真实识图", "自动重试", "备用服务"]);
           state.result = null;
           refreshButton.disabled = true;
+          coverApplyButton.disabled = true;
         } catch (error) {
           showToast(toChineseErrorMessage(error, "图片读取失败，请重新选择图片。"));
         }
@@ -754,6 +881,7 @@
             accessToken: state.accessToken,
             imageDataUrl: state.imageDataUrl,
             brandNote: brandNote.value.trim(),
+            coverConfig: getCoverConfig(),
             seed: Date.now(),
           });
       }
@@ -786,6 +914,12 @@
         analysisLabel.textContent = "重新识别";
         state.result = result;
         state.selected = 0;
+        state.coverMode = result.coverConfig && result.coverConfig.mode === "manual" ? "manual" : "smart";
+        if (result.coverConfig) {
+          topLengthInput.value = result.coverConfig.topLength || 7;
+          bottomLengthInput.value = result.coverConfig.bottomLength || 8;
+        }
+        setCoverMode(state.coverMode);
         insightStatus.textContent = "真实识别已完成";
         insightTitle.textContent = result.insight.category + "｜已看懂图片";
         insightDescription.textContent = result.insight.summary + (result.insight.contentOpportunity ? "｜传播机会：" + result.insight.contentOpportunity : "");
@@ -794,8 +928,9 @@
         renderCards();
         renderPublish();
         refreshButton.disabled = false;
+        coverApplyButton.disabled = state.coverMode !== "manual";
         exportTitle.textContent = "方案已整理完成";
-        exportDescription.textContent = "3 组固定 7+8 字封面 + 三平台独立标题、描述、话题";
+        exportDescription.textContent = "3 组数据优选封面 + 三平台独立标题、描述、话题";
       }
 
       function failAnalysis(message) {
@@ -822,13 +957,18 @@
           value < 52 ? "正在判断真实主体" :
           value < 72 ? "稳定服务正在分析" :
           value < 88 ? "正在生成三平台发布包" :
-          value < 97 ? "如遇繁忙将自动切换备用服务" : "正在校验字数与内容";
+          value < 97 ? "如遇繁忙将自动切换备用服务" : "正在核对数据与表达";
       }
 
       refreshButton.addEventListener("click", () => {
+        requestRefreshCopy("正在换一批…", "已换成 3 组新方案");
+      });
+
+      function requestRefreshCopy(loadingText, successText) {
         if (!state.result || refreshButton.disabled) return;
         refreshButton.disabled = true;
-        refreshButton.textContent = "正在换一批…";
+        coverApplyButton.disabled = true;
+        refreshButton.textContent = loadingText || "正在换一批…";
         google.script.run
           .withSuccessHandler((result) => {
             state.result.sets = result.sets;
@@ -837,16 +977,21 @@
             state.result.trendSource = result.trendSource;
             state.result.trendTime = result.trendTime;
             state.result.strategyMeta = result.strategyMeta;
+            state.result.coverConfig = result.coverConfig;
+            state.coverMode = result.coverConfig && result.coverConfig.mode === "manual" ? "manual" : "smart";
             state.selected = 0;
+            setCoverMode(state.coverMode);
             renderTrendSignals(state.result);
             renderCards();
             renderPublish();
             refreshButton.disabled = false;
+            coverApplyButton.disabled = state.coverMode !== "manual";
             refreshButton.textContent = "↻ 不满意，换一批";
-            showToast("已换成 3 组新方案");
+            showToast(successText || "已换成 3 组新方案");
           })
           .withFailureHandler((error) => {
             refreshButton.disabled = false;
+            coverApplyButton.disabled = state.coverMode !== "manual";
             refreshButton.textContent = "↻ 不满意，换一批";
             showToast(toChineseErrorMessage(error, "暂时无法换一批，请稍后重新尝试。"));
           })
@@ -854,9 +999,10 @@
             accessToken: state.accessToken,
             context: state.result.context,
             brandNote: brandNote.value.trim(),
+            coverConfig: getCoverConfig(),
             seed: Date.now(),
           });
-      });
+      }
 
       function renderCards() {
         copyGrid.replaceChildren();
@@ -865,12 +1011,21 @@
           card.className = "copy-card" + (index === state.selected ? " selected" : "");
           const topLength = Array.from(item.top).length;
           const bottomLength = Array.from(item.bottom).length;
+          const coverConfig = state.result.coverConfig || getCoverConfig();
+          const manual = coverConfig.mode === "manual";
+          const topTarget = Number(coverConfig.topLength || 7);
+          const bottomTarget = Number(coverConfig.bottomLength || 8);
+          const topValid = manual ? topLength === topTarget : topLength >= 4 && topLength <= 14;
+          const bottomValid = manual ? bottomLength === bottomTarget : bottomLength >= 4 && bottomLength <= 14;
+          const topCountLabel = manual ? topLength + "/" + topTarget : "智能 " + topLength + "字";
+          const bottomCountLabel = manual ? bottomLength + "/" + bottomTarget : "智能 " + bottomLength + "字";
+          const totalLength = topLength + bottomLength;
           card.innerHTML =
             '<div class="card-topline"><span class="rank">0' + (index + 1) + '</span><span class="intent"></span><span class="score">' +
             item.score + '<small>分</small></span></div>' +
-            '<div class="cover-copy"><div><strong></strong><span class="count ' + (topLength === 7 ? "" : "invalid") + '">' + topLength + '/7</span><button class="line-copy" data-copy-line="top" type="button">复制</button></div>' +
-            '<div><strong></strong><span class="count ' + (bottomLength === 8 ? "" : "invalid") + '">' + bottomLength + '/8</span><button class="line-copy" data-copy-line="bottom" type="button">复制</button></div>' +
-            '<button class="cover-combined-copy" type="button">复制完整 15 字封面</button></div><p></p>' +
+            '<div class="cover-copy"><div><strong></strong><span class="count ' + (topValid ? "" : "invalid") + '">' + topCountLabel + '</span><button class="line-copy" data-copy-line="top" type="button">复制</button></div>' +
+            '<div><strong></strong><span class="count ' + (bottomValid ? "" : "invalid") + '">' + bottomCountLabel + '</span><button class="line-copy" data-copy-line="bottom" type="button">复制</button></div>' +
+            '<button class="cover-combined-copy" type="button">复制完整封面（共 ' + totalLength + ' 字）</button></div><p></p>' +
             '<div class="card-foot"><span>点击卡片切换整套方案</span><b>' + (index === state.selected ? "当前采用" : "选择此方案") + '</b></div>';
           card.querySelector(".intent").textContent = item.eyebrow;
           card.querySelectorAll(".cover-copy strong")[0].textContent = item.top;
@@ -879,12 +1034,13 @@
           card.querySelectorAll(".line-copy").forEach((button) => {
             button.addEventListener("click", (event) => {
               event.stopPropagation();
-              copyText(item[button.dataset.copyLine], button.dataset.copyLine === "top" ? "上行 7 字已复制" : "下行 8 字已复制");
+              const lineLength = Array.from(item[button.dataset.copyLine]).length;
+              copyText(item[button.dataset.copyLine], (button.dataset.copyLine === "top" ? "上行 " : "下行 ") + lineLength + " 字已复制");
             });
           });
           card.querySelector(".cover-combined-copy").addEventListener("click", (event) => {
             event.stopPropagation();
-            copyText(item.top + "\n" + item.bottom, "完整 15 字封面已复制");
+            copyText(item.top + "\n" + item.bottom, "完整封面已复制");
           });
           card.addEventListener("click", () => {
             state.selected = index;
@@ -946,6 +1102,11 @@
         trendSelection.textContent =
           strategy.selection ||
           "先发散不同角度，再按图片相关性、新鲜度、平台匹配和用户价值筛选；过时套话与无关热点自动降权。";
+        coverDecision.textContent =
+          strategy.coverDecision ||
+          (state.coverMode === "manual"
+            ? "已按手动字数生成，具体表达仍由图片和当下数据决定。"
+            : "智能推荐为首选：系统会根据图片、数据和平台受众决定每行字数。");
         renderTrendTerms(result.trends);
       }
 
@@ -1072,6 +1233,7 @@
         });
       }
 
+      setCoverMode("smart");
       restoreAccess();
     </script>
   </body>
