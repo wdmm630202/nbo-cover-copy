@@ -38,7 +38,7 @@ test("公开入口显示中文密码验证页并记住登录状态", async () =>
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
-  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, coverPage, coverStudio, coverConfig] = await Promise.all([
+  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, coverPage, coverStudio, coverConfig, copyWorkspaceSwitch] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -49,6 +49,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
     readFile(new URL("../app/cover/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/cover-config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/CopyWorkspaceSwitch.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(
@@ -61,13 +62,21 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(code, /setXFrameOptionsMode\(HtmlService\.XFrameOptionsMode\.ALLOWALL\)/);
   assert.match(publicEntry, /<iframe/);
   assert.match(publicEntry, /href="\.\/cover\.html"/);
+  assert.match(publicEntry, /target="nbo-cover-studio"/);
   assert.match(publicEntry, /iframe \{[^}]*height: 100%;[^}]*top: 0;/);
   assert.doesNotMatch(publicEntry, /top:\s*-48px|calc\(100%\s*\+\s*48px\)/);
   assert.doesNotMatch(publicEntry, /http-equiv="refresh"|window\.location\.replace/);
   assert.match(page, /href="\/cover"/);
+  assert.match(page, /target="nbo-cover-studio"/);
   assert.match(layout, /NBO 自媒体工作台｜智能文案与封面制作/);
   assert.match(layout, /og-workbench\.png/);
   assert.match(coverPage, /南铂封面制作台|CoverStudio/);
+  assert.match(coverPage, /CopyWorkspaceSwitch/);
+  assert.doesNotMatch(coverPage, /返回智能文案/);
+  assert.match(copyWorkspaceSwitch, /切换到文案页/);
+  assert.match(copyWorkspaceSwitch, /window\.opener/);
+  assert.match(copyWorkspaceSwitch, /window\.opener\.focus\(\)/);
+  assert.match(copyWorkspaceSwitch, /window\.open\("\/", "nbo-copy-studio"\)/);
   assert.match(coverStudio, /导出高清 JPG/);
   assert.match(coverStudio, /#FEE800/);
   assert.match(coverStudio, /主页 3:4 安全区/);
@@ -77,7 +86,13 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverConfig, /COVER_RULES_VERSION/);
   assert.match(publicCover, /南铂封面制作台/);
   assert.match(publicCover, /访问密码/);
+  assert.match(publicCover, /id="copyWorkspaceSwitch"/);
+  assert.match(publicCover, /切换到文案页/);
+  assert.doesNotMatch(publicCover, /返回智能文案/);
   assert.match(publicCoverScript, /0817/);
+  assert.match(publicCoverScript, /window\.opener/);
+  assert.match(publicCoverScript, /window\.opener\.focus\(\)/);
+  assert.match(publicCoverScript, /window\.open\("\.\/", "nbo-copy-studio"\)/);
   assert.match(publicCoverScript, /image\/jpeg/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);
   assert.doesNotMatch(

@@ -179,7 +179,7 @@ body {
   gap: 18px;
 }
 
-.cover-studio-header-actions a {
+.cover-studio-header-actions button {
   padding: 10px 15px;
   border: 1px solid #ded8d1;
   border-radius: 999px;
@@ -187,7 +187,7 @@ body {
   color: #3f3b38;
   font-size: 12px;
   font-weight: 700;
-  text-decoration: none;
+  cursor: pointer;
 }
 
 .cover-studio {
@@ -860,7 +860,7 @@ body {
 }
 
 @media (max-width: 520px) {
-  .cover-studio-header-actions a {
+  .cover-studio-header-actions button {
     padding: 9px 11px;
     font-size: 10px;
   }

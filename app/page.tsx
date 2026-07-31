@@ -6,7 +6,12 @@ const AI_APP_URL =
 export default function Home() {
   return (
     <main className="embedded-app-shell">
-      <Link className="cover-maker-entry" href="/cover">
+      <Link
+        className="cover-maker-entry"
+        href="/cover"
+        target="nbo-cover-studio"
+        aria-label="在独立标签页打开封面制作，保留当前文案结果"
+      >
         <span>新服务</span>
         制作封面
       </Link>

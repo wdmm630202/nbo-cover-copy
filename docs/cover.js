@@ -28,6 +28,15 @@ const canvas = $("#coverCanvas");
 const accessGate = $("#accessGate");
 const coverPage = $("#coverPage");
 
+$("#copyWorkspaceSwitch").addEventListener("click", () => {
+  if (window.opener && !window.opener.closed) {
+    window.opener.focus();
+    return;
+  }
+
+  window.open("./", "nbo-copy-studio");
+});
+
 function unlock() {
   localStorage.setItem(ACCESS_KEY, String(Date.now() + ACCESS_DAYS * 86400000));
   accessGate.classList.add("is-hidden");

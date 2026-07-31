@@ -27,7 +27,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .brand strong { font-size: 14px; }
 .brand small, .header-actions span { color: var(--muted); font-size: 10px; }
 .header-actions { flex-direction: row; align-items: center; gap: 18px; }
-.header-actions a { padding: 10px 15px; border: 1px solid #ded8d1; border-radius: 999px; background: rgba(255,255,255,.72); color: #3f3b38; font-size: 12px; font-weight: 700; text-decoration: none; }
+.header-actions button { padding: 10px 15px; border: 1px solid #ded8d1; border-radius: 999px; background: rgba(255,255,255,.72); color: #3f3b38; font-size: 12px; font-weight: 700; cursor: pointer; }
 .studio { width: min(1480px, calc(100% - 40px)); margin: 0 auto; }
 .intro { min-height: 154px; padding: 30px 36px; display: flex; align-items: center; justify-content: space-between; gap: 28px; border: 1px solid var(--line); border-radius: 28px; background: rgba(255,255,255,.88); box-shadow: 0 18px 52px rgba(43,36,31,.07); }
 .intro > div:first-child > span, .standard > div > span { color: var(--red); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
@@ -127,7 +127,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 @media (max-width: 520px) {
   .access-card { padding: 36px 22px 30px; }
-  .header-actions a { padding: 9px 11px; font-size: 10px; }
+  .header-actions button { padding: 9px 11px; font-size: 10px; }
   .intro h1 { font-size: 32px; }
   .panel, .preview-panel { border-radius: 20px; }
   .preview-panel { padding: 13px; }
