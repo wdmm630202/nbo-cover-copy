@@ -1,9 +1,15 @@
+import Link from "next/link";
+
 const AI_APP_URL =
   "https://script.google.com/macros/s/AKfycbwE3jYEnaSh75A-5ft6T-ChSvDnKrLFHvKi8fBvMEHhyRcBgieWcKsuN-3iuuzwQIQ_/exec?nbo_embed=1";
 
 export default function Home() {
   return (
     <main className="embedded-app-shell">
+      <Link className="cover-maker-entry" href="/cover">
+        <span>新服务</span>
+        制作封面
+      </Link>
       <div className="embedded-app-loading" aria-hidden="true">
         <div className="embedded-app-mark">N</div>
         <strong>正在进入南铂智能文案</strong>

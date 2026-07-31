@@ -38,12 +38,17 @@ test("公开入口显示中文密码验证页并记住登录状态", async () =>
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
-  const [page, layout, packageJson, code, publicEntry] = await Promise.all([
+  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, coverPage, coverStudio, coverConfig] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../apps-script/Code.gs", import.meta.url), "utf8"),
     readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../docs/cover.html", import.meta.url), "utf8"),
+    readFile(new URL("../docs/cover.js", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/cover-config.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(
@@ -55,12 +60,28 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.doesNotMatch(page, /window\.location\.replace\(AI_APP_URL\)/);
   assert.match(code, /setXFrameOptionsMode\(HtmlService\.XFrameOptionsMode\.ALLOWALL\)/);
   assert.match(publicEntry, /<iframe/);
+  assert.match(publicEntry, /href="\.\/cover\.html"/);
   assert.match(publicEntry, /iframe \{[^}]*height: 100%;[^}]*top: 0;/);
   assert.doesNotMatch(publicEntry, /top:\s*-48px|calc\(100%\s*\+\s*48px\)/);
   assert.doesNotMatch(publicEntry, /http-equiv="refresh"|window\.location\.replace/);
-  assert.match(layout, /NBO 灵感封面｜图片转发布文案/);
+  assert.match(page, /href="\/cover"/);
+  assert.match(layout, /NBO 自媒体工作台｜智能文案与封面制作/);
+  assert.match(layout, /og-workbench\.png/);
+  assert.match(coverPage, /南铂封面制作台|CoverStudio/);
+  assert.match(coverStudio, /导出高清 JPG/);
+  assert.match(coverStudio, /#FEE800/);
+  assert.match(coverStudio, /主页 3:4 安全区/);
+  assert.match(coverStudio, /图片不上传、不保存/);
+  assert.match(coverConfig, /1080/);
+  assert.match(coverConfig, /1920/);
+  assert.match(coverConfig, /COVER_RULES_VERSION/);
+  assert.match(publicCover, /南铂封面制作台/);
+  assert.match(publicCover, /访问密码/);
+  assert.match(publicCoverScript, /0817/);
+  assert.match(publicCoverScript, /image\/jpeg/);
+  assert.match(publicCoverScript, /主页 3:4 安全区/);
   assert.doesNotMatch(
-    page + layout + packageJson + publicEntry,
+    page + layout + packageJson + publicEntry + coverPage + coverStudio,
     /react-loading-skeleton|codex-preview|_sites-preview/,
   );
 });

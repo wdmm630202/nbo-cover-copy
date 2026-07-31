@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#202020" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>NBO 自媒体工作台｜南铂封面制作</title>
+    <link rel="stylesheet" href="./cover.css" />
+  </head>
+  <body>
+    <section class="access-gate" id="accessGate">
+      <form class="access-card" id="accessForm">
+        <span class="access-mark">N</span>
+        <h1>进入南铂封面制作台</h1>
+        <p>首次验证后，这台设备将自动记住180天</p>
+        <label>访问密码<input id="accessPassword" type="password" inputmode="numeric" autocomplete="current-password" required /></label>
+        <button type="submit">验证并进入</button>
+        <small id="accessError"></small>
+      </form>
+    </section>
+
+    <main class="cover-page is-hidden" id="coverPage">
+      <header class="studio-header">
+        <a class="brand" href="./">
+          <span class="brand-mark">N</span>
+          <span><strong>NBO 自媒体工作台</strong><small>封面制作服务</small></span>
+        </a>
+        <div class="header-actions">
+          <span>照片只在当前浏览器处理</span>
+          <a href="./">返回智能文案</a>
+        </div>
+      </header>
+
+      <section class="studio">
+        <div class="intro">
+          <div>
+            <span>配套服务 02</span>
+            <h1>南铂封面制作台</h1>
+            <p>把智能文案直接做成可发布封面。人物原片不重绘，照片不上传，尺寸和模板可以长期更新。</p>
+          </div>
+          <div class="status"><i></i><span id="statusText">上传照片后即可制作</span></div>
+        </div>
+
+        <div class="studio-grid">
+          <aside class="panel controls">
+            <div class="panel-heading"><b>01</b><span><strong>照片与文字</strong><small>先放原片，再放两行主文案</small></span></div>
+            <label class="upload" id="uploadBox">
+              <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" />
+              <strong id="uploadTitle">上传照片</strong>
+              <small id="fileName">支持 JPG、PNG、WEBP</small>
+            </label>
+            <label class="field"><span>上行主标题 <b>固定纯白</b></span><input id="topText" maxlength="18" value="男人的高级感" /></label>
+            <label class="field"><span>下行主标题 <b class="yellow">固定品牌黄</b></span><input id="bottomText" maxlength="18" value="藏在自然状态里" /></label>
+            <label class="field"><span>补充小字 <b>可不填</b></span><textarea id="subtitle" maxlength="38">不被定义的自己，才是最有张力的表达</textarea></label>
+            <div class="platforms" id="platforms">
+              <button type="button" class="active" data-platform="douyin"><strong>抖音</strong><span>9:16</span></button>
+              <button type="button" data-platform="xiaohongshu"><strong>小红书</strong><span>3:4</span></button>
+              <button type="button" data-platform="shipinhao"><strong>视频号</strong><span>3:4</span></button>
+            </div>
+            <p class="preset-note" id="presetNote">1080×1920 · 竖屏封面，带居中 3:4 主页安全区</p>
+          </aside>
+
+          <section class="preview-panel">
+            <div class="preview-toolbar">
+              <span><strong>实时封面预览</strong><small id="previewRatio">抖音 · 9:16</small></span>
+              <label class="switch"><input id="safeToggle" type="checkbox" checked /><i></i>安全区</label>
+            </div>
+            <div class="canvas-shell ratio-9-16" id="canvasShell">
+              <canvas id="coverCanvas" aria-label="封面实时预览"></canvas>
+            </div>
+            <div class="export-row">
+              <span><strong>导出前检查</strong><small>头顶、脸、手势和主标题均在安全区内</small></span>
+              <button type="button" class="secondary" id="exportPng">导出 PNG</button>
+              <button type="button" class="primary" id="exportJpg">导出高清 JPG</button>
+            </div>
+          </section>
+
+          <aside class="panel design">
+            <div class="panel-heading"><b>02</b><span><strong>版式与构图</strong><small>参考南铂暗调杂志封面体系</small></span></div>
+            <div class="templates" id="templates">
+              <button type="button" class="template active" data-template="left"><i>01</i><b>暗调左题</b><span>人物靠右，左侧强标题</span></button>
+              <button type="button" class="template" data-template="bottom"><i>02</i><b>底部冲击</b><span>底部渐变，两行醒目</span></button>
+              <button type="button" class="template" data-template="badge"><i>03</i><b>杂志编号</b><span>编号与信息层级</span></button>
+              <button type="button" class="template center" data-template="center"><i>04</i><b>中心主角</b><span>居中标题，适合留白</span></button>
+              <button type="button" class="template clean" data-template="clean"><i>05</i><b>极简留白</b><span>克制排版，突出人物</span></button>
+              <button type="button" class="template right" data-template="right"><i>06</i><b>右侧标题</b><span>人物靠左，右侧阅读</span></button>
+            </div>
+            <div class="sliders">
+              <label><span>照片缩放 <b id="zoomValue">100%</b></span><input id="zoom" type="range" min="100" max="180" value="100" /></label>
+              <label><span>左右位置 <b id="offsetXValue">0</b></span><input id="offsetX" type="range" min="-40" max="40" value="0" /></label>
+              <label><span>上下位置 <b id="offsetYValue">0</b></span><input id="offsetY" type="range" min="-40" max="40" value="0" /></label>
+              <label><span>标题大小 <b id="textScaleValue">100%</b></span><input id="textScale" type="range" min="76" max="132" value="100" /></label>
+              <label><span>压暗强度 <b id="shadeValue">62%</b></span><input id="shade" type="range" min="20" max="90" value="62" /></label>
+            </div>
+            <label class="brand-toggle"><input id="brandToggle" type="checkbox" checked /><i></i>显示“南铂摄影”品牌组</label>
+          </aside>
+        </div>
+
+        <section class="standard">
+          <div><span>长期规范</span><h2>南铂封面规范 1.0</h2></div>
+          <ul>
+            <li><b>人物保护</b> 不拉伸、不重绘脸、五官、头发、手和服装</li>
+            <li><b>固定颜色</b> 上行 #FFFFFF，下行 #FEE800</li>
+            <li><b>主页安全</b> 抖音 9:16 自动显示居中 3:4 检查框</li>
+            <li><b>本机处理</b> 图片不上传、不保存，导出后仍由你掌控</li>
+          </ul>
+          <p>平台规则会变化，尺寸预设独立维护；封面制作不依赖免费 AI 服务，即使智能文案暂时不可用，也能继续制作和导出。</p>
+        </section>
+      </section>
+    </main>
+    <script src="./cover.js"></script>
+  </body>
+</html>

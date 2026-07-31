@@ -7,9 +7,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
   const protocol =
     headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const imageUrl = `${protocol}://${host}/og.png`;
-  const title = "NBO 灵感封面｜图片转发布文案";
-  const description = "上传一张图片，结合当下公开趋势智能决定封面字数与表达，并生成小红书、抖音、视频号三平台发布文案。";
+  const imageUrl = `${protocol}://${host}/og-workbench.png`;
+  const title = "NBO 自媒体工作台｜智能文案与封面制作";
+  const description = "上传一张图片，生成适配小红书、抖音、视频号的智能文案，并在独立封面制作台完成构图、排版与高清导出。";
 
   return {
     title,
