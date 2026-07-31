@@ -21,8 +21,9 @@
         padding: 0 18px;
         position: fixed;
         z-index: 5;
-        right: 22px;
+        left: 50%;
         top: 18px;
+        transform: translateX(-50%);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -34,12 +35,13 @@
         box-shadow: 0 12px 32px rgba(0,0,0,.2);
         font-size: 14px;
         font-weight: 750;
+        white-space: nowrap;
         text-decoration: none;
         backdrop-filter: blur(14px);
       }
       .cover-entry span { padding: 4px 7px; border-radius: 999px; background: #ff2442; font-size: 9px; }
       @media (max-width: 640px) {
-        .cover-entry { min-width: 112px; height: 43px; right: 12px; top: 10px; font-size: 12px; }
+        .cover-entry { min-width: 112px; height: 43px; left: 50%; top: 10px; font-size: 12px; }
       }
     </style>
   </head>
