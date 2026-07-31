@@ -37,19 +37,28 @@ test("公开入口显示中文密码验证页并记住登录状态", async () =>
   assert.doesNotMatch(html, /Your site is taking shape|Building your site|codex-preview/i);
 });
 
-test("验证后入口指向现有智能文案应用", async () => {
-  const [page, layout, packageJson] = await Promise.all([
+test("验证后入口在自有页面内运行智能文案应用", async () => {
+  const [page, layout, packageJson, code, publicEntry] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../apps-script/Code.gs", import.meta.url), "utf8"),
+    readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
   ]);
 
   assert.match(
     page,
     /https:\/\/script\.google\.com\/macros\/s\/AKfycbwE3jYEnaSh75A-5ft6T-ChSvDnKrLFHvKi8fBvMEHhyRcBgieWcKsuN-3iuuzwQIQ_\/exec/,
   );
-  assert.match(page, /window\.location\.replace\(AI_APP_URL\)/);
-  assert.match(page, /真实识图 · 公开趋势 · 固定7\+8字封面/);
+  assert.match(page, /<iframe/);
+  assert.match(page, /nbo_embed=1/);
+  assert.doesNotMatch(page, /window\.location\.replace\(AI_APP_URL\)/);
+  assert.match(code, /setXFrameOptionsMode\(HtmlService\.XFrameOptionsMode\.ALLOWALL\)/);
+  assert.match(publicEntry, /<iframe/);
+  assert.doesNotMatch(publicEntry, /http-equiv="refresh"|window\.location\.replace/);
   assert.match(layout, /NBO 灵感封面｜图片转发布文案/);
-  assert.doesNotMatch(page + layout + packageJson, /react-loading-skeleton|codex-preview|_sites-preview/);
+  assert.doesNotMatch(
+    page + layout + packageJson + publicEntry,
+    /react-loading-skeleton|codex-preview|_sites-preview/,
+  );
 });

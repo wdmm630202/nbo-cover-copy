@@ -12,7 +12,8 @@ const MAX_IMAGE_BASE64_LENGTH = 7000000;
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
     .setTitle("NBO 灵感封面｜图片转热门文案")
-    .addMetaTag("viewport", "width=device-width, initial-scale=1, viewport-fit=cover");
+    .addMetaTag("viewport", "width=device-width, initial-scale=1, viewport-fit=cover")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function verifyAccess(code) {

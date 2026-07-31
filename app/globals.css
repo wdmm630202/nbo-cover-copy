@@ -31,6 +31,60 @@ body {
     "Microsoft YaHei", sans-serif;
 }
 
+.embedded-app-shell {
+  min-height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  background: #faf9f7;
+}
+
+.embedded-app-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: #202020;
+  text-align: center;
+}
+
+.embedded-app-loading span {
+  color: #8a8580;
+  font-size: 13px;
+}
+
+.embedded-app-mark {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--red);
+  color: #fff;
+  font: 800 30px/1 Georgia, serif;
+  box-shadow: 0 10px 26px rgba(255, 36, 66, 0.24);
+}
+
+.embedded-app-viewport {
+  height: 100dvh;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  background: transparent;
+}
+
+.embedded-app-frame {
+  width: 100%;
+  height: calc(100dvh + 48px);
+  position: absolute;
+  top: -48px;
+  left: 0;
+  border: 0;
+  background: #faf9f7;
+}
+
 button,
 input,
 textarea {
