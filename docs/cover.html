@@ -58,13 +58,19 @@
               <button class="image-sync" id="syncCoverImage" type="button" disabled>同步封面</button>
             </div>
             <div class="field">
-              <div class="field-title"><span>上行主标题 <b>固定纯白</b></span><button id="syncTopCopy" type="button" disabled>同步文案</button></div>
+              <div class="field-title"><span>上行主标题 <b>默认纯白·可取色</b></span><button id="syncTopCopy" type="button" disabled>同步文案</button></div>
               <input id="topText" aria-label="上行主标题" maxlength="18" value="男人的高级感" />
             </div>
             <div class="field">
-              <div class="field-title"><span>下行主标题 <b class="yellow">固定品牌黄</b></span><button id="syncBottomCopy" type="button" disabled>同步文案</button></div>
+              <div class="field-title"><span>下行主标题 <b class="yellow">默认品牌黄·可取色</b></span><button id="syncBottomCopy" type="button" disabled>同步文案</button></div>
               <input id="bottomText" aria-label="下行主标题" maxlength="18" value="藏在自然状态里" />
             </div>
+            <div class="color-row">
+              <label><span>上行颜色</span><input id="topColor" type="color" value="#FFFFFF" /></label>
+              <label><span>下行颜色</span><input id="bottomColor" type="color" value="#FEE800" /></label>
+              <label><span>横线颜色</span><input id="dividerColor" type="color" value="#C9A77A" /></label>
+            </div>
+            <label class="brand-toggle divider-toggle"><input id="dividerToggle" type="checkbox" checked /><i></i>显示一字长标题横线（下行留空时自动补位）</label>
             <label class="field"><span>补充小字 <b>可不填</b></span><textarea id="subtitle" maxlength="38">不被定义的自己，才是最有张力的表达</textarea></label>
             <div class="watermark-upload">
               <input id="watermarkInput" type="file" accept="image/png" />
@@ -113,6 +119,12 @@
               <label><span>水印大小 <b id="watermarkScaleValue">22%</b></span><input id="watermarkScale" type="range" min="10" max="42" value="22" /></label>
               <label><span>水印透明度 <b id="watermarkOpacityValue">92%</b></span><input id="watermarkOpacity" type="range" min="30" max="100" value="92" /></label>
             </div>
+            <div class="memory-panel">
+              <button id="resetSettings" class="reset-settings" type="button">恢复默认</button>
+              <div><b>记忆 1</b><button type="button" data-save-memory="1">保存</button><button type="button" data-load-memory="1">应用</button></div>
+              <div><b>记忆 2</b><button type="button" data-save-memory="2">保存</button><button type="button" data-load-memory="2">应用</button></div>
+              <div><b>记忆 3</b><button type="button" data-save-memory="3">保存</button><button type="button" data-load-memory="3">应用</button></div>
+            </div>
           </aside>
         </div>
 
@@ -120,7 +132,8 @@
           <div><span>长期规范</span><h2>南铂封面规范 2.0</h2></div>
           <ul>
             <li><b>人物保护</b> 不拉伸、不重绘脸、五官、头发、手和服装</li>
-            <li><b>固定颜色</b> 上行 #FFFFFF，下行 #FEE800</li>
+            <li><b>默认颜色</b> 上行 #FFFFFF，下行 #FEE800，可按照片取色调整</li>
+            <li><b>标题横线</b> 长度随字号同步；下行留空时自动保持两行节奏</li>
             <li><b>主页安全</b> 抖音 9:16 自动显示居中 3:4 检查框</li>
             <li><b>本机处理</b> 图片不上传、不保存，导出后仍由你掌控</li>
             <li><b>品牌规则</b> 不自动写“南铂摄影”，只叠加你上传的透明 PNG 水印</li>

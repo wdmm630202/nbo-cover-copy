@@ -60,6 +60,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .watermark-upload strong { font-size: 11px; }
 .watermark-upload small { max-width: 100%; overflow: hidden; color: #9b8367; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 #removeWatermark { position: absolute; right: 9px; top: 18px; border: 0; background: transparent; color: var(--red); font-size: 9px; font-weight: 750; cursor: pointer; }
+.color-row { margin-top: 11px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.color-row label { min-width: 0; padding: 8px; display: flex; align-items: center; justify-content: space-between; gap: 5px; border: 1px solid #e5ded7; border-radius: 10px; color: #6e6761; font-size: 8px; }
+.color-row input { width: 27px; height: 27px; padding: 2px; flex: 0 0 auto; border: 0; border-radius: 7px; background: #f3efeb; cursor: pointer; }
+.divider-toggle { margin-top: 11px; padding-top: 10px; }
+.memory-panel { margin-top: 18px; padding-top: 15px; display: grid; gap: 8px; border-top: 1px solid #eee8e2; }
+.memory-panel > div { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px; }
+.memory-panel b { color: #625b55; font-size: 9px; }
+.memory-panel button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
+.memory-panel .reset-settings { width: 100%; min-height: 34px; border-color: #202020; background: #202020; color: #fff; }
 .upload strong { font-size: 13px; }
 .upload small { max-width: 250px; overflow: hidden; color: #9a928b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .image-sync { min-height: 28px; padding: 0 10px; position: absolute; z-index: 2; top: 8px; right: 8px; border: 0; border-radius: 999px; background: var(--red); color: #fff; font-size: 8px; font-weight: 750; cursor: pointer; }

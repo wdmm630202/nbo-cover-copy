@@ -1,5 +1,6 @@
 const ACCESS_KEY = "nbo_cover_access_until";
 const SETTINGS_KEY = "nbo_cover_settings_v1";
+const MEMORY_KEY_PREFIX = "nbo_cover_memory_";
 const COPY_SYNC_KEY = "nbo-cover-copy-sync-v1";
 const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
@@ -16,6 +17,10 @@ const state = {
   topText: "男人的高级感",
   bottomText: "藏在自然状态里",
   subtitle: "不被定义的自己，才是最有张力的表达",
+  topColor: "#FFFFFF",
+  bottomColor: "#FEE800",
+  dividerColor: "#C9A77A",
+  divider: true,
   zoom: 100,
   offsetX: 0,
   offsetY: 0,
@@ -239,6 +244,10 @@ function updateUi() {
   $("#topText").value = state.topText;
   $("#bottomText").value = state.bottomText;
   $("#subtitle").value = state.subtitle;
+  $("#topColor").value = state.topColor;
+  $("#bottomColor").value = state.bottomColor;
+  $("#dividerColor").value = state.dividerColor;
+  $("#dividerToggle").checked = state.divider;
   $("#safeToggle").checked = state.safe;
   ["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkScale", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
@@ -298,6 +307,14 @@ function loadFile(file) {
     draw();
   });
 });
+["topColor", "bottomColor", "dividerColor"].forEach((id) => {
+  $(`#${id}`).addEventListener("input", (event) => {
+    state[id] = event.target.value.toUpperCase();
+    saveSettings();
+    draw();
+  });
+});
+$("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
 ["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkScale", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = Number(event.target.value);
@@ -340,6 +357,33 @@ $("#removeWatermark").addEventListener("click", () => {
   setStatus("水印已移除");
   draw();
 });
+$("#resetSettings").addEventListener("click", () => {
+  Object.assign(state, {
+    platform: "douyin", template: "left", topText: "男人的高级感", bottomText: "藏在自然状态里",
+    subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FEE800",
+    dividerColor: "#C9A77A", divider: true, zoom: 100, offsetX: 0, offsetY: 0, textScale: 100, shade: 62,
+    safe: true, watermarkScale: 22, watermarkOpacity: 92,
+  });
+  updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
+});
+document.querySelectorAll("[data-save-memory]").forEach((button) => button.addEventListener("click", () => {
+  const slot = button.dataset.saveMemory;
+  const settings = { ...state };
+  delete settings.image; delete settings.watermark; delete settings.fileName; delete settings.watermarkName;
+  localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(settings));
+  setStatus(`已保存到记忆点 ${slot}`);
+}));
+document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEventListener("click", () => {
+  const slot = button.dataset.loadMemory;
+  try {
+    const saved = localStorage.getItem(`${MEMORY_KEY_PREFIX}${slot}`);
+    if (!saved) return setStatus(`记忆点 ${slot} 还没有保存设置`);
+    Object.assign(state, JSON.parse(saved));
+    updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
+  } catch {
+    setStatus(`记忆点 ${slot} 读取失败，请重新保存`);
+  }
+}));
 $("#platforms").addEventListener("click", (event) => {
   const button = event.target.closest("[data-platform]");
   if (!button) return;
@@ -451,16 +495,26 @@ function drawText(ctx, width, height) {
     ctx.textAlign = align;
     ctx.shadowBlur = 16;
   }
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = state.topColor;
   ctx.font = `900 ${fitText(ctx, state.topText, baseFont, maxWidth)}px sans-serif`;
   ctx.fillText(state.topText || "上行标题", x, y, maxWidth);
-  ctx.fillStyle = "#FEE800";
-  ctx.font = `900 ${fitText(ctx, state.bottomText, baseFont, maxWidth)}px sans-serif`;
-  ctx.fillText(state.bottomText || "下行标题", x, y + lineGap, maxWidth);
+  if (state.bottomText.trim()) {
+    ctx.fillStyle = state.bottomColor;
+    ctx.font = `900 ${fitText(ctx, state.bottomText, baseFont, maxWidth)}px sans-serif`;
+    ctx.fillText(state.bottomText, x, y + lineGap, maxWidth);
+  }
+  if (state.divider) {
+    const dividerWidth = baseFont;
+    const dividerY = state.bottomText.trim() ? y + lineGap * 1.48 : y + lineGap;
+    const dividerX = right ? x - dividerWidth : center ? x - dividerWidth / 2 : x;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = state.dividerColor;
+    ctx.fillRect(dividerX, dividerY, dividerWidth, Math.max(4, Math.round(baseFont * .055)));
+  }
   if (state.subtitle.trim()) {
     ctx.fillStyle = "rgba(255,255,255,.92)";
     ctx.font = `500 ${Math.round(width * .03)}px sans-serif`;
-    drawWrapped(ctx, state.subtitle, x, y + lineGap + baseFont * .8, maxWidth, width * .044, align);
+    drawWrapped(ctx, state.subtitle, x, y + lineGap + baseFont * (state.divider ? 1.08 : .8), maxWidth, width * .044, align);
   }
   ctx.restore();
 }

@@ -33,6 +33,10 @@ type StudioSettings = {
   topText: string;
   bottomText: string;
   subtitle: string;
+  topColor: string;
+  bottomColor: string;
+  dividerColor: string;
+  showDivider: boolean;
   zoom: number;
   offsetX: number;
   offsetY: number;
@@ -44,6 +48,7 @@ type StudioSettings = {
 };
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
+const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 
 const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
@@ -51,6 +56,10 @@ const DEFAULT_SETTINGS: StudioSettings = {
   topText: "男人的高级感",
   bottomText: "藏在自然状态里",
   subtitle: "不被定义的自己，才是最有张力的表达",
+  topColor: "#FFFFFF",
+  bottomColor: "#FEE800",
+  dividerColor: "#C9A77A",
+  showDivider: true,
   zoom: 100,
   offsetX: 0,
   offsetY: 0,
@@ -197,13 +206,24 @@ function drawTemplateText(
     context.shadowBlur = 16;
   }
 
-  context.fillStyle = "#FFFFFF";
+  context.fillStyle = settings.topColor;
   context.font = `900 ${fitText(context, settings.topText, baseFont, maxWidth)}px sans-serif`;
   context.fillText(settings.topText || "上行标题", x, y, maxWidth);
 
-  context.fillStyle = "#FEE800";
-  context.font = `900 ${fitText(context, settings.bottomText, baseFont, maxWidth)}px sans-serif`;
-  context.fillText(settings.bottomText || "下行标题", x, y + lineGap, maxWidth);
+  if (settings.bottomText.trim()) {
+    context.fillStyle = settings.bottomColor;
+    context.font = `900 ${fitText(context, settings.bottomText, baseFont, maxWidth)}px sans-serif`;
+    context.fillText(settings.bottomText, x, y + lineGap, maxWidth);
+  }
+
+  if (settings.showDivider) {
+    const dividerWidth = baseFont;
+    const dividerY = settings.bottomText.trim() ? y + lineGap * 1.48 : y + lineGap;
+    const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
+    context.shadowBlur = 8;
+    context.fillStyle = settings.dividerColor;
+    context.fillRect(dividerX, dividerY, dividerWidth, Math.max(4, Math.round(baseFont * 0.055)));
+  }
 
   if (settings.subtitle.trim()) {
     context.shadowBlur = 10;
@@ -213,7 +233,7 @@ function drawTemplateText(
       context,
       settings.subtitle,
       x,
-      y + lineGap + Math.round(baseFont * 0.8),
+      y + lineGap + Math.round(baseFont * (settings.showDivider ? 1.08 : 0.8)),
       maxWidth,
       Math.round(width * 0.044),
       textAlign,
@@ -426,6 +446,30 @@ export default function CoverStudio() {
     },
     [],
   );
+
+  const resetSettings = useCallback(() => {
+    setSettings(DEFAULT_SETTINGS);
+    setNotice("已恢复默认构图和颜色");
+  }, []);
+
+  const saveMemory = useCallback((slot: number) => {
+    window.localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(settings));
+    setNotice(`已保存到记忆点 ${slot}`);
+  }, [settings]);
+
+  const loadMemory = useCallback((slot: number) => {
+    try {
+      const saved = window.localStorage.getItem(`${MEMORY_KEY_PREFIX}${slot}`);
+      if (!saved) {
+        setNotice(`记忆点 ${slot} 还没有保存设置`);
+        return;
+      }
+      setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
+      setNotice(`已应用记忆点 ${slot}`);
+    } catch {
+      setNotice(`记忆点 ${slot} 读取失败，请重新保存`);
+    }
+  }, []);
 
   const applySyncedCopy = useCallback((field: "topText" | "bottomText" | "all") => {
     if (!syncedCopy) {
@@ -642,7 +686,7 @@ export default function CoverStudio() {
 
           <div className="studio-field">
             <div className="studio-field-heading">
-              <span>上行主标题 <b>固定纯白</b></span>
+              <span>上行主标题 <b>默认纯白·可取色</b></span>
               <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("topText")}>同步文案</button>
             </div>
             <input
@@ -653,9 +697,19 @@ export default function CoverStudio() {
               placeholder="例如：男人的高级感"
             />
           </div>
+          <div className="studio-color-row">
+            <label><span>上行颜色</span><input type="color" value={settings.topColor} onChange={(event) => updateSetting("topColor", event.target.value.toUpperCase())} /></label>
+            <label><span>下行颜色</span><input type="color" value={settings.bottomColor} onChange={(event) => updateSetting("bottomColor", event.target.value.toUpperCase())} /></label>
+            <label><span>横线颜色</span><input type="color" value={settings.dividerColor} onChange={(event) => updateSetting("dividerColor", event.target.value.toUpperCase())} /></label>
+          </div>
+          <label className="studio-check studio-divider-toggle">
+            <input type="checkbox" checked={settings.showDivider} onChange={(event) => updateSetting("showDivider", event.target.checked)} />
+            <span />
+            显示一字长标题横线（下行留空时自动补位）
+          </label>
           <div className="studio-field">
             <div className="studio-field-heading">
-              <span>下行主标题 <b className="yellow">固定品牌黄</b></span>
+              <span>下行主标题 <b className="yellow">默认品牌黄·可取色</b></span>
               <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("bottomText")}>同步文案</button>
             </div>
             <input
@@ -838,6 +892,12 @@ export default function CoverStudio() {
               onChange={(value) => updateSetting("watermarkOpacity", value)}
             />
           </div>
+          <div className="studio-memory">
+            <button type="button" className="studio-reset" onClick={resetSettings}>恢复默认</button>
+            {[1, 2, 3].map((slot) => (
+              <div key={slot}><b>记忆 {slot}</b><button type="button" onClick={() => saveMemory(slot)}>保存</button><button type="button" onClick={() => loadMemory(slot)}>应用</button></div>
+            ))}
+          </div>
         </aside>
       </div>
 
@@ -848,7 +908,8 @@ export default function CoverStudio() {
         </div>
         <ul>
           <li><b>人物保护</b> 不拉伸、不重绘脸、五官、头发、手和服装</li>
-          <li><b>固定颜色</b> 上行 #FFFFFF，下行 #FEE800</li>
+          <li><b>默认颜色</b> 上行 #FFFFFF，下行 #FEE800，可按照片取色调整</li>
+          <li><b>标题横线</b> 长度随字号同步；下行留空时自动保持两行节奏</li>
           <li><b>主页安全</b> 抖音 9:16 自动显示居中 3:4 检查框</li>
           <li><b>本机处理</b> 图片不上传、不保存，导出后仍由你掌控</li>
           <li><b>品牌规则</b> 不自动写“南铂摄影”，只叠加你上传的透明 PNG 水印</li>
