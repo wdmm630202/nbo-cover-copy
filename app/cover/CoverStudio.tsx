@@ -63,7 +63,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   bottomText: "藏在自然状态里",
   subtitle: "不被定义的自己，才是最有张力的表达",
   topColor: "#FFFFFF",
-  bottomColor: "#FEE800",
+  bottomColor: "#FFFFFF",
   dividerColor: "#C9A77A",
   showDivider: true,
   subtitleColor: "#FFFFFF",
@@ -77,7 +77,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   showSafeArea: true,
   watermarkScale: 100,
   watermarkAlign: "center",
-  watermarkOpacity: 92,
+  watermarkOpacity: 50,
   watermarkEnabled: true,
 };
 
@@ -264,9 +264,10 @@ function drawTemplateText(
   const usableTop = cropTop + DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
+  const watermarkBounds = watermark ? getWatermarkVisibleBounds(watermark) : null;
+  const matchedWatermarkScale = watermarkBounds ? subtitleFontSize / Math.max(1, watermarkBounds.bottom - watermarkBounds.top) : 0;
   const watermarkTop = watermark
-    ? (height - watermark.naturalHeight * Math.min(width / watermark.naturalWidth, height / watermark.naturalHeight) * settings.watermarkScale / 100) / 2
-      + getWatermarkVisibleBounds(watermark).top * Math.min(width / watermark.naturalWidth, height / watermark.naturalHeight) * settings.watermarkScale / 100
+    ? (height - watermark.naturalHeight * matchedWatermarkScale) / 2 + (watermarkBounds?.top ?? 0) * matchedWatermarkScale
     : Number.POSITIVE_INFINITY;
   const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
   const requestedY = settings.templateId.startsWith("top-")
@@ -325,11 +326,11 @@ function drawWatermark(
 ) {
   // The transparent PNG canvas is the positioning contract. Fit that complete
   // canvas to the cover instead of sizing from the visible logo pixels.
-  const baseScale = Math.min(width / watermark.naturalWidth, height / watermark.naturalHeight);
-  const scale = baseScale * (settings.watermarkScale / 100);
+  const bounds = getWatermarkVisibleBounds(watermark);
+  const subtitleFontSize = width * 0.03 * (settings.subtitleScale / 100);
+  const scale = subtitleFontSize / Math.max(1, bounds.bottom - bounds.top);
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
-  const bounds = getWatermarkVisibleBounds(watermark);
   const safeInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * (width / 1080);
   const x = settings.watermarkAlign === "left"
     ? safeInset - bounds.left * scale
@@ -517,6 +518,8 @@ export default function CoverStudio() {
         const saved = window.localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
+          if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
+          if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
           if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
@@ -627,6 +630,8 @@ export default function CoverStudio() {
         return;
       }
       const parsed = JSON.parse(saved);
+      if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
+      if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
       if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
       parsed.templateId = normalizeTemplateId(parsed.templateId);
       setSettings({ ...DEFAULT_SETTINGS, ...parsed });
@@ -886,7 +891,7 @@ export default function CoverStudio() {
           </label>
           <div className="studio-field">
             <div className="studio-field-heading">
-              <span>下行主标题 <b className="yellow">默认品牌黄·可取色</b></span>
+              <span>下行主标题 <b>默认纯白·可取色</b></span>
               <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("bottomText")}>同步文案</button>
             </div>
             <input
@@ -1103,7 +1108,7 @@ export default function CoverStudio() {
         </div>
         <ul>
           <li><b>人物保护</b> 不拉伸、不重绘脸、五官、头发、手和服装</li>
-          <li><b>默认颜色</b> 上行 #FFFFFF，下行 #FEE800，可按照片取色调整</li>
+          <li><b>默认颜色</b> 上行 #FFFFFF，下行 #FFFFFF，可按照片取色调整</li>
           <li><b>标题横线</b> 长度随字号同步；下行留空时按单行标题自动收紧</li>
           <li><b>主页安全</b> 抖音 9:16 自动显示居中 3:4 检查框</li>
           <li><b>本机处理</b> 图片不上传、不保存，导出后仍由你掌控</li>

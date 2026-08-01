@@ -18,7 +18,7 @@ const state = {
   bottomText: "藏在自然状态里",
   subtitle: "不被定义的自己，才是最有张力的表达",
   topColor: "#FFFFFF",
-  bottomColor: "#FEE800",
+  bottomColor: "#FFFFFF",
   dividerColor: "#C9A77A",
   divider: true,
   subtitleColor: "#FFFFFF",
@@ -32,7 +32,7 @@ const state = {
   safe: true,
   watermarkScale: 100,
   watermarkAlign: "center",
-  watermarkOpacity: 92,
+  watermarkOpacity: 50,
   watermarkEnabled: true,
   image: null,
   watermark: null,
@@ -244,6 +244,8 @@ try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
   if (saved) {
     if (Number(saved.watermarkScale) <= 42) saved.watermarkScale = 100;
+    if (saved.bottomColor === "#FEE800") saved.bottomColor = "#FFFFFF";
+    if (Number(saved.watermarkOpacity) === 92) saved.watermarkOpacity = 50;
     saved.template = normalizeTemplate(saved.template);
     Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
   }
@@ -426,10 +428,10 @@ $("#removeWatermark").addEventListener("click", () => {
 $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, {
     platform: "douyin", template: "top-left", topText: "男人的高级感", bottomText: "藏在自然状态里",
-    subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FEE800",
+    subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
     zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, shade: 62,
-    safe: true, watermarkScale: 100, watermarkAlign: "center", watermarkOpacity: 92, watermarkEnabled: true,
+    safe: true, watermarkScale: 100, watermarkAlign: "center", watermarkOpacity: 50, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
 });
@@ -447,6 +449,8 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
     if (!saved) return setStatus(`记忆点 ${slot} 还没有保存设置`);
     const parsed = JSON.parse(saved);
     if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+    if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
+    if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
     parsed.template = normalizeTemplate(parsed.template);
     Object.assign(state, parsed);
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
@@ -589,7 +593,7 @@ function drawText(ctx, width, height) {
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_SAFE.verticalInset * geometryScale;
   const watermarkScale = state.watermark && state.watermarkEnabled
-    ? Math.min(width / state.watermark.naturalWidth, height / state.watermark.naturalHeight) * state.watermarkScale / 100
+    ? subtitleFontSize / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
     : 0;
   const watermarkTop = state.watermark && state.watermarkEnabled
     ? (height - state.watermark.naturalHeight * watermarkScale) / 2 + getWatermarkVisibleBounds(state.watermark).top * watermarkScale
@@ -686,11 +690,11 @@ function countWrappedLines(ctx, text, maxWidth) {
 
 function drawWatermark(ctx, width, height) {
   // 保留透明 PNG 的完整原始画布，画布本身就是水印的定位基准。
-  const baseScale = Math.min(width / state.watermark.naturalWidth, height / state.watermark.naturalHeight);
-  const scale = baseScale * state.watermarkScale / 100;
+  const bounds = getWatermarkVisibleBounds(state.watermark);
+  const subtitleFontSize = width * .03 * state.subtitleScale / 100;
+  const scale = subtitleFontSize / Math.max(1, bounds.bottom - bounds.top);
   const drawWidth = state.watermark.naturalWidth * scale;
   const drawHeight = state.watermark.naturalHeight * scale;
-  const bounds = getWatermarkVisibleBounds(state.watermark);
   const safeInset = DOUYIN_HOME_SAFE.horizontalInset * (width / 1080);
   const x = state.watermarkAlign === "left"
     ? safeInset - bounds.left * scale

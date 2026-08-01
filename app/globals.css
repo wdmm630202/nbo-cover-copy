@@ -444,7 +444,11 @@ body {
 
 .studio-watermark-box {
   margin-top: 14px;
+  padding: 8px;
   position: relative;
+  border: 1px dashed #c9a77a;
+  border-radius: 13px;
+  background: #fffaf3;
 }
 
 .studio-watermark-box > input {
@@ -460,9 +464,9 @@ body {
   align-items: flex-start;
   justify-content: center;
   gap: 4px;
-  border: 1px dashed #c9a77a;
-  border-radius: 13px;
-  background: #fffaf3;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: #28231f;
   text-align: left;
   cursor: pointer;
@@ -471,7 +475,7 @@ body {
 .studio-watermark-box b { font-size: 11px; }
 .studio-watermark-box span { max-width: 100%; overflow: hidden; color: #9b8367; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .studio-watermark-actions { margin-top: 7px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
-.studio-watermark-actions button { min-width: 0; min-height: 29px; padding: 0 3px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
+.studio-watermark-actions button { min-width: 0; min-height: 29px; padding: 0 3px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 9px; font-weight: 750; cursor: pointer; }
 .studio-watermark-actions button.is-active { border-color: #202020; background: #202020; color: #fff; }
 
 .studio-color-row { margin-top: 11px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
@@ -539,7 +543,7 @@ body {
   border-radius: 999px;
   background: var(--red);
   color: #fff;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 750;
   cursor: pointer;
 }
@@ -587,7 +591,7 @@ body {
 .studio-field-heading button {
   min-height: 25px;
   padding: 0 9px;
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .studio-field input,
