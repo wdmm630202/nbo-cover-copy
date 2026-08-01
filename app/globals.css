@@ -825,6 +825,11 @@ body {
   color: #fff;
 }
 
+.studio-export-row button:disabled {
+  opacity: .56;
+  cursor: wait;
+}
+
 .studio-template-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

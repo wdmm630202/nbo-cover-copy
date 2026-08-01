@@ -53,6 +53,12 @@ type StudioSettings = {
   watermarkEnabled: boolean;
 };
 
+type ExportAsset = {
+  blob: Blob;
+  file: File;
+  outputSize: { width: number; height: number };
+};
+
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 
@@ -506,6 +512,9 @@ export default function CoverStudio() {
   const [watermark, setWatermark] = useState<HTMLImageElement | null>(null);
   const [watermarkName, setWatermarkName] = useState("");
   const [watermarkKind, setWatermarkKind] = useState<"default" | "custom">("default");
+  const [exportReady, setExportReady] = useState({ jpeg: false, png: false });
+  const exportCacheRef = useRef<{ jpeg: ExportAsset | null; png: ExportAsset | null }>({ jpeg: null, png: null });
+  const exportGenerationRef = useRef(0);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
@@ -608,6 +617,51 @@ export default function CoverStudio() {
       drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true);
     }
   }, [image, preset, settings, watermark]);
+
+  const buildExportAsset = useCallback(async (format: "jpeg" | "png"): Promise<ExportAsset | null> => {
+    if (!image) return null;
+    const sourceRatio = image.naturalWidth / image.naturalHeight;
+    const targetRatio = preset.width / preset.height;
+    let outputSize = sourceRatio >= targetRatio
+      ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
+      : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
+    const exportCanvas = document.createElement("canvas");
+    const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => exportCanvas.toBlob(resolve, `image/${format}`, quality));
+    const maxBytes = 19.9 * 1024 * 1024;
+    let quality = format === "jpeg" ? 0.98 : undefined;
+    drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize);
+    let blob = await toBlob(quality);
+    while (blob && blob.size > maxBytes && format === "jpeg" && (quality ?? 0) > 0.56) {
+      quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
+      blob = await toBlob(quality);
+    }
+    while (blob && blob.size > maxBytes && outputSize.width > 1080) {
+      const ratio = Math.min(0.94, Math.sqrt(maxBytes / blob.size) * 0.98);
+      outputSize = { width: Math.max(1080, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
+      drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize);
+      blob = await toBlob(quality);
+    }
+    if (!blob) return null;
+    const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
+    const exportName = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
+    return { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
+  }, [fileName, image, preset, settings, watermark]);
+
+  useEffect(() => {
+    const generation = ++exportGenerationRef.current;
+    exportCacheRef.current = { jpeg: null, png: null };
+    setExportReady({ jpeg: false, png: false });
+    if (!image) return;
+    const timer = window.setTimeout(async () => {
+      for (const format of ["jpeg", "png"] as const) {
+        const asset = await buildExportAsset(format);
+        if (generation !== exportGenerationRef.current) return;
+        exportCacheRef.current[format] = asset;
+        if (asset) setExportReady((current) => ({ ...current, [format]: true }));
+      }
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [buildExportAsset, image]);
 
   const updateSetting = useCallback(
     <Key extends keyof StudioSettings>(key: Key, value: StudioSettings[Key]) => {
@@ -766,50 +820,26 @@ export default function CoverStudio() {
       setNotice("请先上传一张照片");
       return;
     }
-
-    const sourceRatio = image.naturalWidth / image.naturalHeight;
-    const targetRatio = preset.width / preset.height;
-    let outputSize = sourceRatio >= targetRatio
-      ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
-      : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
-    const exportCanvas = document.createElement("canvas");
-    drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize);
-    const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => exportCanvas.toBlob(resolve, `image/${format}`, quality));
-    const maxBytes = 19.9 * 1024 * 1024;
-    let quality = format === "jpeg" ? 0.98 : undefined;
-    let blob = await toBlob(quality);
-    while (blob && blob.size > maxBytes && format === "jpeg" && (quality ?? 0) > 0.56) {
-      quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
-      blob = await toBlob(quality);
-    }
-    while (blob && blob.size > maxBytes && outputSize.width > 1080) {
-      const ratio = Math.min(0.94, Math.sqrt(maxBytes / blob.size) * 0.98);
-      outputSize = { width: Math.max(1080, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
-      drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize);
-      blob = await toBlob(quality);
-    }
-    if (!blob) return setNotice("导出没有完成，请重新尝试");
-    const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
-    const exportName = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-    const exportFile = new File([blob], exportName, { type: blob.type });
-    if (navigator.canShare?.({ files: [exportFile] })) {
+    const asset = exportCacheRef.current[format];
+    if (!asset) return setNotice("高清图片正在准备，请等待按钮恢复后再点击");
+    if (navigator.canShare?.({ files: [asset.file] })) {
       try {
-        await navigator.share({ files: [exportFile], title: "南铂封面" });
+        await navigator.share({ files: [asset.file], title: "南铂封面" });
         setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return setNotice("已取消保存，可再次点击导出");
       }
     }
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(asset.blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = exportName;
+    link.download = asset.file.name;
     document.body.appendChild(link);
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    setNotice(`已导出高清 ${outputSize.width}×${outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(blob.size / 1024 / 1024).toFixed(1)}MB`);
+    setNotice(`已导出高清 ${asset.outputSize.width}×${asset.outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
   };
 
   return (
@@ -1003,11 +1033,11 @@ export default function CoverStudio() {
               <strong>导出前检查</strong>
               <span>头顶、脸、手势和主标题均在安全区内</span>
             </div>
-            <button type="button" className="export-secondary" onClick={() => exportCover("png")}>
-              导出 PNG
+            <button type="button" className="export-secondary" disabled={Boolean(image) && !exportReady.png} onClick={() => exportCover("png")}>
+              {image && !exportReady.png ? "准备中…" : "导出 PNG"}
             </button>
-            <button type="button" className="export-primary" onClick={() => exportCover("jpeg")}>
-              导出高清 JPG
+            <button type="button" className="export-primary" disabled={Boolean(image) && !exportReady.jpeg} onClick={() => exportCover("jpeg")}>
+              {image && !exportReady.jpeg ? "准备中…" : "导出高清 JPG"}
             </button>
           </div>
         </section>

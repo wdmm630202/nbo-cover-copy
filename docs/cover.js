@@ -61,6 +61,9 @@ const coverPage = $("#coverPage");
 let syncedCopy = null;
 let syncedImage = null;
 let defaultWatermark = null;
+let exportCache = { jpeg: null, png: null };
+let exportRevision = 0;
+let exportPrepareTimer = 0;
 const syncChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(COPY_SYNC_CHANNEL)
   : null;
@@ -520,6 +523,7 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null) {
   drawText(targetContext, width, height);
   if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
   if (includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);
+  if (targetCanvas === canvas) scheduleExportPreparation();
 }
 
 function drawShade(ctx, width, height) {
@@ -777,8 +781,31 @@ function drawGuide(ctx, width, height) {
   ctx.restore();
 }
 
-async function exportCover(format) {
-  if (!state.image) return setStatus("请先上传一张照片");
+function setExportReady(format, ready) {
+  const button = format === "jpeg" ? $("#exportJpg") : $("#exportPng");
+  button.disabled = Boolean(state.image) && !ready;
+  button.textContent = state.image && !ready ? "准备中…" : format === "jpeg" ? "导出高清 JPG" : "导出 PNG";
+}
+
+function scheduleExportPreparation() {
+  window.clearTimeout(exportPrepareTimer);
+  const revision = ++exportRevision;
+  exportCache = { jpeg: null, png: null };
+  setExportReady("jpeg", false);
+  setExportReady("png", false);
+  if (!state.image) return;
+  exportPrepareTimer = window.setTimeout(async () => {
+    for (const format of ["jpeg", "png"]) {
+      const asset = await buildExportAsset(format);
+      if (revision !== exportRevision) return;
+      exportCache[format] = asset;
+      if (asset) setExportReady(format, true);
+    }
+  }, 120);
+}
+
+async function buildExportAsset(format) {
+  if (!state.image) return null;
   const output = document.createElement("canvas");
   const mimeType = format === "png" ? "image/png" : "image/jpeg";
   const current = preset();
@@ -802,28 +829,34 @@ async function exportCover(format) {
     draw(false, output, outputSize);
     blob = await toBlob(quality);
   }
-  if (!blob) return setStatus("导出没有完成，请重新尝试");
+  if (!blob) return null;
   const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
   const exportName = `${name}_${current.label}_${current.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-  const exportFile = new File([blob], exportName, { type: blob.type });
-  if (navigator.canShare?.({ files: [exportFile] })) {
+  return { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
+}
+
+async function exportCover(format) {
+  if (!state.image) return setStatus("请先上传一张照片");
+  const asset = exportCache[format];
+  if (!asset) return setStatus("高清图片正在准备，请等待按钮恢复后再点击");
+  if (navigator.canShare?.({ files: [asset.file] })) {
     try {
-      await navigator.share({ files: [exportFile], title: "南铂封面" });
+      await navigator.share({ files: [asset.file], title: "南铂封面" });
       setStatus("已打开手机分享面板，请点击“存储图像”保存到相册");
       return;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return setStatus("已取消保存，可再次点击导出");
     }
   }
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(asset.blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = exportName;
+  link.download = asset.file.name;
   document.body.appendChild(link);
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  setStatus(`已导出高清 ${outputSize.width}×${outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(blob.size / 1024 / 1024).toFixed(1)}MB`);
+  setStatus(`已导出高清 ${asset.outputSize.width}×${asset.outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
 }
 
 draw();
