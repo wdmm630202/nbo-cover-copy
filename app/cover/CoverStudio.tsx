@@ -789,14 +789,27 @@ export default function CoverStudio() {
       blob = await toBlob(quality);
     }
     if (!blob) return setNotice("导出没有完成，请重新尝试");
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
-        link.href = url;
-        link.download = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-        link.click();
-        URL.revokeObjectURL(url);
-        setNotice(`已导出高清 ${outputSize.width}×${outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(blob.size / 1024 / 1024).toFixed(1)}MB`);
+    const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
+    const exportName = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
+    const exportFile = new File([blob], exportName, { type: blob.type });
+    if (navigator.canShare?.({ files: [exportFile] })) {
+      try {
+        await navigator.share({ files: [exportFile], title: "南铂封面" });
+        setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return setNotice("已取消保存，可再次点击导出");
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = exportName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setNotice(`已导出高清 ${outputSize.width}×${outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(blob.size / 1024 / 1024).toFixed(1)}MB`);
   };
 
   return (
