@@ -314,7 +314,12 @@ function drawWatermark(
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
   const freeWidth = width - drawWidth;
-  const x = settings.watermarkAlign === "left" ? 0 : settings.watermarkAlign === "right" ? freeWidth : freeWidth / 2;
+  const safeInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * (width / 1080);
+  const x = settings.watermarkAlign === "left"
+    ? safeInset
+    : settings.watermarkAlign === "right"
+      ? freeWidth - safeInset
+      : freeWidth / 2;
   const y = (height - drawHeight) / 2;
   context.save();
   context.globalAlpha = settings.watermarkOpacity / 100;

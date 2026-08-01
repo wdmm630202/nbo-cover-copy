@@ -646,7 +646,12 @@ function drawWatermark(ctx, width, height) {
   const drawWidth = state.watermark.naturalWidth * scale;
   const drawHeight = state.watermark.naturalHeight * scale;
   const freeWidth = width - drawWidth;
-  const x = state.watermarkAlign === "left" ? 0 : state.watermarkAlign === "right" ? freeWidth : freeWidth / 2;
+  const safeInset = DOUYIN_HOME_SAFE.horizontalInset * (width / 1080);
+  const x = state.watermarkAlign === "left"
+    ? safeInset
+    : state.watermarkAlign === "right"
+      ? freeWidth - safeInset
+      : freeWidth / 2;
   const y = (height - drawHeight) / 2;
   ctx.save();
   ctx.globalAlpha = state.watermarkOpacity / 100;
