@@ -26,6 +26,7 @@ const state = {
   zoom: 100,
   offsetX: 0,
   offsetY: 0,
+  rotation: 0,
   textScale: 100,
   shade: 62,
   safe: true,
@@ -289,12 +290,13 @@ function updateUi() {
   $("#subtitleScale").value = state.subtitleScale;
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   $("#safeToggle").checked = state.safe;
-  ["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkOpacity"].forEach((id) => {
+  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "shade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
   $("#zoomValue").textContent = `${state.zoom}%`;
   $("#offsetXValue").textContent = state.offsetX;
   $("#offsetYValue").textContent = state.offsetY;
+  $("#rotationValue").textContent = `${state.rotation}°`;
   $("#textScaleValue").textContent = `${state.textScale}%`;
   $("#shadeValue").textContent = `${state.shade}%`;
   $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
@@ -363,7 +365,7 @@ $("#subtitleScale").addEventListener("input", (event) => {
   saveSettings(); draw();
 });
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
-["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkOpacity"].forEach((id) => {
+["zoom", "offsetX", "offsetY", "rotation", "textScale", "shade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = Number(event.target.value);
     updateUi();
@@ -426,7 +428,7 @@ $("#resetSettings").addEventListener("click", () => {
     platform: "douyin", template: "top-left", topText: "男人的高级感", bottomText: "藏在自然状态里",
     subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FEE800",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
-    zoom: 100, offsetX: 0, offsetY: 0, textScale: 100, shade: 62,
+    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, shade: 62,
     safe: true, watermarkScale: 100, watermarkAlign: "center", watermarkOpacity: 92, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
@@ -475,23 +477,28 @@ function setStatus(message) {
   $("#statusText").textContent = message;
 }
 
-function draw(includeGuide = true, targetCanvas = canvas) {
+function draw(includeGuide = true, targetCanvas = canvas, outputSize = null) {
   const targetContext = targetCanvas.getContext("2d");
   const current = preset();
-  const { width, height } = current;
+  const { width, height } = outputSize || current;
   targetCanvas.width = width;
   targetCanvas.height = height;
   targetContext.fillStyle = "#151515";
   targetContext.fillRect(0, 0, width, height);
 
   if (state.image) {
-    const base = Math.max(width / state.image.naturalWidth, height / state.image.naturalHeight);
+    const radians = state.rotation * Math.PI / 180;
+    const rotatedWidth = Math.abs(state.image.naturalWidth * Math.cos(radians)) + Math.abs(state.image.naturalHeight * Math.sin(radians));
+    const rotatedHeight = Math.abs(state.image.naturalWidth * Math.sin(radians)) + Math.abs(state.image.naturalHeight * Math.cos(radians));
+    const base = Math.max(width / rotatedWidth, height / rotatedHeight);
     const scale = base * state.zoom / 100;
     const imageWidth = state.image.naturalWidth * scale;
     const imageHeight = state.image.naturalHeight * scale;
-    const x = (width - imageWidth) / 2 + state.offsetX / 100 * width;
-    const y = (height - imageHeight) / 2 + state.offsetY / 100 * height;
-    targetContext.drawImage(state.image, x, y, imageWidth, imageHeight);
+    targetContext.save();
+    targetContext.translate(width / 2 + state.offsetX / 100 * width, height / 2 + state.offsetY / 100 * height);
+    targetContext.rotate(radians);
+    targetContext.drawImage(state.image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+    targetContext.restore();
   } else {
     const placeholder = targetContext.createLinearGradient(0, 0, width, height);
     placeholder.addColorStop(0, "#161616");
@@ -762,23 +769,40 @@ function drawGuide(ctx, width, height) {
   ctx.restore();
 }
 
-function exportCover(format) {
+async function exportCover(format) {
   if (!state.image) return setStatus("请先上传一张照片");
   const output = document.createElement("canvas");
   const mimeType = format === "png" ? "image/png" : "image/jpeg";
-  draw(false, output);
-  output.toBlob((blob) => {
-    if (!blob) return setStatus("导出没有完成，请重新尝试");
+  const current = preset();
+  const sourceRatio = state.image.naturalWidth / state.image.naturalHeight;
+  const targetRatio = current.width / current.height;
+  let outputSize = sourceRatio >= targetRatio
+    ? { width: Math.round(state.image.naturalHeight * targetRatio), height: state.image.naturalHeight }
+    : { width: state.image.naturalWidth, height: Math.round(state.image.naturalWidth / targetRatio) };
+  draw(false, output, outputSize);
+  const toBlob = (quality) => new Promise((resolve) => output.toBlob(resolve, mimeType, quality));
+  const maxBytes = 19.9 * 1024 * 1024;
+  let quality = format === "jpeg" ? .98 : undefined;
+  let blob = await toBlob(quality);
+  while (blob && blob.size > maxBytes && format === "jpeg" && quality > .56) {
+    quality = Math.max(.56, quality - .07);
+    blob = await toBlob(quality);
+  }
+  while (blob && blob.size > maxBytes && outputSize.width > 1080) {
+    const ratio = Math.min(.94, Math.sqrt(maxBytes / blob.size) * .98);
+    outputSize = { width: Math.max(1080, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
+    draw(false, output, outputSize);
+    blob = await toBlob(quality);
+  }
+  if (!blob) return setStatus("导出没有完成，请重新尝试");
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
-    const current = preset();
     link.href = url;
     link.download = `${name}_${current.label}_${current.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
     link.click();
     URL.revokeObjectURL(url);
-    setStatus(`已导出 ${current.width}×${current.height} ${format === "png" ? "PNG" : "JPG"}`);
-  }, mimeType, format === "jpeg" ? .94 : undefined);
+    setStatus(`已导出高清 ${outputSize.width}×${outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(blob.size / 1024 / 1024).toFixed(1)}MB`);
 }
 
 draw();

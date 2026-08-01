@@ -43,6 +43,7 @@ type StudioSettings = {
   zoom: number;
   offsetX: number;
   offsetY: number;
+  rotation: number;
   textScale: number;
   shade: number;
   showSafeArea: boolean;
@@ -70,6 +71,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   zoom: 100,
   offsetX: 0,
   offsetY: 0,
+  rotation: 0,
   textScale: 100,
   shade: 62,
   showSafeArea: true,
@@ -102,11 +104,12 @@ function drawCover(
   settings: StudioSettings,
   preset: PlatformPreset,
   includeGuide: boolean,
+  outputSize?: { width: number; height: number },
 ) {
   const context = canvas.getContext("2d");
   if (!context) return;
 
-  const { width, height } = preset;
+  const { width, height } = outputSize ?? preset;
   canvas.width = width;
   canvas.height = height;
   context.clearRect(0, 0, width, height);
@@ -114,13 +117,18 @@ function drawCover(
   context.fillRect(0, 0, width, height);
 
   if (image) {
-    const baseScale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+    const radians = settings.rotation * Math.PI / 180;
+    const rotatedWidth = Math.abs(image.naturalWidth * Math.cos(radians)) + Math.abs(image.naturalHeight * Math.sin(radians));
+    const rotatedHeight = Math.abs(image.naturalWidth * Math.sin(radians)) + Math.abs(image.naturalHeight * Math.cos(radians));
+    const baseScale = Math.max(width / rotatedWidth, height / rotatedHeight);
     const scale = baseScale * (settings.zoom / 100);
     const imageWidth = image.naturalWidth * scale;
     const imageHeight = image.naturalHeight * scale;
-    const x = (width - imageWidth) / 2 + (settings.offsetX / 100) * width;
-    const y = (height - imageHeight) / 2 + (settings.offsetY / 100) * height;
-    context.drawImage(image, x, y, imageWidth, imageHeight);
+    context.save();
+    context.translate(width / 2 + (settings.offsetX / 100) * width, height / 2 + (settings.offsetY / 100) * height);
+    context.rotate(radians);
+    context.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+    context.restore();
   } else {
     const placeholder = context.createLinearGradient(0, 0, width, height);
     placeholder.addColorStop(0, "#161616");
@@ -744,20 +752,34 @@ export default function CoverStudio() {
     nextWatermark.src = url;
   }, []);
 
-  const exportCover = (format: "jpeg" | "png") => {
+  const exportCover = async (format: "jpeg" | "png") => {
     if (!image || !canvasRef.current) {
       setNotice("请先上传一张照片");
       return;
     }
 
+    const sourceRatio = image.naturalWidth / image.naturalHeight;
+    const targetRatio = preset.width / preset.height;
+    let outputSize = sourceRatio >= targetRatio
+      ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
+      : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
     const exportCanvas = document.createElement("canvas");
-    drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false);
-    exportCanvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          setNotice("导出没有完成，请重新尝试");
-          return;
-        }
+    drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize);
+    const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => exportCanvas.toBlob(resolve, `image/${format}`, quality));
+    const maxBytes = 19.9 * 1024 * 1024;
+    let quality = format === "jpeg" ? 0.98 : undefined;
+    let blob = await toBlob(quality);
+    while (blob && blob.size > maxBytes && format === "jpeg" && (quality ?? 0) > 0.56) {
+      quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
+      blob = await toBlob(quality);
+    }
+    while (blob && blob.size > maxBytes && outputSize.width > 1080) {
+      const ratio = Math.min(0.94, Math.sqrt(maxBytes / blob.size) * 0.98);
+      outputSize = { width: Math.max(1080, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
+      drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize);
+      blob = await toBlob(quality);
+    }
+    if (!blob) return setNotice("导出没有完成，请重新尝试");
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
@@ -765,11 +787,7 @@ export default function CoverStudio() {
         link.download = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
         link.click();
         URL.revokeObjectURL(url);
-        setNotice(`已导出 ${preset.width}×${preset.height} ${format === "png" ? "PNG" : "JPG"}`);
-      },
-      `image/${format}`,
-      format === "jpeg" ? 0.94 : undefined,
-    );
+        setNotice(`已导出高清 ${outputSize.width}×${outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(blob.size / 1024 / 1024).toFixed(1)}MB`);
   };
 
   return (
@@ -1020,6 +1038,14 @@ export default function CoverStudio() {
               max={40}
               suffix=""
               onChange={(value) => updateSetting("offsetY", value)}
+            />
+            <Slider
+              label="自由旋转"
+              value={settings.rotation}
+              min={-360}
+              max={360}
+              suffix="°"
+              onChange={(value) => updateSetting("rotation", value)}
             />
             <Slider
               label="标题大小"
