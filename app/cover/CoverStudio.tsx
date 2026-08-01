@@ -266,8 +266,9 @@ function drawTemplateText(
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
   const watermarkBounds = watermark ? getWatermarkVisibleBounds(watermark) : null;
   const matchedWatermarkScale = watermarkBounds ? subtitleFontSize / Math.max(1, watermarkBounds.bottom - watermarkBounds.top) : 0;
+  const watermarkBottom = cropBottom - playCountReserve;
   const watermarkTop = watermark
-    ? (height - watermark.naturalHeight * matchedWatermarkScale) / 2 + (watermarkBounds?.top ?? 0) * matchedWatermarkScale
+    ? watermarkBottom - ((watermarkBounds?.bottom ?? 0) - (watermarkBounds?.top ?? 0)) * matchedWatermarkScale
     : Number.POSITIVE_INFINITY;
   const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
   const requestedY = settings.templateId.startsWith("top-")
@@ -337,7 +338,10 @@ function drawWatermark(
     : settings.watermarkAlign === "right"
       ? width - safeInset - bounds.right * scale
       : width / 2 - ((bounds.left + bounds.right) / 2) * scale;
-  const y = (height - drawHeight) / 2;
+  const isDouyinCanvas = height / width > 1.5;
+  const cropBottom = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.cropBottom * (width / 1080) : height;
+  const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * (width / 1080) : 0;
+  const y = cropBottom - playCountReserve - bounds.bottom * scale;
   context.save();
   context.globalAlpha = settings.watermarkOpacity / 100;
   context.drawImage(watermark, x, y, drawWidth, drawHeight);
@@ -1047,8 +1051,8 @@ export default function CoverStudio() {
             <Slider
               label="自由旋转"
               value={settings.rotation}
-              min={-360}
-              max={360}
+              min={-180}
+              max={180}
               suffix="°"
               onChange={(value) => updateSetting("rotation", value)}
             />

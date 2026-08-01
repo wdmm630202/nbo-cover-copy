@@ -48,7 +48,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .copy-sync strong { font-size: 11px; }
 .copy-sync small { overflow: hidden; color: #948c85; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .copy-sync button, .field-title button { border: 0; border-radius: 999px; background: var(--red); color: #fff; font-weight: 750; cursor: pointer; }
-.copy-sync button { min-height: 34px; padding: 0 12px; font-size: 9px; }
+.copy-sync button { width: 58px; min-height: 34px; padding: 0; font-size: 9px; }
 .copy-sync button:disabled, .field-title button:disabled { background: #ded9d4; color: #9b948e; cursor: default; }
 .upload-wrap { position: relative; }
 .upload { min-height: 76px; padding: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1.5px dashed #d8d0c8; border-radius: 15px; background: #faf8f5; cursor: pointer; }
@@ -59,7 +59,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .watermark-upload > button:first-of-type { width: 100%; min-height: 62px; padding: 11px 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; border: 0; border-radius: 8px; background: transparent; color: #28231f; text-align: left; cursor: pointer; }
 .watermark-upload strong { font-size: 11px; }
 .watermark-upload small { max-width: 100%; overflow: hidden; color: #9b8367; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.watermark-actions { margin-top: 7px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.watermark-actions { margin-top: 7px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
 .watermark-actions button { min-width: 0; min-height: 29px; padding: 0 3px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 9px; font-weight: 750; cursor: pointer; }
 .watermark-actions button.active { border-color: #202020; background: #202020; color: #fff; }
 .color-row { margin-top: 11px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
@@ -79,14 +79,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .subtitle-tools input[type="range"] { width: 100%; accent-color: var(--red); }
 .upload strong { font-size: 13px; }
 .upload small { max-width: 250px; overflow: hidden; color: #9a928b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.image-sync { min-height: 28px; padding: 0 10px; position: absolute; z-index: 2; top: 8px; right: 8px; border: 0; border-radius: 999px; background: var(--red); color: #fff; font-size: 9px; font-weight: 750; cursor: pointer; }
+.image-sync { width: 58px; min-height: 28px; padding: 0; position: absolute; z-index: 2; top: 8px; right: 8px; border: 0; border-radius: 999px; background: var(--red); color: #fff; font-size: 9px; font-weight: 750; cursor: pointer; }
 .image-sync:disabled { background: #ded9d4; color: #9b948e; cursor: default; }
 .field { margin-top: 14px; display: block; }
 .field > span, .field-title { margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; color: #5f5954; font-size: 10px; font-weight: 700; }
 .field span b, .field-title b { color: #a29b94; font-size: 9px; }
 .field span b.yellow, .field-title b.yellow { color: #9b8900; }
 .field-title > span { display: flex; align-items: center; gap: 6px; }
-.field-title button { min-height: 25px; padding: 0 9px; font-size: 9px; }
+.field-title button { width: 58px; min-height: 25px; padding: 0; font-size: 9px; }
 .field input, .field textarea { width: 100%; border: 1px solid #e1dad3; border-radius: 12px; outline: none; background: #fff; color: #24211f; font-size: 13px; }
 .field input { height: 44px; padding: 0 12px; }
 .field textarea { min-height: 74px; padding: 11px 12px; resize: vertical; line-height: 1.6; }
@@ -161,7 +161,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .studio-grid { grid-template-columns: 1fr; }
   .preview-panel { min-height: 0; order: -1; }
   .design { grid-column: auto; }
-  .templates { grid-template-columns: repeat(2, 1fr); }
+  .templates { grid-template-columns: repeat(3, 1fr); }
   .standard { grid-template-columns: 1fr; }
   .standard ul { grid-template-columns: 1fr; }
   .standard > p { grid-column: auto; }

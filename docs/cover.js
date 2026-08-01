@@ -595,8 +595,9 @@ function drawText(ctx, width, height) {
   const watermarkScale = state.watermark && state.watermarkEnabled
     ? subtitleFontSize / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
     : 0;
+  const watermarkBottom = cropBottom - playCountReserve;
   const watermarkTop = state.watermark && state.watermarkEnabled
-    ? (height - state.watermark.naturalHeight * watermarkScale) / 2 + getWatermarkVisibleBounds(state.watermark).top * watermarkScale
+    ? watermarkBottom - (getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top) * watermarkScale
     : Number.POSITIVE_INFINITY;
   const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
   const requestedY = state.template.startsWith("top-")
@@ -701,7 +702,10 @@ function drawWatermark(ctx, width, height) {
     : state.watermarkAlign === "right"
       ? width - safeInset - bounds.right * scale
       : width / 2 - (bounds.left + bounds.right) / 2 * scale;
-  const y = (height - drawHeight) / 2;
+  const isDouyinCanvas = height / width > 1.5;
+  const cropBottom = isDouyinCanvas ? DOUYIN_HOME_SAFE.cropBottom * (width / 1080) : height;
+  const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * (width / 1080) : 0;
+  const y = cropBottom - playCountReserve - bounds.bottom * scale;
   ctx.save();
   ctx.globalAlpha = state.watermarkOpacity / 100;
   ctx.drawImage(state.watermark, x, y, drawWidth, drawHeight);
