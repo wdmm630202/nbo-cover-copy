@@ -550,10 +550,17 @@ function drawText(ctx, width, height) {
   const usableTop = cropTop + DOUYIN_HOME_SAFE.verticalInset * geometryScale;
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_SAFE.verticalInset * geometryScale;
+  const watermarkScale = state.watermark
+    ? Math.min(width / state.watermark.naturalWidth, height / state.watermark.naturalHeight) * state.watermarkScale / 100
+    : 0;
+  const watermarkTop = state.watermark
+    ? (height - state.watermark.naturalHeight * watermarkScale) / 2 + getWatermarkVisibleBounds(state.watermark).top * watermarkScale
+    : Number.POSITIVE_INFINITY;
+  const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
   const requestedY = state.template.startsWith("top-")
     ? usableTop - blockTop
     : state.template.startsWith("bottom-")
-      ? usableBottom - blockBottom
+      ? bottomTextLimit - blockBottom
       : (cropTop + cropBottom) / 2 - blockTop;
   const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, usableBottom - blockBottom)));
   const secondBaseline = y + lineGap;
@@ -670,21 +677,27 @@ function getWatermarkVisibleBounds(watermark) {
   sample.width = sampleWidth;
   sample.height = sampleHeight;
   const sampleContext = sample.getContext("2d", { willReadFrequently: true });
-  if (!sampleContext) return { left: 0, right: watermark.naturalWidth };
+  if (!sampleContext) return { left: 0, right: watermark.naturalWidth, top: 0, bottom: watermark.naturalHeight };
   sampleContext.drawImage(watermark, 0, 0, sampleWidth, sampleHeight);
   const pixels = sampleContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
   let left = sampleWidth;
   let right = -1;
+  let top = sampleHeight;
+  let bottom = -1;
   for (let index = 3; index < pixels.length; index += 4) {
     if (pixels[index] <= 8) continue;
     const x = ((index - 3) / 4) % sampleWidth;
+    const y = Math.floor(((index - 3) / 4) / sampleWidth);
     left = Math.min(left, x);
     right = Math.max(right, x);
+    top = Math.min(top, y);
+    bottom = Math.max(bottom, y);
   }
-  const ratio = watermark.naturalWidth / sampleWidth;
+  const ratioX = watermark.naturalWidth / sampleWidth;
+  const ratioY = watermark.naturalHeight / sampleHeight;
   const bounds = right < left
-    ? { left: 0, right: watermark.naturalWidth }
-    : { left: left * ratio, right: (right + 1) * ratio };
+    ? { left: 0, right: watermark.naturalWidth, top: 0, bottom: watermark.naturalHeight }
+    : { left: left * ratioX, right: (right + 1) * ratioX, top: top * ratioY, bottom: (bottom + 1) * ratioY };
   watermarkBoundsCache.set(watermark, bounds);
   return bounds;
 }

@@ -133,7 +133,7 @@ function drawCover(
   }
 
   drawTemplateShade(context, settings.templateId, width, height, settings.shade);
-  drawTemplateText(context, settings, width, height);
+  drawTemplateText(context, settings, width, height, watermark);
 
   if (watermark) drawWatermark(context, watermark, settings, width, height);
 
@@ -206,6 +206,7 @@ function drawTemplateText(
   settings: StudioSettings,
   width: number,
   height: number,
+  watermark: HTMLImageElement | null,
 ) {
   const isRight = settings.templateId.endsWith("-right");
   const isCenter = settings.templateId.endsWith("-center");
@@ -253,10 +254,15 @@ function drawTemplateText(
   const usableTop = cropTop + DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
+  const watermarkTop = watermark
+    ? (height - watermark.naturalHeight * Math.min(width / watermark.naturalWidth, height / watermark.naturalHeight) * settings.watermarkScale / 100) / 2
+      + getWatermarkVisibleBounds(watermark).top * Math.min(width / watermark.naturalWidth, height / watermark.naturalHeight) * settings.watermarkScale / 100
+    : Number.POSITIVE_INFINITY;
+  const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
   const requestedY = settings.templateId.startsWith("top-")
     ? usableTop - blockTop
     : settings.templateId.startsWith("bottom-")
-      ? usableBottom - blockBottom
+      ? bottomTextLimit - blockBottom
       : (cropTop + cropBottom) / 2 - blockTop;
   const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, usableBottom - blockBottom)));
   const secondBaseline = y + lineGap;
@@ -327,7 +333,7 @@ function drawWatermark(
   context.restore();
 }
 
-const watermarkBoundsCache = new WeakMap<HTMLImageElement, { left: number; right: number }>();
+const watermarkBoundsCache = new WeakMap<HTMLImageElement, { left: number; right: number; top: number; bottom: number }>();
 
 function getWatermarkVisibleBounds(watermark: HTMLImageElement) {
   const cached = watermarkBoundsCache.get(watermark);
@@ -338,21 +344,27 @@ function getWatermarkVisibleBounds(watermark: HTMLImageElement) {
   sample.width = sampleWidth;
   sample.height = sampleHeight;
   const sampleContext = sample.getContext("2d", { willReadFrequently: true });
-  if (!sampleContext) return { left: 0, right: watermark.naturalWidth };
+  if (!sampleContext) return { left: 0, right: watermark.naturalWidth, top: 0, bottom: watermark.naturalHeight };
   sampleContext.drawImage(watermark, 0, 0, sampleWidth, sampleHeight);
   const pixels = sampleContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
   let left = sampleWidth;
   let right = -1;
+  let top = sampleHeight;
+  let bottom = -1;
   for (let index = 3; index < pixels.length; index += 4) {
     if (pixels[index] <= 8) continue;
     const x = ((index - 3) / 4) % sampleWidth;
+    const y = Math.floor(((index - 3) / 4) / sampleWidth);
     left = Math.min(left, x);
     right = Math.max(right, x);
+    top = Math.min(top, y);
+    bottom = Math.max(bottom, y);
   }
-  const ratio = watermark.naturalWidth / sampleWidth;
+  const ratioX = watermark.naturalWidth / sampleWidth;
+  const ratioY = watermark.naturalHeight / sampleHeight;
   const bounds = right < left
-    ? { left: 0, right: watermark.naturalWidth }
-    : { left: left * ratio, right: (right + 1) * ratio };
+    ? { left: 0, right: watermark.naturalWidth, top: 0, bottom: watermark.naturalHeight }
+    : { left: left * ratioX, right: (right + 1) * ratioX, top: top * ratioY, bottom: (bottom + 1) * ratioY };
   watermarkBoundsCache.set(watermark, bounds);
   return bounds;
 }
