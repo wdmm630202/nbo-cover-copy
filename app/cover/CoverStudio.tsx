@@ -214,14 +214,16 @@ function drawTemplateText(
   const bottomFontSize = fitText(context, settings.bottomText, baseFont, maxWidth);
   const subtitleFontSize = Math.round(width * 0.03 * (settings.subtitleScale / 100));
   const secondBaseline = y + lineGap;
-  const reservedBottomFontSize = settings.bottomText.trim() ? bottomFontSize : topFontSize;
-  context.font = `900 ${reservedBottomFontSize}px sans-serif`;
-  const bottomInk = measureInkBounds(context, settings.bottomText || "国");
+  const hasBottomText = Boolean(settings.bottomText.trim());
+  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
+  const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
+  context.font = `900 ${activeHeadlineFontSize}px sans-serif`;
+  const activeHeadlineInk = measureInkBounds(context, settings.bottomText || settings.topText || "国");
   context.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
   const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
-  const dividerThickness = Math.max(4, Math.round(reservedBottomFontSize * 0.055));
-  const dividerY = Math.round(secondBaseline + bottomInk.descent + opticalGap);
+  const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * 0.055));
+  const dividerY = Math.round(activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap);
   const subtitleBaseline = Math.round(dividerY + dividerThickness + opticalGap + subtitleInk.ascent);
 
   context.fillStyle = settings.topColor;
@@ -235,7 +237,7 @@ function drawTemplateText(
   }
 
   if (settings.showDivider) {
-    const dividerWidth = reservedBottomFontSize;
+    const dividerWidth = activeHeadlineFontSize;
     const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
     context.shadowBlur = 8;
     context.fillStyle = settings.dividerColor;
@@ -250,7 +252,7 @@ function drawTemplateText(
       context,
       settings.subtitle,
       x,
-      settings.showDivider ? subtitleBaseline : secondBaseline + opticalGap + subtitleInk.ascent,
+      settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap + subtitleInk.ascent,
       maxWidth,
       Math.round(subtitleFontSize * 1.45),
       textAlign,
@@ -738,7 +740,7 @@ export default function CoverStudio() {
           <label className="studio-check studio-divider-toggle">
             <input type="checkbox" checked={settings.showDivider} onChange={(event) => updateSetting("showDivider", event.target.checked)} />
             <span />
-            显示一字长标题横线（下行留空时自动补位）
+            显示一字长标题横线（下行留空时自动收紧）
           </label>
           <div className="studio-field">
             <div className="studio-field-heading">
@@ -946,7 +948,7 @@ export default function CoverStudio() {
         <ul>
           <li><b>人物保护</b> 不拉伸、不重绘脸、五官、头发、手和服装</li>
           <li><b>默认颜色</b> 上行 #FFFFFF，下行 #FEE800，可按照片取色调整</li>
-          <li><b>标题横线</b> 长度随字号同步；下行留空时自动保持两行节奏</li>
+          <li><b>标题横线</b> 长度随字号同步；下行留空时按单行标题自动收紧</li>
           <li><b>主页安全</b> 抖音 9:16 自动显示居中 3:4 检查框</li>
           <li><b>本机处理</b> 图片不上传、不保存，导出后仍由你掌控</li>
           <li><b>品牌规则</b> 不自动写“南铂摄影”，只叠加你上传的透明 PNG 水印</li>
