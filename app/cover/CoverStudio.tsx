@@ -257,7 +257,7 @@ function drawTemplateText(
     ? usableTop - blockTop
     : settings.templateId.startsWith("bottom-")
       ? usableBottom - blockBottom
-      : (usableTop + usableBottom - blockTop - blockBottom) / 2;
+      : (cropTop + cropBottom) / 2 - blockTop;
   const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, usableBottom - blockBottom)));
   const secondBaseline = y + lineGap;
   const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
