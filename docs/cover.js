@@ -510,14 +510,16 @@ function drawText(ctx, width, height) {
   const bottomFontSize = fitText(ctx, state.bottomText, baseFont, maxWidth);
   const subtitleFontSize = Math.round(width * .03 * state.subtitleScale / 100);
   const secondBaseline = y + lineGap;
-  const reservedBottomFontSize = state.bottomText.trim() ? bottomFontSize : topFontSize;
-  ctx.font = `900 ${reservedBottomFontSize}px sans-serif`;
-  const bottomInk = measureInkBounds(ctx, state.bottomText || "国");
+  const hasBottomText = Boolean(state.bottomText.trim());
+  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
+  const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
+  ctx.font = `900 ${activeHeadlineFontSize}px sans-serif`;
+  const activeHeadlineInk = measureInkBounds(ctx, state.bottomText || state.topText || "国");
   ctx.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
   const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
-  const dividerThickness = Math.max(4, Math.round(reservedBottomFontSize * .055));
-  const dividerY = Math.round(secondBaseline + bottomInk.descent + opticalGap);
+  const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * .055));
+  const dividerY = Math.round(activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap);
   const subtitleBaseline = Math.round(dividerY + dividerThickness + opticalGap + subtitleInk.ascent);
   ctx.fillStyle = state.topColor;
   ctx.font = `900 ${topFontSize}px sans-serif`;
@@ -528,7 +530,7 @@ function drawText(ctx, width, height) {
     ctx.fillText(state.bottomText, x, secondBaseline, maxWidth);
   }
   if (state.divider) {
-    const dividerWidth = reservedBottomFontSize;
+    const dividerWidth = activeHeadlineFontSize;
     const dividerX = right ? x - dividerWidth : center ? x - dividerWidth / 2 : x;
     ctx.shadowBlur = 8;
     ctx.fillStyle = state.dividerColor;
@@ -537,7 +539,7 @@ function drawText(ctx, width, height) {
   if (state.subtitle.trim()) {
     ctx.fillStyle = state.subtitleColor;
     ctx.font = `500 ${subtitleFontSize}px sans-serif`;
-    const subtitleY = state.divider ? subtitleBaseline : secondBaseline + opticalGap + subtitleInk.ascent;
+    const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap + subtitleInk.ascent;
     drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleFontSize * 1.45, align);
   }
   ctx.restore();
