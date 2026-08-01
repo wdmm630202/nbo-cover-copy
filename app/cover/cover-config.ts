@@ -42,12 +42,20 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
 ];
 
 export const COVER_TEMPLATES: CoverTemplate[] = [
-  { id: "left", name: "暗调左题", hint: "人物靠右，左侧强标题", number: "01" },
-  { id: "bottom", name: "底部冲击", hint: "底部渐变，两行醒目", number: "02" },
-  { id: "badge", name: "杂志编号", hint: "编号与信息层级", number: "03" },
-  { id: "center", name: "中心主角", hint: "居中标题，适合留白", number: "04" },
-  { id: "clean", name: "极简留白", hint: "克制排版，突出人物", number: "05" },
-  { id: "right", name: "右侧标题", hint: "人物靠左，右侧阅读", number: "06" },
+  { id: "left", name: "上方左题", hint: "上方区域，左侧标题", number: "01" },
+  { id: "bottom", name: "上方冲击", hint: "上方区域，两行醒目", number: "02" },
+  { id: "badge", name: "居中向左", hint: "居中区域，左侧标题", number: "03" },
+  { id: "center", name: "居中主角", hint: "居中区域，适合留白", number: "04" },
+  { id: "clean", name: "下方留白", hint: "下方区域，避开播放量", number: "05" },
+  { id: "right", name: "下方右题", hint: "下方区域，右侧阅读", number: "06" },
 ];
+
+export const DOUYIN_HOME_GRID_SAFE_AREA = {
+  cropTop: 240,
+  cropBottom: 1680,
+  horizontalInset: 54,
+  verticalInset: 54,
+  playCountReserve: 144,
+} as const;
 
 export const COVER_RULES_VERSION = "南铂封面规范 2.0";
