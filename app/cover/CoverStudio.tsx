@@ -47,6 +47,7 @@ type StudioSettings = {
   shade: number;
   showSafeArea: boolean;
   watermarkScale: number;
+  watermarkAlign: "left" | "center" | "right";
   watermarkOpacity: number;
 };
 
@@ -55,7 +56,7 @@ const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 
 const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
-  templateId: "left",
+  templateId: "top-left",
   topText: "男人的高级感",
   bottomText: "藏在自然状态里",
   subtitle: "不被定义的自己，才是最有张力的表达",
@@ -72,8 +73,25 @@ const DEFAULT_SETTINGS: StudioSettings = {
   shade: 62,
   showSafeArea: true,
   watermarkScale: 100,
+  watermarkAlign: "center",
   watermarkOpacity: 92,
 };
+
+function normalizeTemplateId(value: unknown): CoverTemplate["id"] {
+  const legacy: Record<string, CoverTemplate["id"]> = {
+    left: "top-left",
+    bottom: "top-center",
+    badge: "middle-left",
+    center: "middle-center",
+    clean: "bottom-left",
+    right: "bottom-right",
+  };
+  const id = typeof value === "string" ? value : "";
+  if (legacy[id]) return legacy[id];
+  return COVER_TEMPLATES.some((template) => template.id === id)
+    ? id as CoverTemplate["id"]
+    : DEFAULT_SETTINGS.templateId;
+}
 
 function drawCover(
   canvas: HTMLCanvasElement,
@@ -159,15 +177,15 @@ function drawTemplateShade(
   const alpha = Math.max(0, Math.min(0.9, shade / 100));
   let gradient: CanvasGradient;
 
-  if (templateId === "bottom") {
+  if (templateId.startsWith("bottom-")) {
     gradient = context.createLinearGradient(0, height * 0.35, 0, height);
     gradient.addColorStop(0, "rgba(0,0,0,0)");
     gradient.addColorStop(1, `rgba(0,0,0,${alpha})`);
-  } else if (templateId === "right") {
+  } else if (templateId.endsWith("-right")) {
     gradient = context.createLinearGradient(width * 0.18, 0, width, 0);
     gradient.addColorStop(0, "rgba(0,0,0,0)");
     gradient.addColorStop(1, `rgba(0,0,0,${alpha})`);
-  } else if (templateId === "center") {
+  } else if (templateId === "middle-center") {
     gradient = context.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, `rgba(0,0,0,${alpha * 0.3})`);
     gradient.addColorStop(0.5, `rgba(0,0,0,${alpha * 0.12})`);
@@ -189,11 +207,13 @@ function drawTemplateText(
   width: number,
   height: number,
 ) {
-  const isRight = settings.templateId === "right";
-  const isCenter = settings.templateId === "center";
+  const isRight = settings.templateId.endsWith("-right");
+  const isCenter = settings.templateId.endsWith("-center");
   const textAlign: CanvasTextAlign = isRight ? "right" : isCenter ? "center" : "left";
-  const x = isRight ? width * 0.92 : isCenter ? width * 0.5 : width * 0.08;
-  const maxWidth = isCenter ? width * 0.84 : width * 0.72;
+  const geometryScale = width / 1080;
+  const horizontalInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * geometryScale;
+  const x = isRight ? width - horizontalInset : isCenter ? width / 2 : horizontalInset;
+  const maxWidth = width - horizontalInset * 2;
   const baseFont = Math.round(width * 0.074 * (settings.textScale / 100));
   const lineGap = Math.round(baseFont * 1.32);
 
@@ -202,18 +222,6 @@ function drawTemplateText(
   context.textBaseline = "alphabetic";
   context.shadowColor = "rgba(0,0,0,.42)";
   context.shadowBlur = 16;
-
-  if (settings.templateId === "badge") {
-    context.shadowBlur = 0;
-    context.fillStyle = "#d7b98e";
-    context.fillRect(width * 0.055, height * 0.035, width * 0.105, width * 0.105);
-    context.fillStyle = "#fff";
-    context.font = `500 ${Math.round(width * 0.034)}px sans-serif`;
-    context.textAlign = "center";
-    context.fillText("03", width * 0.1075, height * 0.035 + width * 0.068);
-    context.textAlign = textAlign;
-    context.shadowBlur = 16;
-  }
 
   const topFontSize = fitText(context, settings.topText, baseFont, maxWidth);
   const bottomFontSize = fitText(context, settings.bottomText, baseFont, maxWidth);
@@ -239,19 +247,18 @@ function drawTemplateText(
     : settings.showDivider
       ? relativeDividerY + dividerThickness
       : relativeActiveBaseline + activeHeadlineInk.descent;
-  const geometryScale = width / 1080;
-  const cropTop = height / width > 1.5 ? DOUYIN_HOME_GRID_SAFE_AREA.cropTop * geometryScale : 0;
-  const cropBottom = height / width > 1.5 ? DOUYIN_HOME_GRID_SAFE_AREA.cropBottom * geometryScale : height;
+  const isDouyinCanvas = height / width > 1.5;
+  const cropTop = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.cropTop * geometryScale : 0;
+  const cropBottom = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.cropBottom * geometryScale : height;
   const usableTop = cropTop + DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
-  const usableBottom = cropBottom - DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * geometryScale;
-  const zoneIndex = settings.templateId === "left" || settings.templateId === "bottom"
-    ? 0
-    : settings.templateId === "badge" || settings.templateId === "center"
-      ? 1
-      : 2;
-  const zoneCenter = usableTop + (usableBottom - usableTop) * ((zoneIndex + 0.5) / 3);
-  const centeredY = zoneCenter - (blockTop + blockBottom) / 2;
-  const y = Math.round(Math.max(usableTop - blockTop, Math.min(centeredY, usableBottom - blockBottom)));
+  const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * geometryScale : 0;
+  const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
+  const requestedY = settings.templateId.startsWith("top-")
+    ? usableTop - blockTop
+    : settings.templateId.startsWith("bottom-")
+      ? usableBottom - blockBottom
+      : (usableTop + usableBottom - blockTop - blockBottom) / 2;
+  const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, usableBottom - blockBottom)));
   const secondBaseline = y + lineGap;
   const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
   const dividerY = y + relativeDividerY;
@@ -306,7 +313,8 @@ function drawWatermark(
   const scale = baseScale * (settings.watermarkScale / 100);
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
-  const x = (width - drawWidth) / 2;
+  const freeWidth = width - drawWidth;
+  const x = settings.watermarkAlign === "left" ? 0 : settings.watermarkAlign === "right" ? freeWidth : freeWidth / 2;
   const y = (height - drawHeight) / 2;
   context.save();
   context.globalAlpha = settings.watermarkOpacity / 100;
@@ -451,6 +459,7 @@ export default function CoverStudio() {
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+          parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
         }
       } catch {
@@ -549,6 +558,7 @@ export default function CoverStudio() {
       }
       const parsed = JSON.parse(saved);
       if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+      parsed.templateId = normalizeTemplateId(parsed.templateId);
       setSettings({ ...DEFAULT_SETTINGS, ...parsed });
       setNotice(`已应用记忆点 ${slot}`);
     } catch {
@@ -964,14 +974,21 @@ export default function CoverStudio() {
               suffix="%"
               onChange={(value) => updateSetting("shade", value)}
             />
-            <Slider
-              label="水印画布大小"
-              value={settings.watermarkScale}
-              min={60}
-              max={140}
-              suffix="%"
-              onChange={(value) => updateSetting("watermarkScale", value)}
-            />
+            <div className="studio-watermark-align">
+              <span>水印位置</span>
+              <div>
+                {(["left", "center", "right"] as const).map((align) => (
+                  <button
+                    type="button"
+                    key={align}
+                    className={settings.watermarkAlign === align ? "is-active" : ""}
+                    onClick={() => updateSetting("watermarkAlign", align)}
+                  >
+                    {align === "left" ? "左侧对齐" : align === "center" ? "居中" : "右侧对齐"}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Slider
               label="水印透明度"
               value={settings.watermarkOpacity}

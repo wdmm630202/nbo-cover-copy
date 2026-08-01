@@ -13,7 +13,7 @@ const PRESETS = {
 };
 const state = {
   platform: "douyin",
-  template: "left",
+  template: "top-left",
   topText: "男人的高级感",
   bottomText: "藏在自然状态里",
   subtitle: "不被定义的自己，才是最有张力的表达",
@@ -30,12 +30,19 @@ const state = {
   shade: 62,
   safe: true,
   watermarkScale: 100,
+  watermarkAlign: "center",
   watermarkOpacity: 92,
   image: null,
   watermark: null,
   fileName: "",
   watermarkName: "",
 };
+
+function normalizeTemplate(value) {
+  const legacy = { left: "top-left", bottom: "top-center", badge: "middle-left", center: "middle-center", clean: "bottom-left", right: "bottom-right" };
+  const valid = ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"];
+  return legacy[value] || (valid.includes(value) ? value : "top-left");
+}
 
 const DOUYIN_HOME_SAFE = {
   cropTop: 240,
@@ -234,6 +241,7 @@ try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
   if (saved) {
     if (Number(saved.watermarkScale) <= 42) saved.watermarkScale = 100;
+    saved.template = normalizeTemplate(saved.template);
     Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
   }
 } catch {
@@ -265,7 +273,7 @@ function updateUi() {
   $("#subtitleScale").value = state.subtitleScale;
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   $("#safeToggle").checked = state.safe;
-  ["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkScale", "watermarkOpacity"].forEach((id) => {
+  ["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
   $("#zoomValue").textContent = `${state.zoom}%`;
@@ -273,10 +281,10 @@ function updateUi() {
   $("#offsetYValue").textContent = state.offsetY;
   $("#textScaleValue").textContent = `${state.textScale}%`;
   $("#shadeValue").textContent = `${state.shade}%`;
-  $("#watermarkScaleValue").textContent = `${state.watermarkScale}%`;
   $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
   document.querySelectorAll("[data-platform]").forEach((button) => button.classList.toggle("active", button.dataset.platform === state.platform));
   document.querySelectorAll("[data-template]").forEach((button) => button.classList.toggle("active", button.dataset.template === state.template));
+  document.querySelectorAll("[data-watermark-align]").forEach((button) => button.classList.toggle("active", button.dataset.watermarkAlign === state.watermarkAlign));
   const current = preset();
   $("#presetNote").textContent = `${current.width}×${current.height} · ${current.note}`;
   $("#previewRatio").textContent = `${current.label} · ${current.ratio}`;
@@ -336,7 +344,7 @@ $("#subtitleScale").addEventListener("input", (event) => {
   saveSettings(); draw();
 });
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
-["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkScale", "watermarkOpacity"].forEach((id) => {
+["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = Number(event.target.value);
     updateUi();
@@ -344,6 +352,10 @@ $("#dividerToggle").addEventListener("change", (event) => { state.divider = even
     draw();
   });
 });
+document.querySelectorAll("[data-watermark-align]").forEach((button) => button.addEventListener("click", () => {
+  state.watermarkAlign = button.dataset.watermarkAlign;
+  updateUi(); saveSettings(); draw();
+}));
 $("#safeToggle").addEventListener("change", (event) => { state.safe = event.target.checked; saveSettings(); draw(); });
 $("#watermarkButton").addEventListener("click", () => $("#watermarkInput").click());
 $("#watermarkInput").addEventListener("change", (event) => {
@@ -380,11 +392,11 @@ $("#removeWatermark").addEventListener("click", () => {
 });
 $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, {
-    platform: "douyin", template: "left", topText: "男人的高级感", bottomText: "藏在自然状态里",
+    platform: "douyin", template: "top-left", topText: "男人的高级感", bottomText: "藏在自然状态里",
     subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FEE800",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
     zoom: 100, offsetX: 0, offsetY: 0, textScale: 100, shade: 62,
-    safe: true, watermarkScale: 100, watermarkOpacity: 92,
+    safe: true, watermarkScale: 100, watermarkAlign: "center", watermarkOpacity: 92,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
 });
@@ -402,6 +414,7 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
     if (!saved) return setStatus(`记忆点 ${slot} 还没有保存设置`);
     const parsed = JSON.parse(saved);
     if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+    parsed.template = normalizeTemplate(parsed.template);
     Object.assign(state, parsed);
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
   } catch {
@@ -470,15 +483,15 @@ function draw(includeGuide = true, targetCanvas = canvas) {
 function drawShade(ctx, width, height) {
   const alpha = Math.max(0, Math.min(.9, state.shade / 100));
   let gradient;
-  if (state.template === "bottom") {
+  if (state.template.startsWith("bottom-")) {
     gradient = ctx.createLinearGradient(0, height * .35, 0, height);
     gradient.addColorStop(0, "rgba(0,0,0,0)");
     gradient.addColorStop(1, `rgba(0,0,0,${alpha})`);
-  } else if (state.template === "right") {
+  } else if (state.template.endsWith("-right")) {
     gradient = ctx.createLinearGradient(width * .18, 0, width, 0);
     gradient.addColorStop(0, "rgba(0,0,0,0)");
     gradient.addColorStop(1, `rgba(0,0,0,${alpha})`);
-  } else if (state.template === "center") {
+  } else if (state.template === "middle-center") {
     gradient = ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, `rgba(0,0,0,${alpha * .3})`);
     gradient.addColorStop(.5, `rgba(0,0,0,${alpha * .12})`);
@@ -494,28 +507,19 @@ function drawShade(ctx, width, height) {
 }
 
 function drawText(ctx, width, height) {
-  const right = state.template === "right";
-  const center = state.template === "center";
+  const right = state.template.endsWith("-right");
+  const center = state.template.endsWith("-center");
   const align = right ? "right" : center ? "center" : "left";
-  const x = right ? width * .92 : center ? width * .5 : width * .08;
-  const maxWidth = center ? width * .84 : width * .72;
+  const geometryScale = width / 1080;
+  const horizontalInset = DOUYIN_HOME_SAFE.horizontalInset * geometryScale;
+  const x = right ? width - horizontalInset : center ? width / 2 : horizontalInset;
+  const maxWidth = width - horizontalInset * 2;
   const baseFont = Math.round(width * .074 * state.textScale / 100);
   const lineGap = Math.round(baseFont * 1.32);
   ctx.save();
   ctx.textAlign = align;
   ctx.shadowColor = "rgba(0,0,0,.42)";
   ctx.shadowBlur = 16;
-  if (state.template === "badge") {
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#d7b98e";
-    ctx.fillRect(width * .055, height * .035, width * .105, width * .105);
-    ctx.fillStyle = "#fff";
-    ctx.font = `500 ${Math.round(width * .034)}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.fillText("03", width * .1075, height * .035 + width * .068);
-    ctx.textAlign = align;
-    ctx.shadowBlur = 16;
-  }
   const topFontSize = fitText(ctx, state.topText, baseFont, maxWidth);
   const bottomFontSize = fitText(ctx, state.bottomText, baseFont, maxWidth);
   const subtitleFontSize = Math.round(width * .03 * state.subtitleScale / 100);
@@ -540,16 +544,18 @@ function drawText(ctx, width, height) {
     : state.divider
       ? relativeDividerY + dividerThickness
       : relativeActiveBaseline + activeHeadlineInk.descent;
-  const geometryScale = width / 1080;
-  const cropTop = height / width > 1.5 ? DOUYIN_HOME_SAFE.cropTop * geometryScale : 0;
-  const cropBottom = height / width > 1.5 ? DOUYIN_HOME_SAFE.cropBottom * geometryScale : height;
+  const isDouyinCanvas = height / width > 1.5;
+  const cropTop = isDouyinCanvas ? DOUYIN_HOME_SAFE.cropTop * geometryScale : 0;
+  const cropBottom = isDouyinCanvas ? DOUYIN_HOME_SAFE.cropBottom * geometryScale : height;
   const usableTop = cropTop + DOUYIN_HOME_SAFE.verticalInset * geometryScale;
-  const usableBottom = cropBottom - DOUYIN_HOME_SAFE.playCountReserve * geometryScale;
-  const zoneIndex = state.template === "left" || state.template === "bottom" ? 0
-    : state.template === "badge" || state.template === "center" ? 1 : 2;
-  const zoneCenter = usableTop + (usableBottom - usableTop) * ((zoneIndex + .5) / 3);
-  const centeredY = zoneCenter - (blockTop + blockBottom) / 2;
-  const y = Math.round(Math.max(usableTop - blockTop, Math.min(centeredY, usableBottom - blockBottom)));
+  const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * geometryScale : 0;
+  const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_SAFE.verticalInset * geometryScale;
+  const requestedY = state.template.startsWith("top-")
+    ? usableTop - blockTop
+    : state.template.startsWith("bottom-")
+      ? usableBottom - blockBottom
+      : (usableTop + usableBottom - blockTop - blockBottom) / 2;
+  const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, usableBottom - blockBottom)));
   const secondBaseline = y + lineGap;
   const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
   const dividerY = y + relativeDividerY;
@@ -639,7 +645,8 @@ function drawWatermark(ctx, width, height) {
   const scale = baseScale * state.watermarkScale / 100;
   const drawWidth = state.watermark.naturalWidth * scale;
   const drawHeight = state.watermark.naturalHeight * scale;
-  const x = (width - drawWidth) / 2;
+  const freeWidth = width - drawWidth;
+  const x = state.watermarkAlign === "left" ? 0 : state.watermarkAlign === "right" ? freeWidth : freeWidth / 2;
   const y = (height - drawHeight) / 2;
   ctx.save();
   ctx.globalAlpha = state.watermarkOpacity / 100;

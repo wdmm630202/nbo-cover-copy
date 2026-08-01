@@ -818,7 +818,7 @@ body {
 
 .studio-template-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
@@ -885,25 +885,31 @@ body {
   box-shadow: 0 0 0 2px rgba(255, 36, 66, .12);
 }
 
-.template-bottom {
+.template-bottom-left,
+.template-bottom-center,
+.template-bottom-right {
   background: linear-gradient(0deg, #0c0c0c, #4a433d);
 }
 
-.template-center {
+.template-top-center,
+.template-middle-center,
+.template-bottom-center {
   align-items: center;
   text-align: center;
 }
 
-.template-center b,
-.template-center span {
+.template-top-center b,
+.template-top-center span,
+.template-middle-center b,
+.template-middle-center span,
+.template-bottom-center b,
+.template-bottom-center span {
   max-width: 88%;
 }
 
-.template-clean {
-  background: linear-gradient(130deg, #45413d, #161616);
-}
-
-.template-right {
+.template-top-right,
+.template-middle-right,
+.template-bottom-right {
   align-items: flex-end;
   background: linear-gradient(270deg, #080808, #4c4742);
   text-align: right;
@@ -930,6 +936,36 @@ body {
 .studio-slider input {
   width: 100%;
   accent-color: var(--red);
+}
+
+.studio-watermark-align > span {
+  margin-bottom: 7px;
+  display: block;
+  color: #6e6761;
+  font-size: 10px;
+}
+
+.studio-watermark-align > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.studio-watermark-align button {
+  min-height: 34px;
+  border: 1px solid #ddd5cd;
+  border-radius: 9px;
+  background: #fff;
+  color: #625b55;
+  font-size: 8px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.studio-watermark-align button.is-active {
+  border-color: #202020;
+  background: #202020;
+  color: #fff;
 }
 
 .studio-check {
@@ -1007,7 +1043,7 @@ body {
   }
 
   .studio-template-grid {
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(9, 1fr);
   }
 }
 

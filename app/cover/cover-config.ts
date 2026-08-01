@@ -8,7 +8,10 @@ export type PlatformPreset = {
 };
 
 export type CoverTemplate = {
-  id: "left" | "bottom" | "badge" | "center" | "clean" | "right";
+  id:
+    | "top-left" | "top-center" | "top-right"
+    | "middle-left" | "middle-center" | "middle-right"
+    | "bottom-left" | "bottom-center" | "bottom-right";
   name: string;
   hint: string;
   number: string;
@@ -42,12 +45,15 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
 ];
 
 export const COVER_TEMPLATES: CoverTemplate[] = [
-  { id: "left", name: "上方左题", hint: "上方区域，左侧标题", number: "01" },
-  { id: "bottom", name: "上方冲击", hint: "上方区域，两行醒目", number: "02" },
-  { id: "badge", name: "居中向左", hint: "居中区域，左侧标题", number: "03" },
-  { id: "center", name: "居中主角", hint: "居中区域，适合留白", number: "04" },
-  { id: "clean", name: "下方留白", hint: "下方区域，避开播放量", number: "05" },
-  { id: "right", name: "下方右题", hint: "下方区域，右侧阅读", number: "06" },
+  { id: "top-left", name: "上方左题", hint: "上方区域，左侧对齐", number: "01" },
+  { id: "top-center", name: "上方居中", hint: "上方区域，中轴对齐", number: "02" },
+  { id: "top-right", name: "上方右题", hint: "上方区域，右侧对齐", number: "03" },
+  { id: "middle-left", name: "居中左题", hint: "居中区域，左侧对齐", number: "04" },
+  { id: "middle-center", name: "居中", hint: "居中区域，中轴对齐", number: "05" },
+  { id: "middle-right", name: "居中右题", hint: "居中区域，右侧对齐", number: "06" },
+  { id: "bottom-left", name: "下方左题", hint: "下方区域，左侧对齐", number: "07" },
+  { id: "bottom-center", name: "下方居中", hint: "下方区域，中轴对齐", number: "08" },
+  { id: "bottom-right", name: "下方右题", hint: "下方区域，右侧对齐", number: "09" },
 ];
 
 export const DOUYIN_HOME_GRID_SAFE_AREA = {

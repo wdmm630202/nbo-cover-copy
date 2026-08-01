@@ -88,7 +88,10 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /主页 3:4 安全区/);
   assert.match(coverStudio, /图片不上传、不保存/);
   assert.match(coverStudio, /baseScale = Math\.min\(width \/ watermark\.naturalWidth, height \/ watermark\.naturalHeight\)/);
-  assert.match(coverStudio, /const x = \(width - drawWidth\) \/ 2/);
+  assert.match(coverStudio, /settings\.watermarkAlign === "left"/);
+  assert.match(coverStudio, /settings\.watermarkAlign === "right"/);
+  assert.match(coverStudio, /startsWith\("top-"\)/);
+  assert.match(coverStudio, /startsWith\("bottom-"\)/);
   assert.match(coverStudio, /全部同步/);
   assert.match(coverStudio, /同步文案/);
   assert.match(coverStudio, /同步封面/);
@@ -110,6 +113,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverConfig, /playCountReserve: 144/);
   assert.match(coverConfig, /cropTop: 240/);
   assert.match(coverConfig, /cropBottom: 1680/);
+  assert.match(coverConfig, /bottom-right/);
   assert.match(publicCover, /南铂封面制作台/);
   assert.match(publicCover, /访问密码/);
   assert.match(publicCover, /id="copyWorkspaceSwitch"/);
@@ -133,9 +137,13 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /image\/jpeg/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);
   assert.match(publicCoverScript, /播放量避让区 144px/);
-  assert.match(publicCoverScript, /zoneIndex/);
+  assert.match(publicCoverScript, /requestedY/);
   assert.match(publicCoverScript, /baseScale = Math\.min\(width \/ state\.watermark\.naturalWidth, height \/ state\.watermark\.naturalHeight\)/);
-  assert.match(publicCoverScript, /const x = \(width - drawWidth\) \/ 2/);
+  assert.match(publicCoverScript, /state\.watermarkAlign === "left"/);
+  assert.match(publicCoverScript, /state\.watermarkAlign === "right"/);
+  assert.match(publicCover, /data-template="top-left"/);
+  assert.match(publicCover, /data-template="bottom-right"/);
+  assert.match(publicCover, /data-watermark-align="center"/);
   assert.doesNotMatch(
     page + layout + packageJson + publicEntry + coverPage + coverStudio,
     /react-loading-skeleton|codex-preview|_sites-preview/,
