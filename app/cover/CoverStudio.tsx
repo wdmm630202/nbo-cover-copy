@@ -1027,7 +1027,7 @@ export default function CoverStudio() {
             <Slider
               label="水印透明度"
               value={settings.watermarkOpacity}
-              min={30}
+              min={0}
               max={100}
               suffix="%"
               onChange={(value) => updateSetting("watermarkOpacity", value)}
