@@ -213,6 +213,16 @@ function drawTemplateText(
   const topFontSize = fitText(context, settings.topText, baseFont, maxWidth);
   const bottomFontSize = fitText(context, settings.bottomText, baseFont, maxWidth);
   const subtitleFontSize = Math.round(width * 0.03 * (settings.subtitleScale / 100));
+  const secondBaseline = y + lineGap;
+  const reservedBottomFontSize = settings.bottomText.trim() ? bottomFontSize : topFontSize;
+  context.font = `900 ${reservedBottomFontSize}px sans-serif`;
+  const bottomInk = measureInkBounds(context, settings.bottomText || "国");
+  context.font = `500 ${subtitleFontSize}px sans-serif`;
+  const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
+  const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
+  const dividerThickness = Math.max(4, Math.round(reservedBottomFontSize * 0.055));
+  const dividerY = Math.round(secondBaseline + bottomInk.descent + opticalGap);
+  const subtitleBaseline = Math.round(dividerY + dividerThickness + opticalGap + subtitleInk.ascent);
 
   context.fillStyle = settings.topColor;
   context.font = `900 ${topFontSize}px sans-serif`;
@@ -221,16 +231,15 @@ function drawTemplateText(
   if (settings.bottomText.trim()) {
     context.fillStyle = settings.bottomColor;
     context.font = `900 ${bottomFontSize}px sans-serif`;
-    context.fillText(settings.bottomText, x, y + lineGap, maxWidth);
+    context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
   }
 
   if (settings.showDivider) {
-    const dividerWidth = settings.bottomText.trim() ? bottomFontSize : topFontSize;
-    const dividerY = settings.bottomText.trim() ? y + lineGap + subtitleFontSize : y + lineGap;
+    const dividerWidth = reservedBottomFontSize;
     const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
     context.shadowBlur = 8;
     context.fillStyle = settings.dividerColor;
-    context.fillRect(Math.round(dividerX), Math.round(dividerY), Math.round(dividerWidth), Math.max(4, Math.round(dividerWidth * 0.055)));
+    context.fillRect(Math.round(dividerX), dividerY, Math.round(dividerWidth), dividerThickness);
   }
 
   if (settings.subtitle.trim()) {
@@ -241,9 +250,7 @@ function drawTemplateText(
       context,
       settings.subtitle,
       x,
-      settings.showDivider
-        ? (settings.bottomText.trim() ? y + lineGap + subtitleFontSize * 2.45 : y + lineGap + subtitleFontSize * 1.45)
-        : y + lineGap + Math.round(baseFont * 0.8),
+      settings.showDivider ? subtitleBaseline : secondBaseline + opticalGap + subtitleInk.ascent,
       maxWidth,
       Math.round(subtitleFontSize * 1.45),
       textAlign,
@@ -289,6 +296,22 @@ function fitText(
     size -= 2;
   }
   return size;
+}
+
+function measureInkBounds(context: CanvasRenderingContext2D, text: string) {
+  const characters = Array.from(text || "国");
+  const fallbackSize = Number(context.font.match(/([\d.]+)px/)?.[1] || 16);
+  let ascent = 0;
+  let descent = 0;
+  characters.forEach((character) => {
+    const metrics = context.measureText(character);
+    ascent = Math.max(ascent, metrics.actualBoundingBoxAscent || 0);
+    descent = Math.max(descent, metrics.actualBoundingBoxDescent || 0);
+  });
+  return {
+    ascent: ascent || Math.max(1, fallbackSize * 0.78),
+    descent: descent || Math.max(1, fallbackSize * 0.22),
+  };
 }
 
 function drawWrappedText(
