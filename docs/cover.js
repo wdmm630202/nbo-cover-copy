@@ -37,6 +37,14 @@ const state = {
   watermarkName: "",
 };
 
+const DOUYIN_HOME_SAFE = {
+  cropTop: 240,
+  cropBottom: 1680,
+  horizontalInset: 54,
+  verticalInset: 54,
+  playCountReserve: 144,
+};
+
 const $ = (selector) => document.querySelector(selector);
 const canvas = $("#coverCanvas");
 const accessGate = $("#accessGate");
@@ -488,11 +496,8 @@ function drawShade(ctx, width, height) {
 function drawText(ctx, width, height) {
   const right = state.template === "right";
   const center = state.template === "center";
-  const bottom = state.template === "bottom";
-  const clean = state.template === "clean";
   const align = right ? "right" : center ? "center" : "left";
   const x = right ? width * .92 : center ? width * .5 : width * .08;
-  const y = bottom ? height * .68 : center ? height * .58 : clean ? height * .18 : height * .24;
   const maxWidth = center ? width * .84 : width * .72;
   const baseFont = Math.round(width * .074 * state.textScale / 100);
   const lineGap = Math.round(baseFont * 1.32);
@@ -514,18 +519,41 @@ function drawText(ctx, width, height) {
   const topFontSize = fitText(ctx, state.topText, baseFont, maxWidth);
   const bottomFontSize = fitText(ctx, state.bottomText, baseFont, maxWidth);
   const subtitleFontSize = Math.round(width * .03 * state.subtitleScale / 100);
-  const secondBaseline = y + lineGap;
   const hasBottomText = Boolean(state.bottomText.trim());
-  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
   const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
+  ctx.font = `900 ${topFontSize}px sans-serif`;
+  const topHeadlineInk = measureInkBounds(ctx, state.topText || "国");
   ctx.font = `900 ${activeHeadlineFontSize}px sans-serif`;
   const activeHeadlineInk = measureInkBounds(ctx, state.bottomText || state.topText || "国");
   ctx.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
   const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
   const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * .055));
-  const dividerY = Math.round(activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap);
-  const subtitleBaseline = Math.round(dividerY + dividerThickness + opticalGap + subtitleInk.ascent);
+  const relativeActiveBaseline = hasBottomText ? lineGap : 0;
+  const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + opticalGap);
+  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + opticalGap + subtitleInk.ascent);
+  const subtitleLineHeight = Math.round(subtitleFontSize * 1.45);
+  const subtitleLines = countWrappedLines(ctx, state.subtitle, maxWidth);
+  const blockTop = -topHeadlineInk.ascent;
+  const blockBottom = state.subtitle.trim()
+    ? relativeSubtitleBaseline + (subtitleLines - 1) * subtitleLineHeight + subtitleInk.descent
+    : state.divider
+      ? relativeDividerY + dividerThickness
+      : relativeActiveBaseline + activeHeadlineInk.descent;
+  const geometryScale = width / 1080;
+  const cropTop = height / width > 1.5 ? DOUYIN_HOME_SAFE.cropTop * geometryScale : 0;
+  const cropBottom = height / width > 1.5 ? DOUYIN_HOME_SAFE.cropBottom * geometryScale : height;
+  const usableTop = cropTop + DOUYIN_HOME_SAFE.verticalInset * geometryScale;
+  const usableBottom = cropBottom - DOUYIN_HOME_SAFE.playCountReserve * geometryScale;
+  const zoneIndex = state.template === "left" || state.template === "bottom" ? 0
+    : state.template === "badge" || state.template === "center" ? 1 : 2;
+  const zoneCenter = usableTop + (usableBottom - usableTop) * ((zoneIndex + .5) / 3);
+  const centeredY = zoneCenter - (blockTop + blockBottom) / 2;
+  const y = Math.round(Math.max(usableTop - blockTop, Math.min(centeredY, usableBottom - blockBottom)));
+  const secondBaseline = y + lineGap;
+  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
+  const dividerY = y + relativeDividerY;
+  const subtitleBaseline = y + relativeSubtitleBaseline;
   ctx.fillStyle = state.topColor;
   ctx.font = `900 ${topFontSize}px sans-serif`;
   ctx.fillText(state.topText || "上行标题", x, y, maxWidth);
@@ -545,7 +573,7 @@ function drawText(ctx, width, height) {
     ctx.fillStyle = state.subtitleColor;
     ctx.font = `500 ${subtitleFontSize}px sans-serif`;
     const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap + subtitleInk.ascent;
-    drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleFontSize * 1.45, align);
+    drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleLineHeight, align);
   }
   ctx.restore();
 }
@@ -591,6 +619,20 @@ function drawWrapped(ctx, text, x, y, maxWidth, lineHeight, align) {
   lines.slice(0, 2).forEach((line, index) => ctx.fillText(line, x, y + index * lineHeight, maxWidth));
 }
 
+function countWrappedLines(ctx, text, maxWidth) {
+  if (!text.trim()) return 0;
+  let lines = 1;
+  let current = "";
+  Array.from(text).forEach((character) => {
+    const candidate = current + character;
+    if (ctx.measureText(candidate).width > maxWidth && current) {
+      lines += 1;
+      current = character;
+    } else current = candidate;
+  });
+  return Math.min(lines, 2);
+}
+
 function drawWatermark(ctx, width, height) {
   // 保留透明 PNG 的完整原始画布，画布本身就是水印的定位基准。
   const baseScale = Math.min(width / state.watermark.naturalWidth, height / state.watermark.naturalHeight);
@@ -618,6 +660,19 @@ function drawGuide(ctx, width, height) {
   ctx.font = `700 ${Math.round(width * .024)}px sans-serif`;
   ctx.textAlign = "right";
   ctx.fillText("主页 3:4 安全区（导出时自动隐藏）", width - 30, top + 38);
+  const reserveTop = DOUYIN_HOME_SAFE.cropBottom - DOUYIN_HOME_SAFE.playCountReserve;
+  ctx.fillStyle = "rgba(255,45,70,.12)";
+  ctx.fillRect(18, reserveTop, width - 36, DOUYIN_HOME_SAFE.playCountReserve);
+  ctx.setLineDash([12, 10]);
+  ctx.strokeStyle = "rgba(255,80,96,.9)";
+  ctx.beginPath();
+  ctx.moveTo(18, reserveTop);
+  ctx.lineTo(width - 18, reserveTop);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(255,110,120,.96)";
+  ctx.textAlign = "left";
+  ctx.fillText("播放量避让区 144px", 30, reserveTop + 38);
   ctx.restore();
 }
 

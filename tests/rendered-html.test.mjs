@@ -107,6 +107,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverConfig, /1080/);
   assert.match(coverConfig, /1920/);
   assert.match(coverConfig, /COVER_RULES_VERSION/);
+  assert.match(coverConfig, /playCountReserve: 144/);
+  assert.match(coverConfig, /cropTop: 240/);
+  assert.match(coverConfig, /cropBottom: 1680/);
   assert.match(publicCover, /南铂封面制作台/);
   assert.match(publicCover, /访问密码/);
   assert.match(publicCover, /id="copyWorkspaceSwitch"/);
@@ -129,6 +132,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicEntry, /localStorage\.setItem/);
   assert.match(publicCoverScript, /image\/jpeg/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);
+  assert.match(publicCoverScript, /播放量避让区 144px/);
+  assert.match(publicCoverScript, /zoneIndex/);
   assert.match(publicCoverScript, /baseScale = Math\.min\(width \/ state\.watermark\.naturalWidth, height \/ state\.watermark\.naturalHeight\)/);
   assert.match(publicCoverScript, /const x = \(width - drawWidth\) \/ 2/);
   assert.doesNotMatch(

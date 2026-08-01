@@ -13,6 +13,7 @@ import {
   COVER_RULES_VERSION,
   COVER_TEMPLATES,
   CoverTemplate,
+  DOUYIN_HOME_GRID_SAFE_AREA,
   PLATFORM_PRESETS,
   PlatformPreset,
 } from "./cover-config";
@@ -131,6 +132,19 @@ function drawCover(
     context.font = `700 ${Math.round(width * 0.024)}px sans-serif`;
     context.textAlign = "right";
     context.fillText("主页 3:4 安全区（导出时自动隐藏）", width - 30, safeTop + 38);
+    const reserveTop = DOUYIN_HOME_GRID_SAFE_AREA.cropBottom - DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve;
+    context.fillStyle = "rgba(255,45,70,.12)";
+    context.fillRect(18, reserveTop, width - 36, DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve);
+    context.setLineDash([12, 10]);
+    context.strokeStyle = "rgba(255,80,96,.9)";
+    context.beginPath();
+    context.moveTo(18, reserveTop);
+    context.lineTo(width - 18, reserveTop);
+    context.stroke();
+    context.setLineDash([]);
+    context.fillStyle = "rgba(255,110,120,.96)";
+    context.textAlign = "left";
+    context.fillText("播放量避让区 144px", 30, reserveTop + 38);
     context.restore();
   }
 }
@@ -177,17 +191,8 @@ function drawTemplateText(
 ) {
   const isRight = settings.templateId === "right";
   const isCenter = settings.templateId === "center";
-  const isBottom = settings.templateId === "bottom";
-  const isClean = settings.templateId === "clean";
   const textAlign: CanvasTextAlign = isRight ? "right" : isCenter ? "center" : "left";
   const x = isRight ? width * 0.92 : isCenter ? width * 0.5 : width * 0.08;
-  const y = isBottom
-    ? height * 0.68
-    : isCenter
-      ? height * 0.58
-      : isClean
-        ? height * 0.18
-        : height * 0.24;
   const maxWidth = isCenter ? width * 0.84 : width * 0.72;
   const baseFont = Math.round(width * 0.074 * (settings.textScale / 100));
   const lineGap = Math.round(baseFont * 1.32);
@@ -213,18 +218,44 @@ function drawTemplateText(
   const topFontSize = fitText(context, settings.topText, baseFont, maxWidth);
   const bottomFontSize = fitText(context, settings.bottomText, baseFont, maxWidth);
   const subtitleFontSize = Math.round(width * 0.03 * (settings.subtitleScale / 100));
-  const secondBaseline = y + lineGap;
   const hasBottomText = Boolean(settings.bottomText.trim());
-  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
   const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
+  context.font = `900 ${topFontSize}px sans-serif`;
+  const topHeadlineInk = measureInkBounds(context, settings.topText || "国");
   context.font = `900 ${activeHeadlineFontSize}px sans-serif`;
   const activeHeadlineInk = measureInkBounds(context, settings.bottomText || settings.topText || "国");
   context.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
   const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
   const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * 0.055));
-  const dividerY = Math.round(activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap);
-  const subtitleBaseline = Math.round(dividerY + dividerThickness + opticalGap + subtitleInk.ascent);
+  const relativeActiveBaseline = hasBottomText ? lineGap : 0;
+  const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + opticalGap);
+  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + opticalGap + subtitleInk.ascent);
+  const subtitleLineHeight = Math.round(subtitleFontSize * 1.45);
+  const subtitleLines = countWrappedLines(context, settings.subtitle, maxWidth);
+  const blockTop = -topHeadlineInk.ascent;
+  const blockBottom = settings.subtitle.trim()
+    ? relativeSubtitleBaseline + (subtitleLines - 1) * subtitleLineHeight + subtitleInk.descent
+    : settings.showDivider
+      ? relativeDividerY + dividerThickness
+      : relativeActiveBaseline + activeHeadlineInk.descent;
+  const geometryScale = width / 1080;
+  const cropTop = height / width > 1.5 ? DOUYIN_HOME_GRID_SAFE_AREA.cropTop * geometryScale : 0;
+  const cropBottom = height / width > 1.5 ? DOUYIN_HOME_GRID_SAFE_AREA.cropBottom * geometryScale : height;
+  const usableTop = cropTop + DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
+  const usableBottom = cropBottom - DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * geometryScale;
+  const zoneIndex = settings.templateId === "left" || settings.templateId === "bottom"
+    ? 0
+    : settings.templateId === "badge" || settings.templateId === "center"
+      ? 1
+      : 2;
+  const zoneCenter = usableTop + (usableBottom - usableTop) * ((zoneIndex + 0.5) / 3);
+  const centeredY = zoneCenter - (blockTop + blockBottom) / 2;
+  const y = Math.round(Math.max(usableTop - blockTop, Math.min(centeredY, usableBottom - blockBottom)));
+  const secondBaseline = y + lineGap;
+  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
+  const dividerY = y + relativeDividerY;
+  const subtitleBaseline = y + relativeSubtitleBaseline;
 
   context.fillStyle = settings.topColor;
   context.font = `900 ${topFontSize}px sans-serif`;
@@ -254,7 +285,7 @@ function drawTemplateText(
       x,
       settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap + subtitleInk.ascent,
       maxWidth,
-      Math.round(subtitleFontSize * 1.45),
+      subtitleLineHeight,
       textAlign,
     );
   }
@@ -343,6 +374,20 @@ function drawWrappedText(
   lines.slice(0, 2).forEach((line, index) => {
     context.fillText(line, x, y + index * lineHeight, maxWidth);
   });
+}
+
+function countWrappedLines(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  if (!text.trim()) return 0;
+  let lines = 1;
+  let current = "";
+  Array.from(text).forEach((character) => {
+    const candidate = current + character;
+    if (context.measureText(candidate).width > maxWidth && current) {
+      lines += 1;
+      current = character;
+    } else current = candidate;
+  });
+  return Math.min(lines, 2);
 }
 
 function Slider({
