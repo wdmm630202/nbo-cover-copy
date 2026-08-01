@@ -87,6 +87,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /#FEE800/);
   assert.match(coverStudio, /主页 3:4 安全区/);
   assert.match(coverStudio, /图片不上传、不保存/);
+  assert.match(coverStudio, /baseScale = Math\.min\(width \/ watermark\.naturalWidth, height \/ watermark\.naturalHeight\)/);
+  assert.match(coverStudio, /const x = \(width - drawWidth\) \/ 2/);
   assert.match(coverStudio, /全部同步/);
   assert.match(coverStudio, /同步文案/);
   assert.match(coverStudio, /同步封面/);
@@ -127,6 +129,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicEntry, /localStorage\.setItem/);
   assert.match(publicCoverScript, /image\/jpeg/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);
+  assert.match(publicCoverScript, /baseScale = Math\.min\(width \/ state\.watermark\.naturalWidth, height \/ state\.watermark\.naturalHeight\)/);
+  assert.match(publicCoverScript, /const x = \(width - drawWidth\) \/ 2/);
   assert.doesNotMatch(
     page + layout + packageJson + publicEntry + coverPage + coverStudio,
     /react-loading-skeleton|codex-preview|_sites-preview/,

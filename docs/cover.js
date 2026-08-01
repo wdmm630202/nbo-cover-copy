@@ -29,7 +29,7 @@ const state = {
   textScale: 100,
   shade: 62,
   safe: true,
-  watermarkScale: 22,
+  watermarkScale: 100,
   watermarkOpacity: 92,
   image: null,
   watermark: null,
@@ -224,7 +224,10 @@ $("#accessForm").addEventListener("submit", (event) => {
 
 try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
-  if (saved) Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
+  if (saved) {
+    if (Number(saved.watermarkScale) <= 42) saved.watermarkScale = 100;
+    Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
+  }
 } catch {
   $("#statusText").textContent = "已使用默认封面设置";
 }
@@ -373,7 +376,7 @@ $("#resetSettings").addEventListener("click", () => {
     subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FEE800",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
     zoom: 100, offsetX: 0, offsetY: 0, textScale: 100, shade: 62,
-    safe: true, watermarkScale: 22, watermarkOpacity: 92,
+    safe: true, watermarkScale: 100, watermarkOpacity: 92,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
 });
@@ -389,7 +392,9 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
   try {
     const saved = localStorage.getItem(`${MEMORY_KEY_PREFIX}${slot}`);
     if (!saved) return setStatus(`记忆点 ${slot} 还没有保存设置`);
-    Object.assign(state, JSON.parse(saved));
+    const parsed = JSON.parse(saved);
+    if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+    Object.assign(state, parsed);
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
   } catch {
     setStatus(`记忆点 ${slot} 读取失败，请重新保存`);
@@ -587,17 +592,15 @@ function drawWrapped(ctx, text, x, y, maxWidth, lineHeight, align) {
 }
 
 function drawWatermark(ctx, width, height) {
-  const right = state.template === "right";
-  const maxWidth = width * state.watermarkScale / 100;
-  const scale = Math.min(maxWidth / state.watermark.naturalWidth, height * .1 / state.watermark.naturalHeight);
+  // 保留透明 PNG 的完整原始画布，画布本身就是水印的定位基准。
+  const baseScale = Math.min(width / state.watermark.naturalWidth, height / state.watermark.naturalHeight);
+  const scale = baseScale * state.watermarkScale / 100;
   const drawWidth = state.watermark.naturalWidth * scale;
   const drawHeight = state.watermark.naturalHeight * scale;
-  const x = right ? width * .92 - drawWidth : width * .08;
-  const y = height * .91 - drawHeight;
+  const x = (width - drawWidth) / 2;
+  const y = (height - drawHeight) / 2;
   ctx.save();
   ctx.globalAlpha = state.watermarkOpacity / 100;
-  ctx.shadowColor = "rgba(0,0,0,.65)";
-  ctx.shadowBlur = 10;
   ctx.drawImage(state.watermark, x, y, drawWidth, drawHeight);
   ctx.restore();
 }
