@@ -50,4 +50,4 @@ export const COVER_TEMPLATES: CoverTemplate[] = [
   { id: "right", name: "右侧标题", hint: "人物靠左，右侧阅读", number: "06" },
 ];
 
-export const COVER_RULES_VERSION = "南铂封面规范 1.0";
+export const COVER_RULES_VERSION = "南铂封面规范 2.0";

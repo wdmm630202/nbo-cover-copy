@@ -39,7 +39,8 @@ type StudioSettings = {
   textScale: number;
   shade: number;
   showSafeArea: boolean;
-  showBrand: boolean;
+  watermarkScale: number;
+  watermarkOpacity: number;
 };
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
@@ -56,12 +57,14 @@ const DEFAULT_SETTINGS: StudioSettings = {
   textScale: 100,
   shade: 62,
   showSafeArea: true,
-  showBrand: true,
+  watermarkScale: 22,
+  watermarkOpacity: 92,
 };
 
 function drawCover(
   canvas: HTMLCanvasElement,
   image: HTMLImageElement | null,
+  watermark: HTMLImageElement | null,
   settings: StudioSettings,
   preset: PlatformPreset,
   includeGuide: boolean,
@@ -100,9 +103,7 @@ function drawCover(
   drawTemplateShade(context, settings.templateId, width, height, settings.shade);
   drawTemplateText(context, settings, width, height);
 
-  if (settings.showBrand) {
-    drawBrand(context, width, height, settings.templateId);
-  }
+  if (watermark) drawWatermark(context, watermark, settings, width, height);
 
   if (includeGuide && settings.showSafeArea && preset.id === "douyin") {
     const safeHeight = width / 3 * 4;
@@ -222,25 +223,25 @@ function drawTemplateText(
   context.restore();
 }
 
-function drawBrand(
+function drawWatermark(
   context: CanvasRenderingContext2D,
+  watermark: HTMLImageElement,
+  settings: StudioSettings,
   width: number,
   height: number,
-  templateId: CoverTemplate["id"],
 ) {
-  const rightAligned = templateId === "right";
-  const x = rightAligned ? width * 0.92 : width * 0.08;
-  const align: CanvasTextAlign = rightAligned ? "right" : "left";
+  const maxWidth = width * (settings.watermarkScale / 100);
+  const scale = Math.min(maxWidth / watermark.naturalWidth, (height * 0.1) / watermark.naturalHeight);
+  const drawWidth = watermark.naturalWidth * scale;
+  const drawHeight = watermark.naturalHeight * scale;
+  const rightAligned = settings.templateId === "right";
+  const x = rightAligned ? width * 0.92 - drawWidth : width * 0.08;
+  const y = height * 0.91 - drawHeight;
   context.save();
-  context.textAlign = align;
-  context.shadowColor = "rgba(0,0,0,.65)";
-  context.shadowBlur = 12;
-  context.fillStyle = "#FFFFFF";
-  context.font = `800 ${Math.round(width * 0.037)}px sans-serif`;
-  context.fillText("南铂摄影", x, height * 0.9);
-  context.font = `700 ${Math.round(width * 0.015)}px sans-serif`;
-  context.letterSpacing = `${Math.round(width * 0.003)}px`;
-  context.fillText("NANBO  PHOTO", x, height * 0.925);
+  context.globalAlpha = settings.watermarkOpacity / 100;
+  context.shadowColor = "rgba(0,0,0,.5)";
+  context.shadowBlur = 10;
+  context.drawImage(watermark, x, y, drawWidth, drawHeight);
   context.restore();
 }
 
@@ -328,9 +329,12 @@ function Slider({
 export default function CoverStudio() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const watermarkInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fileName, setFileName] = useState("");
+  const [watermark, setWatermark] = useState<HTMLImageElement | null>(null);
+  const [watermarkName, setWatermarkName] = useState("");
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
@@ -412,9 +416,9 @@ export default function CoverStudio() {
 
   useEffect(() => {
     if (canvasRef.current) {
-      drawCover(canvasRef.current, image, settings, preset, true);
+      drawCover(canvasRef.current, image, watermark, settings, preset, true);
     }
-  }, [image, preset, settings]);
+  }, [image, preset, settings, watermark]);
 
   const updateSetting = useCallback(
     <Key extends keyof StudioSettings>(key: Key, value: StudioSettings[Key]) => {
@@ -516,6 +520,27 @@ export default function CoverStudio() {
     loadFile(event.dataTransfer.files?.[0]);
   };
 
+  const loadWatermark = useCallback((file: File | undefined) => {
+    if (!file) return;
+    if (file.type !== "image/png") {
+      setNotice("水印请使用透明 PNG 图片");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const nextWatermark = new Image();
+    nextWatermark.onload = () => {
+      setWatermark(nextWatermark);
+      setWatermarkName(file.name);
+      setNotice("透明水印已加入，导出时会保留");
+      URL.revokeObjectURL(url);
+    };
+    nextWatermark.onerror = () => {
+      setNotice("这张水印无法读取，请更换透明 PNG");
+      URL.revokeObjectURL(url);
+    };
+    nextWatermark.src = url;
+  }, []);
+
   const exportCover = (format: "jpeg" | "png") => {
     if (!image || !canvasRef.current) {
       setNotice("请先上传一张照片");
@@ -523,7 +548,7 @@ export default function CoverStudio() {
     }
 
     const exportCanvas = document.createElement("canvas");
-    drawCover(exportCanvas, image, settings, preset, false);
+    drawCover(exportCanvas, image, watermark, settings, preset, false);
     exportCanvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -550,7 +575,7 @@ export default function CoverStudio() {
         <div>
           <span>配套服务 02</span>
           <h1>南铂封面制作台</h1>
-          <p>把智能文案直接做成可发布封面。人物原片不重绘，照片不上传，尺寸和模板可以长期更新。</p>
+          <p>以大画面、少文字和统一黑金视觉制作封面。不自动添加品牌字样，只使用你上传的透明 PNG 水印。</p>
         </div>
         <div className="studio-status">
           <i />
@@ -650,6 +675,35 @@ export default function CoverStudio() {
               placeholder="补充价值点，不编造图片外事实"
             />
           </label>
+
+          <div className="studio-watermark-box">
+            <input
+              ref={watermarkInputRef}
+              type="file"
+              accept="image/png"
+              onChange={(event) => {
+                loadWatermark(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+            <button type="button" onClick={() => watermarkInputRef.current?.click()}>
+              <b>{watermark ? "更换透明水印" : "上传透明 PNG 水印"}</b>
+              <span>{watermarkName || "不上传就不显示任何品牌字样"}</span>
+            </button>
+            {watermark && (
+              <button
+                type="button"
+                className="studio-watermark-remove"
+                onClick={() => {
+                  setWatermark(null);
+                  setWatermarkName("");
+                  setNotice("水印已移除");
+                }}
+              >
+                移除
+              </button>
+            )}
+          </div>
 
           <div className="studio-platforms" aria-label="选择发布平台">
             {PLATFORM_PRESETS.map((item) => (
@@ -767,17 +821,23 @@ export default function CoverStudio() {
               suffix="%"
               onChange={(value) => updateSetting("shade", value)}
             />
-          </div>
-
-          <label className="studio-check">
-            <input
-              type="checkbox"
-              checked={settings.showBrand}
-              onChange={(event) => updateSetting("showBrand", event.target.checked)}
+            <Slider
+              label="水印大小"
+              value={settings.watermarkScale}
+              min={10}
+              max={42}
+              suffix="%"
+              onChange={(value) => updateSetting("watermarkScale", value)}
             />
-            <span />
-            显示“南铂摄影”品牌组
-          </label>
+            <Slider
+              label="水印透明度"
+              value={settings.watermarkOpacity}
+              min={30}
+              max={100}
+              suffix="%"
+              onChange={(value) => updateSetting("watermarkOpacity", value)}
+            />
+          </div>
         </aside>
       </div>
 
@@ -791,6 +851,7 @@ export default function CoverStudio() {
           <li><b>固定颜色</b> 上行 #FFFFFF，下行 #FEE800</li>
           <li><b>主页安全</b> 抖音 9:16 自动显示居中 3:4 检查框</li>
           <li><b>本机处理</b> 图片不上传、不保存，导出后仍由你掌控</li>
+          <li><b>品牌规则</b> 不自动写“南铂摄影”，只叠加你上传的透明 PNG 水印</li>
         </ul>
         <p>平台规则会变化，尺寸预设独立维护；封面制作逻辑不依赖免费 AI 服务，即使智能文案暂时不可用，也能继续制作和导出。</p>
       </section>

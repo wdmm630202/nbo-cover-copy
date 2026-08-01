@@ -22,9 +22,12 @@ const state = {
   textScale: 100,
   shade: 62,
   safe: true,
-  brand: true,
+  watermarkScale: 22,
+  watermarkOpacity: 92,
   image: null,
+  watermark: null,
   fileName: "",
+  watermarkName: "",
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -214,7 +217,7 @@ $("#accessForm").addEventListener("submit", (event) => {
 
 try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
-  if (saved) Object.assign(state, saved, { image: null, fileName: "" });
+  if (saved) Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
 } catch {
   $("#statusText").textContent = "已使用默认封面设置";
 }
@@ -222,7 +225,9 @@ try {
 function saveSettings() {
   const settings = { ...state };
   delete settings.image;
+  delete settings.watermark;
   delete settings.fileName;
+  delete settings.watermarkName;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
@@ -235,8 +240,7 @@ function updateUi() {
   $("#bottomText").value = state.bottomText;
   $("#subtitle").value = state.subtitle;
   $("#safeToggle").checked = state.safe;
-  $("#brandToggle").checked = state.brand;
-  ["zoom", "offsetX", "offsetY", "textScale", "shade"].forEach((id) => {
+  ["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkScale", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
   $("#zoomValue").textContent = `${state.zoom}%`;
@@ -244,6 +248,8 @@ function updateUi() {
   $("#offsetYValue").textContent = state.offsetY;
   $("#textScaleValue").textContent = `${state.textScale}%`;
   $("#shadeValue").textContent = `${state.shade}%`;
+  $("#watermarkScaleValue").textContent = `${state.watermarkScale}%`;
+  $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
   document.querySelectorAll("[data-platform]").forEach((button) => button.classList.toggle("active", button.dataset.platform === state.platform));
   document.querySelectorAll("[data-template]").forEach((button) => button.classList.toggle("active", button.dataset.template === state.template));
   const current = preset();
@@ -292,7 +298,7 @@ function loadFile(file) {
     draw();
   });
 });
-["zoom", "offsetX", "offsetY", "textScale", "shade"].forEach((id) => {
+["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkScale", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = Number(event.target.value);
     updateUi();
@@ -301,7 +307,39 @@ function loadFile(file) {
   });
 });
 $("#safeToggle").addEventListener("change", (event) => { state.safe = event.target.checked; saveSettings(); draw(); });
-$("#brandToggle").addEventListener("change", (event) => { state.brand = event.target.checked; saveSettings(); draw(); });
+$("#watermarkButton").addEventListener("click", () => $("#watermarkInput").click());
+$("#watermarkInput").addEventListener("change", (event) => {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  if (file.type !== "image/png") return setStatus("水印请使用透明 PNG 图片");
+  const url = URL.createObjectURL(file);
+  const image = new Image();
+  image.onload = () => {
+    state.watermark = image;
+    state.watermarkName = file.name;
+    $("#watermarkTitle").textContent = "更换透明水印";
+    $("#watermarkName").textContent = file.name;
+    $("#removeWatermark").hidden = false;
+    setStatus("透明水印已加入，导出时会保留");
+    URL.revokeObjectURL(url);
+    draw();
+  };
+  image.onerror = () => {
+    setStatus("这张水印无法读取，请更换透明 PNG");
+    URL.revokeObjectURL(url);
+  };
+  image.src = url;
+});
+$("#removeWatermark").addEventListener("click", () => {
+  state.watermark = null;
+  state.watermarkName = "";
+  $("#watermarkTitle").textContent = "上传透明 PNG 水印";
+  $("#watermarkName").textContent = "不上传就不显示任何品牌字样";
+  $("#removeWatermark").hidden = true;
+  setStatus("水印已移除");
+  draw();
+});
 $("#platforms").addEventListener("click", (event) => {
   const button = event.target.closest("[data-platform]");
   if (!button) return;
@@ -357,7 +395,7 @@ function draw(includeGuide = true, targetCanvas = canvas) {
 
   drawShade(targetContext, width, height);
   drawText(targetContext, width, height);
-  if (state.brand) drawBrand(targetContext, width, height);
+  if (state.watermark) drawWatermark(targetContext, width, height);
   if (includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);
 }
 
@@ -452,18 +490,19 @@ function drawWrapped(ctx, text, x, y, maxWidth, lineHeight, align) {
   lines.slice(0, 2).forEach((line, index) => ctx.fillText(line, x, y + index * lineHeight, maxWidth));
 }
 
-function drawBrand(ctx, width, height) {
+function drawWatermark(ctx, width, height) {
   const right = state.template === "right";
-  const x = right ? width * .92 : width * .08;
+  const maxWidth = width * state.watermarkScale / 100;
+  const scale = Math.min(maxWidth / state.watermark.naturalWidth, height * .1 / state.watermark.naturalHeight);
+  const drawWidth = state.watermark.naturalWidth * scale;
+  const drawHeight = state.watermark.naturalHeight * scale;
+  const x = right ? width * .92 - drawWidth : width * .08;
+  const y = height * .91 - drawHeight;
   ctx.save();
-  ctx.textAlign = right ? "right" : "left";
+  ctx.globalAlpha = state.watermarkOpacity / 100;
   ctx.shadowColor = "rgba(0,0,0,.65)";
-  ctx.shadowBlur = 12;
-  ctx.fillStyle = "#fff";
-  ctx.font = `800 ${Math.round(width * .037)}px sans-serif`;
-  ctx.fillText("南铂摄影", x, height * .9);
-  ctx.font = `700 ${Math.round(width * .015)}px sans-serif`;
-  ctx.fillText("NANBO  PHOTO", x, height * .925);
+  ctx.shadowBlur = 10;
+  ctx.drawImage(state.watermark, x, y, drawWidth, drawHeight);
   ctx.restore();
 }
 

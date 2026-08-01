@@ -54,6 +54,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .upload { min-height: 76px; padding: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1.5px dashed #d8d0c8; border-radius: 15px; background: #faf8f5; cursor: pointer; }
 .upload.dragging { border-color: var(--red); background: #fff1f3; }
 .upload input { display: none; }
+.watermark-upload { margin-top: 14px; position: relative; }
+.watermark-upload > input { display: none; }
+.watermark-upload > button:first-of-type { width: 100%; min-height: 62px; padding: 11px 48px 11px 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; border: 1px dashed #c9a77a; border-radius: 13px; background: #fffaf3; color: #28231f; text-align: left; cursor: pointer; }
+.watermark-upload strong { font-size: 11px; }
+.watermark-upload small { max-width: 100%; overflow: hidden; color: #9b8367; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+#removeWatermark { position: absolute; right: 9px; top: 18px; border: 0; background: transparent; color: var(--red); font-size: 9px; font-weight: 750; cursor: pointer; }
 .upload strong { font-size: 13px; }
 .upload small { max-width: 250px; overflow: hidden; color: #9a928b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .image-sync { min-height: 28px; padding: 0 10px; position: absolute; z-index: 2; top: 8px; right: 8px; border: 0; border-radius: 999px; background: var(--red); color: #fff; font-size: 8px; font-weight: 750; cursor: pointer; }

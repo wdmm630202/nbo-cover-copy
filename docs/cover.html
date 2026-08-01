@@ -37,7 +37,7 @@
           <div>
             <span>配套服务 02</span>
             <h1>南铂封面制作台</h1>
-            <p>把智能文案直接做成可发布封面。人物原片不重绘，照片不上传，尺寸和模板可以长期更新。</p>
+            <p>以大画面、少文字和统一黑金视觉制作封面。不自动添加品牌字样，只使用你上传的透明 PNG 水印。</p>
           </div>
           <div class="status"><i></i><span id="statusText">上传照片后即可制作</span></div>
         </div>
@@ -66,6 +66,11 @@
               <input id="bottomText" aria-label="下行主标题" maxlength="18" value="藏在自然状态里" />
             </div>
             <label class="field"><span>补充小字 <b>可不填</b></span><textarea id="subtitle" maxlength="38">不被定义的自己，才是最有张力的表达</textarea></label>
+            <div class="watermark-upload">
+              <input id="watermarkInput" type="file" accept="image/png" />
+              <button id="watermarkButton" type="button"><strong id="watermarkTitle">上传透明 PNG 水印</strong><small id="watermarkName">不上传就不显示任何品牌字样</small></button>
+              <button id="removeWatermark" type="button" hidden>移除</button>
+            </div>
             <div class="platforms" id="platforms">
               <button type="button" class="active" data-platform="douyin"><strong>抖音</strong><span>9:16</span></button>
               <button type="button" data-platform="xiaohongshu"><strong>小红书</strong><span>3:4</span></button>
@@ -105,18 +110,20 @@
               <label><span>上下位置 <b id="offsetYValue">0</b></span><input id="offsetY" type="range" min="-40" max="40" value="0" /></label>
               <label><span>标题大小 <b id="textScaleValue">100%</b></span><input id="textScale" type="range" min="76" max="132" value="100" /></label>
               <label><span>压暗强度 <b id="shadeValue">62%</b></span><input id="shade" type="range" min="20" max="90" value="62" /></label>
+              <label><span>水印大小 <b id="watermarkScaleValue">22%</b></span><input id="watermarkScale" type="range" min="10" max="42" value="22" /></label>
+              <label><span>水印透明度 <b id="watermarkOpacityValue">92%</b></span><input id="watermarkOpacity" type="range" min="30" max="100" value="92" /></label>
             </div>
-            <label class="brand-toggle"><input id="brandToggle" type="checkbox" checked /><i></i>显示“南铂摄影”品牌组</label>
           </aside>
         </div>
 
         <section class="standard">
-          <div><span>长期规范</span><h2>南铂封面规范 1.0</h2></div>
+          <div><span>长期规范</span><h2>南铂封面规范 2.0</h2></div>
           <ul>
             <li><b>人物保护</b> 不拉伸、不重绘脸、五官、头发、手和服装</li>
             <li><b>固定颜色</b> 上行 #FFFFFF，下行 #FEE800</li>
             <li><b>主页安全</b> 抖音 9:16 自动显示居中 3:4 检查框</li>
             <li><b>本机处理</b> 图片不上传、不保存，导出后仍由你掌控</li>
+            <li><b>品牌规则</b> 不自动写“南铂摄影”，只叠加你上传的透明 PNG 水印</li>
           </ul>
           <p>平台规则会变化，尺寸预设独立维护；封面制作不依赖免费 AI 服务，即使智能文案暂时不可用，也能继续制作和导出。</p>
         </section>
