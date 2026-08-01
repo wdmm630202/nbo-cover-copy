@@ -21,6 +21,8 @@ const state = {
   bottomColor: "#FEE800",
   dividerColor: "#C9A77A",
   divider: true,
+  subtitleColor: "#FFFFFF",
+  subtitleScale: 100,
   zoom: 100,
   offsetX: 0,
   offsetY: 0,
@@ -248,6 +250,9 @@ function updateUi() {
   $("#bottomColor").value = state.bottomColor;
   $("#dividerColor").value = state.dividerColor;
   $("#dividerToggle").checked = state.divider;
+  $("#subtitleColor").value = state.subtitleColor;
+  $("#subtitleScale").value = state.subtitleScale;
+  $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   $("#safeToggle").checked = state.safe;
   ["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkScale", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
@@ -307,12 +312,17 @@ function loadFile(file) {
     draw();
   });
 });
-["topColor", "bottomColor", "dividerColor"].forEach((id) => {
+["topColor", "bottomColor", "dividerColor", "subtitleColor"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = event.target.value.toUpperCase();
     saveSettings();
     draw();
   });
+});
+$("#subtitleScale").addEventListener("input", (event) => {
+  state.subtitleScale = Number(event.target.value);
+  $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
+  saveSettings(); draw();
 });
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
 ["zoom", "offsetX", "offsetY", "textScale", "shade", "watermarkScale", "watermarkOpacity"].forEach((id) => {
@@ -361,7 +371,8 @@ $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, {
     platform: "douyin", template: "left", topText: "男人的高级感", bottomText: "藏在自然状态里",
     subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FEE800",
-    dividerColor: "#C9A77A", divider: true, zoom: 100, offsetX: 0, offsetY: 0, textScale: 100, shade: 62,
+    dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
+    zoom: 100, offsetX: 0, offsetY: 0, textScale: 100, shade: 62,
     safe: true, watermarkScale: 22, watermarkOpacity: 92,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
@@ -495,26 +506,32 @@ function drawText(ctx, width, height) {
     ctx.textAlign = align;
     ctx.shadowBlur = 16;
   }
+  const topFontSize = fitText(ctx, state.topText, baseFont, maxWidth);
+  const bottomFontSize = fitText(ctx, state.bottomText, baseFont, maxWidth);
+  const subtitleFontSize = Math.round(width * .03 * state.subtitleScale / 100);
   ctx.fillStyle = state.topColor;
-  ctx.font = `900 ${fitText(ctx, state.topText, baseFont, maxWidth)}px sans-serif`;
+  ctx.font = `900 ${topFontSize}px sans-serif`;
   ctx.fillText(state.topText || "上行标题", x, y, maxWidth);
   if (state.bottomText.trim()) {
     ctx.fillStyle = state.bottomColor;
-    ctx.font = `900 ${fitText(ctx, state.bottomText, baseFont, maxWidth)}px sans-serif`;
+    ctx.font = `900 ${bottomFontSize}px sans-serif`;
     ctx.fillText(state.bottomText, x, y + lineGap, maxWidth);
   }
   if (state.divider) {
-    const dividerWidth = baseFont;
-    const dividerY = state.bottomText.trim() ? y + lineGap * 1.48 : y + lineGap;
+    const dividerWidth = state.bottomText.trim() ? bottomFontSize : topFontSize;
+    const dividerY = state.bottomText.trim() ? y + lineGap + subtitleFontSize : y + lineGap;
     const dividerX = right ? x - dividerWidth : center ? x - dividerWidth / 2 : x;
     ctx.shadowBlur = 8;
     ctx.fillStyle = state.dividerColor;
-    ctx.fillRect(dividerX, dividerY, dividerWidth, Math.max(4, Math.round(baseFont * .055)));
+    ctx.fillRect(Math.round(dividerX), Math.round(dividerY), Math.round(dividerWidth), Math.max(4, Math.round(dividerWidth * .055)));
   }
   if (state.subtitle.trim()) {
-    ctx.fillStyle = "rgba(255,255,255,.92)";
-    ctx.font = `500 ${Math.round(width * .03)}px sans-serif`;
-    drawWrapped(ctx, state.subtitle, x, y + lineGap + baseFont * (state.divider ? 1.08 : .8), maxWidth, width * .044, align);
+    ctx.fillStyle = state.subtitleColor;
+    ctx.font = `500 ${subtitleFontSize}px sans-serif`;
+    const subtitleY = state.divider
+      ? (state.bottomText.trim() ? y + lineGap + subtitleFontSize * 2.45 : y + lineGap + subtitleFontSize * 1.45)
+      : y + lineGap + baseFont * .8;
+    drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleFontSize * 1.45, align);
   }
   ctx.restore();
 }

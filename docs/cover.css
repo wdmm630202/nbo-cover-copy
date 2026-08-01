@@ -69,6 +69,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .memory-panel b { color: #625b55; font-size: 9px; }
 .memory-panel button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
 .memory-panel .reset-settings { width: 100%; min-height: 34px; border-color: #202020; background: #202020; color: #fff; }
+.subtitle-tools { margin-top: 8px; display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
+.subtitle-tools label { min-height: 45px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; color: #6e6761; font-size: 8px; }
+.subtitle-tools label:last-child { flex-direction: column; align-items: stretch; }
+.subtitle-tools label:last-child span { display: flex; justify-content: space-between; }
+.subtitle-tools input[type="color"] { width: 27px; height: 27px; padding: 2px; border: 0; border-radius: 7px; background: #f3efeb; cursor: pointer; }
+.subtitle-tools input[type="range"] { width: 100%; accent-color: var(--red); }
 .upload strong { font-size: 13px; }
 .upload small { max-width: 250px; overflow: hidden; color: #9a928b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .image-sync { min-height: 28px; padding: 0 10px; position: absolute; z-index: 2; top: 8px; right: 8px; border: 0; border-radius: 999px; background: var(--red); color: #fff; font-size: 8px; font-weight: 750; cursor: pointer; }

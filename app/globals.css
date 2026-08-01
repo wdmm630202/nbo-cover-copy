@@ -481,6 +481,12 @@ body {
 .studio-memory b { color: #625b55; font-size: 9px; }
 .studio-memory button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
 .studio-memory .studio-reset { width: 100%; min-height: 34px; border-color: #202020; background: #202020; color: #fff; }
+.studio-subtitle-tools { margin-top: 8px; display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
+.studio-subtitle-tools label { min-height: 45px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; color: #6e6761; font-size: 8px; }
+.studio-subtitle-tools label:last-child { flex-direction: column; align-items: stretch; }
+.studio-subtitle-tools label:last-child span { display: flex; justify-content: space-between; }
+.studio-subtitle-tools input[type="color"] { width: 27px; height: 27px; padding: 2px; border: 0; border-radius: 7px; background: #f3efeb; cursor: pointer; }
+.studio-subtitle-tools input[type="range"] { width: 100%; accent-color: #ff2442; }
 
 .studio-upload {
   position: relative;

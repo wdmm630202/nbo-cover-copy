@@ -37,6 +37,8 @@ type StudioSettings = {
   bottomColor: string;
   dividerColor: string;
   showDivider: boolean;
+  subtitleColor: string;
+  subtitleScale: number;
   zoom: number;
   offsetX: number;
   offsetY: number;
@@ -60,6 +62,8 @@ const DEFAULT_SETTINGS: StudioSettings = {
   bottomColor: "#FEE800",
   dividerColor: "#C9A77A",
   showDivider: true,
+  subtitleColor: "#FFFFFF",
+  subtitleScale: 100,
   zoom: 100,
   offsetX: 0,
   offsetY: 0,
@@ -206,36 +210,42 @@ function drawTemplateText(
     context.shadowBlur = 16;
   }
 
+  const topFontSize = fitText(context, settings.topText, baseFont, maxWidth);
+  const bottomFontSize = fitText(context, settings.bottomText, baseFont, maxWidth);
+  const subtitleFontSize = Math.round(width * 0.03 * (settings.subtitleScale / 100));
+
   context.fillStyle = settings.topColor;
-  context.font = `900 ${fitText(context, settings.topText, baseFont, maxWidth)}px sans-serif`;
+  context.font = `900 ${topFontSize}px sans-serif`;
   context.fillText(settings.topText || "上行标题", x, y, maxWidth);
 
   if (settings.bottomText.trim()) {
     context.fillStyle = settings.bottomColor;
-    context.font = `900 ${fitText(context, settings.bottomText, baseFont, maxWidth)}px sans-serif`;
+    context.font = `900 ${bottomFontSize}px sans-serif`;
     context.fillText(settings.bottomText, x, y + lineGap, maxWidth);
   }
 
   if (settings.showDivider) {
-    const dividerWidth = baseFont;
-    const dividerY = settings.bottomText.trim() ? y + lineGap * 1.48 : y + lineGap;
+    const dividerWidth = settings.bottomText.trim() ? bottomFontSize : topFontSize;
+    const dividerY = settings.bottomText.trim() ? y + lineGap + subtitleFontSize : y + lineGap;
     const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
     context.shadowBlur = 8;
     context.fillStyle = settings.dividerColor;
-    context.fillRect(dividerX, dividerY, dividerWidth, Math.max(4, Math.round(baseFont * 0.055)));
+    context.fillRect(Math.round(dividerX), Math.round(dividerY), Math.round(dividerWidth), Math.max(4, Math.round(dividerWidth * 0.055)));
   }
 
   if (settings.subtitle.trim()) {
     context.shadowBlur = 10;
-    context.fillStyle = "rgba(255,255,255,.92)";
-    context.font = `500 ${Math.round(width * 0.03)}px sans-serif`;
+    context.fillStyle = settings.subtitleColor;
+    context.font = `500 ${subtitleFontSize}px sans-serif`;
     drawWrappedText(
       context,
       settings.subtitle,
       x,
-      y + lineGap + Math.round(baseFont * (settings.showDivider ? 1.08 : 0.8)),
+      settings.showDivider
+        ? (settings.bottomText.trim() ? y + lineGap + subtitleFontSize * 2.45 : y + lineGap + subtitleFontSize * 1.45)
+        : y + lineGap + Math.round(baseFont * 0.8),
       maxWidth,
-      Math.round(width * 0.044),
+      Math.round(subtitleFontSize * 1.45),
       textAlign,
     );
   }
@@ -729,6 +739,10 @@ export default function CoverStudio() {
               placeholder="补充价值点，不编造图片外事实"
             />
           </label>
+          <div className="studio-subtitle-tools">
+            <label><span>小字颜色</span><input type="color" value={settings.subtitleColor} onChange={(event) => updateSetting("subtitleColor", event.target.value.toUpperCase())} /></label>
+            <label><span>小字大小 <b>{settings.subtitleScale}%</b></span><input type="range" min={60} max={160} value={settings.subtitleScale} onChange={(event) => updateSetting("subtitleScale", Number(event.target.value))} /></label>
+          </div>
 
           <div className="studio-watermark-box">
             <input

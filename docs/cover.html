@@ -72,6 +72,10 @@
             </div>
             <label class="brand-toggle divider-toggle"><input id="dividerToggle" type="checkbox" checked /><i></i>显示一字长标题横线（下行留空时自动补位）</label>
             <label class="field"><span>补充小字 <b>可不填</b></span><textarea id="subtitle" maxlength="38">不被定义的自己，才是最有张力的表达</textarea></label>
+            <div class="subtitle-tools">
+              <label><span>小字颜色</span><input id="subtitleColor" type="color" value="#FFFFFF" /></label>
+              <label><span>小字大小 <b id="subtitleScaleValue">100%</b></span><input id="subtitleScale" type="range" min="60" max="160" value="100" /></label>
+            </div>
             <div class="watermark-upload">
               <input id="watermarkInput" type="file" accept="image/png" />
               <button id="watermarkButton" type="button"><strong id="watermarkTitle">上传透明 PNG 水印</strong><small id="watermarkName">不上传就不显示任何品牌字样</small></button>
