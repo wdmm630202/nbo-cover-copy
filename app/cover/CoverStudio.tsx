@@ -70,7 +70,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   textScale: 100,
   shade: 62,
   showSafeArea: true,
-  watermarkScale: 22,
+  watermarkScale: 100,
   watermarkOpacity: 92,
 };
 
@@ -269,17 +269,16 @@ function drawWatermark(
   width: number,
   height: number,
 ) {
-  const maxWidth = width * (settings.watermarkScale / 100);
-  const scale = Math.min(maxWidth / watermark.naturalWidth, (height * 0.1) / watermark.naturalHeight);
+  // The transparent PNG canvas is the positioning contract. Fit that complete
+  // canvas to the cover instead of sizing from the visible logo pixels.
+  const baseScale = Math.min(width / watermark.naturalWidth, height / watermark.naturalHeight);
+  const scale = baseScale * (settings.watermarkScale / 100);
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
-  const rightAligned = settings.templateId === "right";
-  const x = rightAligned ? width * 0.92 - drawWidth : width * 0.08;
-  const y = height * 0.91 - drawHeight;
+  const x = (width - drawWidth) / 2;
+  const y = (height - drawHeight) / 2;
   context.save();
   context.globalAlpha = settings.watermarkOpacity / 100;
-  context.shadowColor = "rgba(0,0,0,.5)";
-  context.shadowBlur = 10;
   context.drawImage(watermark, x, y, drawWidth, drawHeight);
   context.restore();
 }
@@ -404,7 +403,11 @@ export default function CoverStudio() {
     const timer = window.setTimeout(() => {
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
-        if (saved) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+          setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+        }
       } catch {
         setNotice("已使用默认封面设置");
       }
@@ -499,7 +502,9 @@ export default function CoverStudio() {
         setNotice(`记忆点 ${slot} 还没有保存设置`);
         return;
       }
-      setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
+      const parsed = JSON.parse(saved);
+      if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+      setSettings({ ...DEFAULT_SETTINGS, ...parsed });
       setNotice(`已应用记忆点 ${slot}`);
     } catch {
       setNotice(`记忆点 ${slot} 读取失败，请重新保存`);
@@ -915,10 +920,10 @@ export default function CoverStudio() {
               onChange={(value) => updateSetting("shade", value)}
             />
             <Slider
-              label="水印大小"
+              label="水印画布大小"
               value={settings.watermarkScale}
-              min={10}
-              max={42}
+              min={60}
+              max={140}
               suffix="%"
               onChange={(value) => updateSetting("watermarkScale", value)}
             />
