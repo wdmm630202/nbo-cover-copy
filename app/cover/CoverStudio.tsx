@@ -313,18 +313,48 @@ function drawWatermark(
   const scale = baseScale * (settings.watermarkScale / 100);
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
-  const freeWidth = width - drawWidth;
+  const bounds = getWatermarkVisibleBounds(watermark);
   const safeInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * (width / 1080);
   const x = settings.watermarkAlign === "left"
-    ? safeInset
+    ? safeInset - bounds.left * scale
     : settings.watermarkAlign === "right"
-      ? freeWidth - safeInset
-      : freeWidth / 2;
+      ? width - safeInset - bounds.right * scale
+      : width / 2 - ((bounds.left + bounds.right) / 2) * scale;
   const y = (height - drawHeight) / 2;
   context.save();
   context.globalAlpha = settings.watermarkOpacity / 100;
   context.drawImage(watermark, x, y, drawWidth, drawHeight);
   context.restore();
+}
+
+const watermarkBoundsCache = new WeakMap<HTMLImageElement, { left: number; right: number }>();
+
+function getWatermarkVisibleBounds(watermark: HTMLImageElement) {
+  const cached = watermarkBoundsCache.get(watermark);
+  if (cached) return cached;
+  const sampleWidth = Math.min(1600, watermark.naturalWidth);
+  const sampleHeight = Math.max(1, Math.round(watermark.naturalHeight * sampleWidth / watermark.naturalWidth));
+  const sample = document.createElement("canvas");
+  sample.width = sampleWidth;
+  sample.height = sampleHeight;
+  const sampleContext = sample.getContext("2d", { willReadFrequently: true });
+  if (!sampleContext) return { left: 0, right: watermark.naturalWidth };
+  sampleContext.drawImage(watermark, 0, 0, sampleWidth, sampleHeight);
+  const pixels = sampleContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
+  let left = sampleWidth;
+  let right = -1;
+  for (let index = 3; index < pixels.length; index += 4) {
+    if (pixels[index] <= 8) continue;
+    const x = ((index - 3) / 4) % sampleWidth;
+    left = Math.min(left, x);
+    right = Math.max(right, x);
+  }
+  const ratio = watermark.naturalWidth / sampleWidth;
+  const bounds = right < left
+    ? { left: 0, right: watermark.naturalWidth }
+    : { left: left * ratio, right: (right + 1) * ratio };
+  watermarkBoundsCache.set(watermark, bounds);
+  return bounds;
 }
 
 function fitText(
