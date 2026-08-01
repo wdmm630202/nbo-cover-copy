@@ -78,8 +78,13 @@
             </div>
             <div class="watermark-upload">
               <input id="watermarkInput" type="file" accept="image/png" />
-              <button id="watermarkButton" type="button"><strong id="watermarkTitle">上传透明 PNG 水印</strong><small id="watermarkName">不上传就不显示任何品牌字样</small></button>
-              <button id="removeWatermark" type="button" hidden>移除</button>
+              <button id="watermarkMain" type="button"><strong>固定水印</strong><small id="watermarkName">南铂固定水印</small></button>
+              <div class="watermark-actions">
+                <button id="useWatermark" class="active" type="button">使用水印</button>
+                <button id="disableWatermark" type="button">不使用水印</button>
+                <button id="watermarkButton" type="button">换水印</button>
+                <button id="removeWatermark" type="button">移除</button>
+              </div>
             </div>
             <div class="platforms" id="platforms">
               <button type="button" class="active" data-platform="douyin"><strong>抖音</strong><span>9:16</span></button>
@@ -149,6 +154,6 @@
         </section>
       </section>
     </main>
-    <script src="./cover.js?v=20260802-bottom-watermark-gap"></script>
+    <script src="./cover.js?v=20260802-fixed-watermark"></script>
   </body>
 </html>

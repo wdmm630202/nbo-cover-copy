@@ -49,6 +49,7 @@ type StudioSettings = {
   watermarkScale: number;
   watermarkAlign: "left" | "center" | "right";
   watermarkOpacity: number;
+  watermarkEnabled: boolean;
 };
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
@@ -75,6 +76,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   watermarkScale: 100,
   watermarkAlign: "center",
   watermarkOpacity: 92,
+  watermarkEnabled: true,
 };
 
 function normalizeTemplateId(value: unknown): CoverTemplate["id"] {
@@ -484,11 +486,13 @@ export default function CoverStudio() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
+  const defaultWatermarkRef = useRef<HTMLImageElement | null>(null);
   const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fileName, setFileName] = useState("");
   const [watermark, setWatermark] = useState<HTMLImageElement | null>(null);
   const [watermarkName, setWatermarkName] = useState("");
+  const [watermarkKind, setWatermarkKind] = useState<"default" | "custom">("default");
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
@@ -574,8 +578,19 @@ export default function CoverStudio() {
   }, []);
 
   useEffect(() => {
+    const defaultWatermark = new Image();
+    defaultWatermark.onload = () => {
+      defaultWatermarkRef.current = defaultWatermark;
+      setWatermark((current) => current ?? defaultWatermark);
+      setWatermarkName((current) => current || "南铂固定水印");
+    };
+    defaultWatermark.onerror = () => setNotice("固定水印暂时无法读取，请刷新页面");
+    defaultWatermark.src = "/nanbo-default-watermark.png";
+  }, []);
+
+  useEffect(() => {
     if (canvasRef.current) {
-      drawCover(canvasRef.current, image, watermark, settings, preset, true);
+      drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true);
     }
   }, [image, preset, settings, watermark]);
 
@@ -717,6 +732,8 @@ export default function CoverStudio() {
     nextWatermark.onload = () => {
       setWatermark(nextWatermark);
       setWatermarkName(file.name);
+      setWatermarkKind("custom");
+      updateSetting("watermarkEnabled", true);
       setNotice("透明水印已加入，导出时会保留");
       URL.revokeObjectURL(url);
     };
@@ -734,7 +751,7 @@ export default function CoverStudio() {
     }
 
     const exportCanvas = document.createElement("canvas");
-    drawCover(exportCanvas, image, watermark, settings, preset, false);
+    drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false);
     exportCanvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -886,23 +903,22 @@ export default function CoverStudio() {
                 event.target.value = "";
               }}
             />
-            <button type="button" onClick={() => watermarkInputRef.current?.click()}>
-              <b>{watermark ? "更换透明水印" : "上传透明 PNG 水印"}</b>
-              <span>{watermarkName || "不上传就不显示任何品牌字样"}</span>
+            <button type="button" onClick={() => updateSetting("watermarkEnabled", true)}>
+              <b>固定水印</b>
+              <span>{watermarkName || "南铂固定水印"}</span>
             </button>
-            {watermark && (
-              <button
-                type="button"
-                className="studio-watermark-remove"
-                onClick={() => {
-                  setWatermark(null);
-                  setWatermarkName("");
-                  setNotice("水印已移除");
-                }}
-              >
-                移除
-              </button>
-            )}
+            <div className="studio-watermark-actions">
+              <button type="button" className={settings.watermarkEnabled ? "is-active" : ""} onClick={() => updateSetting("watermarkEnabled", true)}>使用水印</button>
+              <button type="button" className={!settings.watermarkEnabled ? "is-active" : ""} onClick={() => updateSetting("watermarkEnabled", false)}>不使用水印</button>
+              <button type="button" onClick={() => watermarkInputRef.current?.click()}>换水印</button>
+              <button type="button" onClick={() => {
+                setWatermark(defaultWatermarkRef.current);
+                setWatermarkName("南铂固定水印");
+                setWatermarkKind("default");
+                updateSetting("watermarkEnabled", true);
+                setNotice(watermarkKind === "custom" ? "临时水印已移除，已恢复南铂固定水印" : "已使用南铂固定水印");
+              }}>移除</button>
+            </div>
           </div>
 
           <div className="studio-platforms" aria-label="选择发布平台">

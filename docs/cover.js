@@ -32,6 +32,7 @@ const state = {
   watermarkScale: 100,
   watermarkAlign: "center",
   watermarkOpacity: 92,
+  watermarkEnabled: true,
   image: null,
   watermark: null,
   fileName: "",
@@ -58,6 +59,7 @@ const accessGate = $("#accessGate");
 const coverPage = $("#coverPage");
 let syncedCopy = null;
 let syncedImage = null;
+let defaultWatermark = null;
 const syncChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(COPY_SYNC_CHANNEL)
   : null;
@@ -257,6 +259,20 @@ function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
+function loadDefaultWatermark() {
+  const image = new Image();
+  image.onload = () => {
+    defaultWatermark = image;
+    state.watermark = image;
+    state.watermarkName = "南铂固定水印";
+    $("#watermarkName").textContent = state.watermarkName;
+    updateUi();
+    draw();
+  };
+  image.onerror = () => setStatus("固定水印暂时无法读取，请刷新页面");
+  image.src = "./nanbo-default-watermark.png";
+}
+
 function preset() {
   return PRESETS[state.platform];
 }
@@ -285,12 +301,15 @@ function updateUi() {
   document.querySelectorAll("[data-platform]").forEach((button) => button.classList.toggle("active", button.dataset.platform === state.platform));
   document.querySelectorAll("[data-template]").forEach((button) => button.classList.toggle("active", button.dataset.template === state.template));
   document.querySelectorAll("[data-watermark-align]").forEach((button) => button.classList.toggle("active", button.dataset.watermarkAlign === state.watermarkAlign));
+  $("#useWatermark").classList.toggle("active", state.watermarkEnabled);
+  $("#disableWatermark").classList.toggle("active", !state.watermarkEnabled);
   const current = preset();
   $("#presetNote").textContent = `${current.width}×${current.height} · ${current.note}`;
   $("#previewRatio").textContent = `${current.label} · ${current.ratio}`;
   $("#canvasShell").className = `canvas-shell ratio-${current.ratio.replace(":", "-")}`;
 }
 updateUi();
+loadDefaultWatermark();
 
 $("#fileInput").addEventListener("change", (event) => loadFile(event.target.files[0]));
 ["dragenter", "dragover"].forEach((name) => $("#uploadBox").addEventListener(name, (event) => {
@@ -357,6 +376,18 @@ document.querySelectorAll("[data-watermark-align]").forEach((button) => button.a
   updateUi(); saveSettings(); draw();
 }));
 $("#safeToggle").addEventListener("change", (event) => { state.safe = event.target.checked; saveSettings(); draw(); });
+$("#watermarkMain").addEventListener("click", () => {
+  state.watermarkEnabled = true;
+  updateUi(); saveSettings(); draw(); setStatus("已使用南铂固定水印");
+});
+$("#useWatermark").addEventListener("click", () => {
+  state.watermarkEnabled = true;
+  updateUi(); saveSettings(); draw(); setStatus("已使用水印");
+});
+$("#disableWatermark").addEventListener("click", () => {
+  state.watermarkEnabled = false;
+  updateUi(); saveSettings(); draw(); setStatus("本次已不使用水印，固定水印仍保留");
+});
 $("#watermarkButton").addEventListener("click", () => $("#watermarkInput").click());
 $("#watermarkInput").addEventListener("change", (event) => {
   const file = event.target.files[0];
@@ -368,9 +399,9 @@ $("#watermarkInput").addEventListener("change", (event) => {
   image.onload = () => {
     state.watermark = image;
     state.watermarkName = file.name;
-    $("#watermarkTitle").textContent = "更换透明水印";
+    state.watermarkEnabled = true;
     $("#watermarkName").textContent = file.name;
-    $("#removeWatermark").hidden = false;
+    updateUi(); saveSettings();
     setStatus("透明水印已加入，导出时会保留");
     URL.revokeObjectURL(url);
     draw();
@@ -382,12 +413,12 @@ $("#watermarkInput").addEventListener("change", (event) => {
   image.src = url;
 });
 $("#removeWatermark").addEventListener("click", () => {
-  state.watermark = null;
-  state.watermarkName = "";
-  $("#watermarkTitle").textContent = "上传透明 PNG 水印";
-  $("#watermarkName").textContent = "不上传就不显示任何品牌字样";
-  $("#removeWatermark").hidden = true;
-  setStatus("水印已移除");
+  state.watermark = defaultWatermark;
+  state.watermarkName = "南铂固定水印";
+  state.watermarkEnabled = true;
+  $("#watermarkName").textContent = state.watermarkName;
+  updateUi(); saveSettings();
+  setStatus("临时水印已移除，已恢复南铂固定水印");
   draw();
 });
 $("#resetSettings").addEventListener("click", () => {
@@ -396,7 +427,7 @@ $("#resetSettings").addEventListener("click", () => {
     subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FEE800",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
     zoom: 100, offsetX: 0, offsetY: 0, textScale: 100, shade: 62,
-    safe: true, watermarkScale: 100, watermarkAlign: "center", watermarkOpacity: 92,
+    safe: true, watermarkScale: 100, watermarkAlign: "center", watermarkOpacity: 92, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
 });
@@ -476,7 +507,7 @@ function draw(includeGuide = true, targetCanvas = canvas) {
 
   drawShade(targetContext, width, height);
   drawText(targetContext, width, height);
-  if (state.watermark) drawWatermark(targetContext, width, height);
+  if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
   if (includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);
 }
 
@@ -550,10 +581,10 @@ function drawText(ctx, width, height) {
   const usableTop = cropTop + DOUYIN_HOME_SAFE.verticalInset * geometryScale;
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_SAFE.verticalInset * geometryScale;
-  const watermarkScale = state.watermark
+  const watermarkScale = state.watermark && state.watermarkEnabled
     ? Math.min(width / state.watermark.naturalWidth, height / state.watermark.naturalHeight) * state.watermarkScale / 100
     : 0;
-  const watermarkTop = state.watermark
+  const watermarkTop = state.watermark && state.watermarkEnabled
     ? (height - state.watermark.naturalHeight * watermarkScale) / 2 + getWatermarkVisibleBounds(state.watermark).top * watermarkScale
     : Number.POSITIVE_INFINITY;
   const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
