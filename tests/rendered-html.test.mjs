@@ -96,6 +96,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /BracketRight/);
   assert.match(coverStudio, /studio-brush-cursor/);
   assert.match(coverStudio, /eraseShadeWithBrush/);
+  assert.match(coverStudio, /quadraticCurveTo/);
+  assert.match(coverStudio, /filter = `blur\(/);
   assert.match(coverStudio, /label="亮度"[\s\S]*?min=\{0\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /strokeText/);
   assert.match(coverStudio, /#FEE800/);
@@ -162,6 +164,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /这次生成没有完成/);
   assert.match(publicCoverScript, /原图尺寸文件已准备完成/);
   assert.match(publicCoverScript, /eraseShadeWithBrush/);
+  assert.match(publicCoverScript, /quadraticCurveTo/);
+  assert.match(publicCoverScript, /filter = `blur\(/);
   assert.match(publicCover, /局部涂抹提亮/);
   assert.match(publicCover, /id="brushCursor"/);
   assert.match(publicCoverScript, /BracketLeft/);

@@ -736,35 +736,46 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, pho
 
 function eraseShadeWithBrush(ctx, width, height, strokes) {
   if (!strokes.length) return;
-  ctx.save();
-  ctx.globalCompositeOperation = "destination-out";
+  const strokeCanvas = document.createElement("canvas");
+  strokeCanvas.width = width;
+  strokeCanvas.height = height;
+  const strokeContext = strokeCanvas.getContext("2d");
+  if (!strokeContext) return;
   strokes.forEach((stroke) => {
     const radius = Math.max(1, stroke.size * width / 2160);
     const feather = clamp(stroke.feather / 100, 0, 1);
     const strength = clamp(stroke.strength / 100, 0, 1);
-    const innerRadius = radius * (1 - feather * .98);
-    const points = [];
-    stroke.points.forEach((point, index) => {
-      const previous = stroke.points[index - 1];
-      if (!previous) return points.push(point);
-      const dx = (point.x - previous.x) * width;
-      const dy = (point.y - previous.y) * height;
-      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / Math.max(2, radius * .28)));
-      for (let step = 1; step <= steps; step += 1) {
-        points.push({ x: previous.x + (point.x - previous.x) * step / steps, y: previous.y + (point.y - previous.y) * step / steps });
+    const coreRadius = radius * (1 - feather * .85);
+    const blurRadius = radius * feather * .425;
+    if (!stroke.points.length) return;
+    strokeContext.clearRect(0, 0, width, height);
+    strokeContext.lineCap = "round";
+    strokeContext.lineJoin = "round";
+    strokeContext.lineWidth = Math.max(1, coreRadius * 2);
+    strokeContext.strokeStyle = `rgba(255,255,255,${strength})`;
+    strokeContext.fillStyle = `rgba(255,255,255,${strength})`;
+    const first = stroke.points[0];
+    strokeContext.beginPath();
+    strokeContext.moveTo(first.x * width, first.y * height);
+    if (stroke.points.length === 1) {
+      strokeContext.arc(first.x * width, first.y * height, coreRadius, 0, Math.PI * 2);
+      strokeContext.fill();
+    } else {
+      for (let index = 1; index < stroke.points.length - 1; index += 1) {
+        const point = stroke.points[index];
+        const next = stroke.points[index + 1];
+        strokeContext.quadraticCurveTo(point.x * width, point.y * height, (point.x + next.x) / 2 * width, (point.y + next.y) / 2 * height);
       }
-    });
-    points.forEach((point) => {
-      const x = point.x * width;
-      const y = point.y * height;
-      const gradient = ctx.createRadialGradient(x, y, innerRadius, x, y, radius);
-      gradient.addColorStop(0, `rgba(0,0,0,${strength})`);
-      gradient.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
-    });
+      const last = stroke.points[stroke.points.length - 1];
+      strokeContext.lineTo(last.x * width, last.y * height);
+      strokeContext.stroke();
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.filter = `blur(${blurRadius}px)`;
+    ctx.drawImage(strokeCanvas, 0, 0);
+    ctx.restore();
   });
-  ctx.restore();
 }
 
 function drawShade(ctx, width, height) {
