@@ -67,7 +67,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
   templateId: "top-left",
   topText: "男人的高级感",
-  bottomText: "藏在自然状态里",
+  bottomText: "藏在自然状态",
   subtitle: "不被定义的自己，才是最有张力的表达",
   topColor: "#FFFFFF",
   bottomColor: "#FFFFFF",
@@ -242,11 +242,14 @@ function drawTemplateText(
   context.shadowColor = "rgba(0,0,0,.42)";
   context.shadowBlur = 16;
 
-  const topFontSize = fitText(context, settings.topText, baseFont, maxWidth);
-  const bottomFontSize = fitText(context, settings.bottomText, baseFont, maxWidth);
-  const subtitleFontSize = Math.round(width * 0.03 * (settings.subtitleScale / 100));
   const hasBottomText = Boolean(settings.bottomText.trim());
-  const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
+  const topFit = fitText(context, settings.topText, baseFont, maxWidth);
+  const bottomFit = hasBottomText ? fitText(context, settings.bottomText, baseFont, maxWidth) : topFit;
+  const headlineFontSize = Math.min(topFit, bottomFit);
+  const topFontSize = headlineFontSize;
+  const bottomFontSize = headlineFontSize;
+  const subtitleFontSize = Math.round(width * 0.03 * (settings.subtitleScale / 100));
+  const activeHeadlineFontSize = headlineFontSize;
   context.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(context, settings.topText || "国");
   context.font = `900 ${activeHeadlineFontSize}px sans-serif`;
@@ -544,6 +547,7 @@ export default function CoverStudio() {
             parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
             parsed.titleScaleVersion = 2;
           }
+          if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
         }
@@ -712,6 +716,7 @@ export default function CoverStudio() {
         parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
         parsed.titleScaleVersion = 2;
       }
+      if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
       parsed.templateId = normalizeTemplateId(parsed.templateId);
       setSettings({ ...DEFAULT_SETTINGS, ...parsed });
       setNotice(`已应用记忆点 ${slot}`);
@@ -1024,7 +1029,7 @@ export default function CoverStudio() {
                 value={settings.bottomText}
                 maxLength={18}
                 onChange={(event) => updateSetting("bottomText", event.target.value)}
-                placeholder="例如：藏在自然状态里"
+                placeholder="例如：藏在自然状态"
               />
               <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("bottomText")}>同步文案</button>
             </div>

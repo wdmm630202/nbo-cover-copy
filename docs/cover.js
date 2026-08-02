@@ -15,7 +15,7 @@ const state = {
   platform: "douyin",
   template: "top-left",
   topText: "男人的高级感",
-  bottomText: "藏在自然状态里",
+  bottomText: "藏在自然状态",
   subtitle: "不被定义的自己，才是最有张力的表达",
   topColor: "#FFFFFF",
   bottomColor: "#FFFFFF",
@@ -255,6 +255,7 @@ try {
       saved.textScale = Math.round(Number(saved.textScale || 100) / 1.8);
       saved.titleScaleVersion = 2;
     }
+    if (saved.bottomText === "藏在自然状态里") saved.bottomText = "藏在自然状态";
     saved.template = normalizeTemplate(saved.template);
     Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
   }
@@ -432,7 +433,7 @@ $("#removeWatermark").addEventListener("click", () => {
 });
 $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, {
-    platform: "douyin", template: "top-left", topText: "男人的高级感", bottomText: "藏在自然状态里",
+    platform: "douyin", template: "top-left", topText: "男人的高级感", bottomText: "藏在自然状态",
     subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
     zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, titleScaleVersion: 2, shade: 0,
@@ -460,6 +461,7 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
       parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
       parsed.titleScaleVersion = 2;
     }
+    if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
     parsed.template = normalizeTemplate(parsed.template);
     Object.assign(state, parsed);
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
@@ -573,11 +575,14 @@ function drawText(ctx, width, height) {
   ctx.textAlign = align;
   ctx.shadowColor = "rgba(0,0,0,.42)";
   ctx.shadowBlur = 16;
-  const topFontSize = fitText(ctx, state.topText, baseFont, maxWidth);
-  const bottomFontSize = fitText(ctx, state.bottomText, baseFont, maxWidth);
-  const subtitleFontSize = Math.round(width * .03 * state.subtitleScale / 100);
   const hasBottomText = Boolean(state.bottomText.trim());
-  const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
+  const topFit = fitText(ctx, state.topText, baseFont, maxWidth);
+  const bottomFit = hasBottomText ? fitText(ctx, state.bottomText, baseFont, maxWidth) : topFit;
+  const headlineFontSize = Math.min(topFit, bottomFit);
+  const topFontSize = headlineFontSize;
+  const bottomFontSize = headlineFontSize;
+  const subtitleFontSize = Math.round(width * .03 * state.subtitleScale / 100);
+  const activeHeadlineFontSize = headlineFontSize;
   ctx.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(ctx, state.topText || "国");
   ctx.font = `900 ${activeHeadlineFontSize}px sans-serif`;
