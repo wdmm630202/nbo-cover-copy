@@ -324,6 +324,32 @@ const stopNativeMobileTouch = (event) => {
 mobileTouchZone.addEventListener("touchstart", stopNativeMobileTouch, { passive: false });
 mobileTouchZone.addEventListener("touchmove", stopNativeMobileTouch, { passive: false });
 
+function exitAllMobileOperations() {
+  if (!window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches) return;
+  window.clearTimeout(mobileGesture.holdTimer);
+  mobileGesture.pointers.forEach((_point, pointerId) => {
+    if (mobileTouchZone.hasPointerCapture(pointerId)) mobileTouchZone.releasePointerCapture(pointerId);
+  });
+  mobileGesture.pointers.clear();
+  mobileGesture.active = false;
+  mobileGesture.anchorId = null;
+  mobileGesture.holdOrigin = null;
+  mobileGesture.baseline = null;
+  mobileTouchZone.classList.remove("is-gesture-active");
+  if (retouch.pointerId !== null && canvas.hasPointerCapture(retouch.pointerId)) canvas.releasePointerCapture(retouch.pointerId);
+  retouch.pointerId = null;
+  retouch.active = false;
+  retouch.compareBefore = false;
+  imageInteraction.rotationMode = false;
+  imageInteraction.drag = null;
+  $("#brushCursor").classList.remove("visible");
+  updateUi();
+  draw();
+  setStatus("已退出全部操作，可正常浏览页面");
+}
+
+document.querySelector(".studio-header")?.addEventListener("click", exitAllMobileOperations);
+
 canvas.addEventListener("wheel", (event) => {
   if (!state.image) return;
   if (retouch.active) return;
@@ -973,8 +999,8 @@ function eraseShadeWithBrush(ctx, strokeCanvas, width, height, strokes) {
     const radius = Math.max(1, stroke.size * width / 2160);
     const feather = clamp(stroke.feather / 100, 0, 1);
     const strength = clamp(stroke.strength / 100, 0, 1);
-    const coreRadius = radius * (1 - feather * .85);
-    const blurRadius = radius * feather * .425;
+    const coreRadius = radius * (1 - feather * .92);
+    const blurRadius = radius * feather * .58;
     if (!stroke.points.length) return;
     strokeContext.clearRect(0, 0, width, height);
     strokeContext.lineCap = "round";

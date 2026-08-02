@@ -256,8 +256,8 @@ function eraseShadeWithBrush(
     const radius = Math.max(1, stroke.size * width / 2160);
     const feather = Math.max(0, Math.min(1, stroke.feather / 100));
     const strength = Math.max(0, Math.min(1, stroke.strength / 100));
-    const coreRadius = radius * (1 - feather * 0.85);
-    const blurRadius = radius * feather * 0.425;
+    const coreRadius = radius * (1 - feather * 0.92);
+    const blurRadius = radius * feather * 0.58;
     if (!stroke.points.length) continue;
     strokeContext.clearRect(0, 0, width, height);
     strokeContext.lineCap = "round";
@@ -666,6 +666,7 @@ export default function CoverStudio() {
   const snapHorizontalRef = useRef<HTMLSpanElement>(null);
   const snapVerticalRef = useRef<HTMLSpanElement>(null);
   const transformHudTimerRef = useRef<number | null>(null);
+  const mobileGestureCancelRef = useRef<() => void>(() => {});
   const previewToolsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
@@ -714,6 +715,24 @@ export default function CoverStudio() {
 
   useEffect(() => () => {
     if (transformHudTimerRef.current) window.clearTimeout(transformHudTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>(".cover-studio-header");
+    if (!header) return;
+    const exitMobileOperations = () => {
+      if (!window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches) return;
+      mobileGestureCancelRef.current();
+      brushModeRef.current = false;
+      rotationModeRef.current = false;
+      setBrushMode(false);
+      setRotationMode(false);
+      setShowRetouchBefore(false);
+      setBrushCursor((current) => ({ ...current, visible: false }));
+      setNotice("已退出全部操作，可正常浏览页面");
+    };
+    header.addEventListener("click", exitMobileOperations);
+    return () => header.removeEventListener("click", exitMobileOperations);
   }, []);
 
   const preset = useMemo(
@@ -973,6 +992,19 @@ export default function CoverStudio() {
         return next;
       });
     };
+    const cancelGesture = () => {
+      window.clearTimeout(holdTimer);
+      pointers.forEach((_point, pointerId) => {
+        if (zone.hasPointerCapture(pointerId)) zone.releasePointerCapture(pointerId);
+      });
+      pointers.clear();
+      active = false;
+      anchorId = null;
+      holdOrigin = null;
+      baseline = null;
+      zone.classList.remove("is-gesture-active");
+    };
+    mobileGestureCancelRef.current = cancelGesture;
     const handlePointerDown = (event: PointerEvent) => {
       if (!isMobileTouch(event) || brushModeRef.current) return;
       if (pointers.size >= 3) return;
@@ -1068,7 +1100,8 @@ export default function CoverStudio() {
     zone.addEventListener("touchstart", stopNativeTouch, { passive: false });
     zone.addEventListener("touchmove", stopNativeTouch, { passive: false });
     return () => {
-      window.clearTimeout(holdTimer);
+      cancelGesture();
+      mobileGestureCancelRef.current = () => {};
       zone.removeEventListener("pointerdown", handlePointerDown);
       zone.removeEventListener("pointermove", handlePointerMove);
       zone.removeEventListener("pointerup", endGesture);
