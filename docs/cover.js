@@ -28,10 +28,10 @@ const state = {
   offsetY: 0,
   rotation: 0,
   textScale: 100,
-  shade: 62,
+  shade: 0,
   safe: true,
   watermarkScale: 100,
-  watermarkAlign: "center",
+  watermarkAlign: "left",
   watermarkOpacity: 50,
   watermarkEnabled: true,
   image: null,
@@ -249,6 +249,7 @@ try {
     if (Number(saved.watermarkScale) <= 42) saved.watermarkScale = 100;
     if (saved.bottomColor === "#FEE800") saved.bottomColor = "#FFFFFF";
     if (Number(saved.watermarkOpacity) === 92) saved.watermarkOpacity = 50;
+    if (Number(saved.shade) === 62) saved.shade = 0;
     saved.template = normalizeTemplate(saved.template);
     Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
   }
@@ -433,8 +434,8 @@ $("#resetSettings").addEventListener("click", () => {
     platform: "douyin", template: "top-left", topText: "男人的高级感", bottomText: "藏在自然状态里",
     subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
-    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, shade: 62,
-    safe: true, watermarkScale: 100, watermarkAlign: "center", watermarkOpacity: 50, watermarkEnabled: true,
+    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, shade: 0,
+    safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
 });
@@ -473,6 +474,7 @@ $("#templates").addEventListener("click", (event) => {
   const button = event.target.closest("[data-template]");
   if (!button) return;
   state.template = button.dataset.template;
+  state.watermarkAlign = state.template.endsWith("-left") ? "left" : state.template.endsWith("-right") ? "right" : "center";
   updateUi();
   saveSettings();
   draw();

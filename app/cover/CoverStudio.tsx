@@ -79,10 +79,10 @@ const DEFAULT_SETTINGS: StudioSettings = {
   offsetY: 0,
   rotation: 0,
   textScale: 100,
-  shade: 62,
+  shade: 0,
   showSafeArea: true,
   watermarkScale: 100,
-  watermarkAlign: "center",
+  watermarkAlign: "left",
   watermarkOpacity: 50,
   watermarkEnabled: true,
 };
@@ -535,6 +535,7 @@ export default function CoverStudio() {
           if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
           if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
           if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+          if (Number(parsed.shade) === 62) parsed.shade = 0;
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
         }
@@ -1106,7 +1107,11 @@ export default function CoverStudio() {
                 type="button"
                 key={template.id}
                 className={`studio-template template-${template.id} ${settings.templateId === template.id ? "is-active" : ""}`}
-                onClick={() => updateSetting("templateId", template.id)}
+                onClick={() => setSettings((current) => ({
+                  ...current,
+                  templateId: template.id,
+                  watermarkAlign: template.id.endsWith("-left") ? "left" : template.id.endsWith("-right") ? "right" : "center",
+                }))}
               >
                 <i>{template.number}</i>
                 <b>{template.name}</b>
@@ -1159,8 +1164,8 @@ export default function CoverStudio() {
             <Slider
               label="压暗强度"
               value={settings.shade}
-              min={20}
-              max={90}
+              min={0}
+              max={100}
               suffix="%"
               onChange={(value) => updateSetting("shade", value)}
             />
