@@ -1248,7 +1248,8 @@ body {
 
   .studio-canvas-shell.has-image canvas { touch-action: pan-y; }
   .studio-canvas-shell.is-brushing canvas { touch-action: none; }
-  .studio-mobile-touch-zone.is-active { display: block; position: absolute; z-index: 5; left: 1.6667%; right: 1.6667%; top: 12.5%; bottom: 12.5%; touch-action: none; -webkit-touch-callout: none; user-select: none; }
+  .studio-mobile-touch-zone.is-active { display: block; position: absolute; z-index: 5; left: 1.6667%; right: 1.6667%; top: 12.5%; bottom: 12.5%; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; }
+  .studio-mobile-touch-zone.is-gesture-active { touch-action: none; }
 
   .studio-design {
     grid-column: auto;

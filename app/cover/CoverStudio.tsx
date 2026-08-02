@@ -940,10 +940,13 @@ export default function CoverStudio() {
     type Point = { x: number; y: number };
     type Baseline =
       | { mode: "move"; x: number; y: number; offsetX: number; offsetY: number }
-      | { mode: "transform"; midX: number; midY: number; distance: number; angle: number; offsetX: number; offsetY: number; zoom: number; rotation: number };
+      | { mode: "rotate"; angle: number; rotation: number }
+      | { mode: "scaleMove"; midX: number; midY: number; distance: number; offsetX: number; offsetY: number; zoom: number };
     const pointers = new Map<number, Point>();
     let holdTimer = 0;
     let active = false;
+    let anchorId: number | null = null;
+    let holdOrigin: Point | null = null;
     let baseline: Baseline | null = null;
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
     const isMobileTouch = (event: PointerEvent) => event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches;
@@ -955,18 +958,13 @@ export default function CoverStudio() {
         baseline = { mode: "move", x: points[0].x, y: points[0].y, offsetX: current.offsetX, offsetY: current.offsetY };
         return;
       }
-      const [a, b] = points;
-      baseline = {
-        mode: "transform",
-        midX: (a.x + b.x) / 2,
-        midY: (a.y + b.y) / 2,
-        distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
-        angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI,
-        offsetX: current.offsetX,
-        offsetY: current.offsetY,
-        zoom: current.zoom,
-        rotation: current.rotation,
-      };
+      if (points.length === 2) {
+        const [a, b] = points;
+        baseline = { mode: "rotate", angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI, rotation: current.rotation };
+        return;
+      }
+      const [, a, b] = points;
+      baseline = { mode: "scaleMove", midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2, distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)), offsetX: current.offsetX, offsetY: current.offsetY, zoom: current.zoom };
     };
     const updateTransform = (patch: Partial<Pick<StudioSettings, "offsetX" | "offsetY" | "zoom" | "rotation">>) => {
       setSettings((current) => {
@@ -977,25 +975,38 @@ export default function CoverStudio() {
     };
     const handlePointerDown = (event: PointerEvent) => {
       if (!isMobileTouch(event) || brushModeRef.current) return;
-      event.preventDefault();
-      zone.setPointerCapture(event.pointerId);
+      if (pointers.size >= 3) return;
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 1) {
         active = false;
+        anchorId = event.pointerId;
+        holdOrigin = { x: event.clientX, y: event.clientY };
         baseline = null;
         window.clearTimeout(holdTimer);
         holdTimer = window.setTimeout(() => {
-          if (!pointers.size) return;
+          if (pointers.size !== 1 || anchorId === null) return;
           active = true;
+          zone.classList.add("is-gesture-active");
+          zone.setPointerCapture(anchorId);
           setBaseline();
           showTransformHint("已锁定照片");
         }, 220);
-      } else if (active) setBaseline();
+      } else if (active) {
+        event.preventDefault();
+        zone.setPointerCapture(event.pointerId);
+        setBaseline();
+      } else {
+        window.clearTimeout(holdTimer);
+      }
     };
     const handlePointerMove = (event: PointerEvent) => {
       if (!pointers.has(event.pointerId)) return;
-      event.preventDefault();
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (!active) {
+        if (holdOrigin && Math.hypot(event.clientX - holdOrigin.x, event.clientY - holdOrigin.y) > 8) window.clearTimeout(holdTimer);
+        return;
+      }
+      event.preventDefault();
       if (!active || !baseline) return;
       const points = [...pointers.values()];
       const rect = canvas.getBoundingClientRect();
@@ -1006,19 +1017,25 @@ export default function CoverStudio() {
         showTransformHint(`${offsetX}, ${offsetY}`);
         return;
       }
-      if (points.length >= 2 && baseline.mode === "transform") {
+      if (points.length === 2 && baseline.mode === "rotate") {
         const [a, b] = points;
-        const midX = (a.x + b.x) / 2;
-        const midY = (a.y + b.y) / 2;
-        const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
         const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
         const angleDelta = ((angle - baseline.angle + 540) % 360) - 180;
         const snapped = snapRotation(clamp(Math.round(baseline.rotation + angleDelta), -180, 180));
+        updateTransform({ rotation: snapped.value });
+        showTransformHint(`${snapped.value}°`, snapped.guide);
+        return;
+      }
+      if (points.length === 3 && baseline.mode === "scaleMove") {
+        const [, a, b] = points;
+        const midX = (a.x + b.x) / 2;
+        const midY = (a.y + b.y) / 2;
+        const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
         const zoom = clamp(Math.round(baseline.zoom * distance / baseline.distance), 0, 400);
         const offsetX = clamp(Math.round(baseline.offsetX + (midX - baseline.midX) / rect.width * 100), -200, 200);
         const offsetY = clamp(Math.round(baseline.offsetY + (midY - baseline.midY) / rect.height * 100), -200, 200);
-        updateTransform({ zoom, offsetX, offsetY, rotation: snapped.value });
-        showTransformHint(`${zoom}% · ${snapped.value}°`, snapped.guide);
+        updateTransform({ zoom, offsetX, offsetY });
+        showTransformHint(`${zoom}% · ${offsetX}, ${offsetY}`);
         return;
       }
       setBaseline();
@@ -1027,23 +1044,37 @@ export default function CoverStudio() {
       if (!pointers.has(event.pointerId)) return;
       pointers.delete(event.pointerId);
       if (zone.hasPointerCapture(event.pointerId)) zone.releasePointerCapture(event.pointerId);
-      if (active && pointers.size) setBaseline();
+      if (event.pointerId === anchorId && pointers.size) {
+        active = false;
+        baseline = null;
+        zone.classList.remove("is-gesture-active");
+      } else if (active && pointers.size) setBaseline();
       else if (!pointers.size) {
         window.clearTimeout(holdTimer);
         active = false;
+        anchorId = null;
+        holdOrigin = null;
         baseline = null;
+        zone.classList.remove("is-gesture-active");
       }
+    };
+    const stopNativeTouch = (event: TouchEvent) => {
+      if (active) event.preventDefault();
     };
     zone.addEventListener("pointerdown", handlePointerDown);
     zone.addEventListener("pointermove", handlePointerMove);
     zone.addEventListener("pointerup", endGesture);
     zone.addEventListener("pointercancel", endGesture);
+    zone.addEventListener("touchstart", stopNativeTouch, { passive: false });
+    zone.addEventListener("touchmove", stopNativeTouch, { passive: false });
     return () => {
       window.clearTimeout(holdTimer);
       zone.removeEventListener("pointerdown", handlePointerDown);
       zone.removeEventListener("pointermove", handlePointerMove);
       zone.removeEventListener("pointerup", endGesture);
       zone.removeEventListener("pointercancel", endGesture);
+      zone.removeEventListener("touchstart", stopNativeTouch);
+      zone.removeEventListener("touchmove", stopNativeTouch);
     };
   }, [image]);
 

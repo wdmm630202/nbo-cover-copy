@@ -270,7 +270,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .preview-panel { min-height: 0; order: -1; }
   .canvas-shell.has-image canvas { touch-action: pan-y; }
   .canvas-shell.is-brushing canvas { touch-action: none; }
-  .mobile-touch-zone.active { display: block; position: absolute; z-index: 5; left: 1.6667%; right: 1.6667%; top: 12.5%; bottom: 12.5%; touch-action: none; -webkit-touch-callout: none; user-select: none; }
+  .mobile-touch-zone.active { display: block; position: absolute; z-index: 5; left: 1.6667%; right: 1.6667%; top: 12.5%; bottom: 12.5%; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; }
+  .mobile-touch-zone.is-gesture-active { touch-action: none; }
   .design { grid-column: auto; }
   .templates { grid-template-columns: repeat(3, 1fr); }
   .standard { grid-template-columns: 1fr; }

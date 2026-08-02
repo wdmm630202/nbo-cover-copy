@@ -151,9 +151,12 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /南铂封面制作台/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /mobile-safe-gestures/);
+  assert.match(publicCover, /mobile-123-gestures/);
   assert.match(publicCover, /id="mobileTouchZone"/);
   assert.match(publicCoverScript, /mobileGesture/);
+  assert.match(publicCoverScript, /mode: "rotate"/);
+  assert.match(publicCoverScript, /mode: "scaleMove"/);
+  assert.match(publicCoverScript, /touchmove.*stopNativeMobileTouch/);
   assert.match(publicCover, /class="preview-tools"/);
   assert.match(publicCover, /访问密码/);
   assert.match(publicCover, /id="copyWorkspaceSwitch"/);

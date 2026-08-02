@@ -85,7 +85,7 @@ let previewDrawFrame = 0;
 let saveSettingsTimer = 0;
 const previewScratch = { shade: document.createElement("canvas"), stroke: document.createElement("canvas") };
 let imageInteraction = { rotationMode: false, drag: null };
-const mobileGesture = { pointers: new Map(), holdTimer: 0, active: false, baseline: null };
+const mobileGesture = { pointers: new Map(), holdTimer: 0, active: false, anchorId: null, holdOrigin: null, baseline: null };
 const rotationSnapAngles = [-180, -90, 0, 90, 180];
 let transformHintTimer = 0;
 
@@ -123,18 +123,13 @@ function mobileGestureBaseline() {
     mobileGesture.baseline = { mode: "move", x: points[0].x, y: points[0].y, offsetX: state.offsetX, offsetY: state.offsetY };
     return;
   }
-  const [a, b] = points;
-  mobileGesture.baseline = {
-    mode: "transform",
-    midX: (a.x + b.x) / 2,
-    midY: (a.y + b.y) / 2,
-    distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
-    angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI,
-    offsetX: state.offsetX,
-    offsetY: state.offsetY,
-    zoom: state.zoom,
-    rotation: state.rotation,
-  };
+  if (points.length === 2) {
+    const [a, b] = points;
+    mobileGesture.baseline = { mode: "rotate", angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI, rotation: state.rotation };
+    return;
+  }
+  const [, a, b] = points;
+  mobileGesture.baseline = { mode: "scaleMove", midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2, distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)), offsetX: state.offsetX, offsetY: state.offsetY, zoom: state.zoom };
 }
 
 function syncMobileTransformControls() {
@@ -235,28 +230,40 @@ canvas.addEventListener("pointerleave", () => $("#brushCursor").classList.remove
 const mobileTouchZone = $("#mobileTouchZone");
 mobileTouchZone.addEventListener("pointerdown", (event) => {
   if (!isMobileTouch(event) || !state.image || retouch.active) return;
-  event.preventDefault();
-  mobileTouchZone.setPointerCapture(event.pointerId);
+  if (mobileGesture.pointers.size >= 3) return;
   mobileGesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   if (mobileGesture.pointers.size === 1) {
     mobileGesture.active = false;
+    mobileGesture.anchorId = event.pointerId;
+    mobileGesture.holdOrigin = { x: event.clientX, y: event.clientY };
     mobileGesture.baseline = null;
     window.clearTimeout(mobileGesture.holdTimer);
     mobileGesture.holdTimer = window.setTimeout(() => {
-      if (!mobileGesture.pointers.size) return;
+      if (mobileGesture.pointers.size !== 1 || mobileGesture.anchorId === null) return;
       mobileGesture.active = true;
+      mobileTouchZone.classList.add("is-gesture-active");
+      mobileTouchZone.setPointerCapture(mobileGesture.anchorId);
       mobileGestureBaseline();
       showTransformHint("已锁定照片");
     }, 220);
   } else if (mobileGesture.active) {
+    event.preventDefault();
+    mobileTouchZone.setPointerCapture(event.pointerId);
     mobileGestureBaseline();
+  } else {
+    window.clearTimeout(mobileGesture.holdTimer);
   }
 });
 
 mobileTouchZone.addEventListener("pointermove", (event) => {
   if (!mobileGesture.pointers.has(event.pointerId)) return;
-  event.preventDefault();
   mobileGesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (!mobileGesture.active) {
+    const origin = mobileGesture.holdOrigin;
+    if (origin && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 8) window.clearTimeout(mobileGesture.holdTimer);
+    return;
+  }
+  event.preventDefault();
   if (!mobileGesture.active || !mobileGesture.baseline) return;
   const rect = canvas.getBoundingClientRect();
   const points = [...mobileGesture.pointers.values()];
@@ -265,19 +272,22 @@ mobileTouchZone.addEventListener("pointermove", (event) => {
     state.offsetX = clamp(Math.round(baseline.offsetX + (points[0].x - baseline.x) / rect.width * 100), -200, 200);
     state.offsetY = clamp(Math.round(baseline.offsetY + (points[0].y - baseline.y) / rect.height * 100), -200, 200);
     showTransformHint(`${state.offsetX}, ${state.offsetY}`);
-  } else if (points.length >= 2 && baseline.mode === "transform") {
+  } else if (points.length === 2 && baseline.mode === "rotate") {
     const [a, b] = points;
-    const midX = (a.x + b.x) / 2;
-    const midY = (a.y + b.y) / 2;
-    const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
     const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
     const angleDelta = ((angle - baseline.angle + 540) % 360) - 180;
     const snapped = snapRotation(clamp(Math.round(baseline.rotation + angleDelta), -180, 180));
+    state.rotation = snapped.value;
+    showTransformHint(`${state.rotation}°`, snapped.guide);
+  } else if (points.length === 3 && baseline.mode === "scaleMove") {
+    const [, a, b] = points;
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
     state.zoom = clamp(Math.round(baseline.zoom * distance / baseline.distance), 0, 400);
     state.offsetX = clamp(Math.round(baseline.offsetX + (midX - baseline.midX) / rect.width * 100), -200, 200);
     state.offsetY = clamp(Math.round(baseline.offsetY + (midY - baseline.midY) / rect.height * 100), -200, 200);
-    state.rotation = snapped.value;
-    showTransformHint(`${state.zoom}% · ${state.rotation}°`, snapped.guide);
+    showTransformHint(`${state.zoom}% · ${state.offsetX}, ${state.offsetY}`);
   } else {
     mobileGestureBaseline();
     return;
@@ -291,16 +301,28 @@ const endMobileGesture = (event) => {
   if (!mobileGesture.pointers.has(event.pointerId)) return;
   mobileGesture.pointers.delete(event.pointerId);
   if (mobileTouchZone.hasPointerCapture(event.pointerId)) mobileTouchZone.releasePointerCapture(event.pointerId);
-  if (mobileGesture.active && mobileGesture.pointers.size) mobileGestureBaseline();
+  if (event.pointerId === mobileGesture.anchorId && mobileGesture.pointers.size) {
+    mobileGesture.active = false;
+    mobileGesture.baseline = null;
+    mobileTouchZone.classList.remove("is-gesture-active");
+  } else if (mobileGesture.active && mobileGesture.pointers.size) mobileGestureBaseline();
   else if (!mobileGesture.pointers.size) {
     window.clearTimeout(mobileGesture.holdTimer);
     mobileGesture.active = false;
+    mobileGesture.anchorId = null;
+    mobileGesture.holdOrigin = null;
     mobileGesture.baseline = null;
+    mobileTouchZone.classList.remove("is-gesture-active");
     saveSettings();
   }
 };
 mobileTouchZone.addEventListener("pointerup", endMobileGesture);
 mobileTouchZone.addEventListener("pointercancel", endMobileGesture);
+const stopNativeMobileTouch = (event) => {
+  if (mobileGesture.active) event.preventDefault();
+};
+mobileTouchZone.addEventListener("touchstart", stopNativeMobileTouch, { passive: false });
+mobileTouchZone.addEventListener("touchmove", stopNativeMobileTouch, { passive: false });
 
 canvas.addEventListener("wheel", (event) => {
   if (!state.image) return;
