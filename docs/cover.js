@@ -1,6 +1,7 @@
 const ACCESS_KEY = "nbo_cover_access_until";
 const SETTINGS_KEY = "nbo_cover_settings_v1";
 const MEMORY_KEY_PREFIX = "nbo_cover_memory_";
+const MEMORY_NAMES_KEY = "nbo_cover_memory_names";
 const COPY_SYNC_KEY = "nbo-cover-copy-sync-v1";
 const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
@@ -451,6 +452,25 @@ document.querySelectorAll("[data-save-memory]").forEach((button) => button.addEv
   localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(settings));
   setStatus(`已保存到记忆点 ${slot}`);
 }));
+function updateMemoryNames() {
+  let names = ["记忆 1", "记忆 2", "记忆 3"];
+  try {
+    const saved = JSON.parse(localStorage.getItem(MEMORY_NAMES_KEY) || "null");
+    if (Array.isArray(saved) && saved.length === 3) names = saved;
+  } catch {}
+  document.querySelectorAll("[data-memory-name]").forEach((label, index) => { label.textContent = names[index]; });
+  return names;
+}
+document.querySelectorAll("[data-rename-memory]").forEach((button) => button.addEventListener("click", () => {
+  const slot = Number(button.dataset.renameMemory);
+  const names = updateMemoryNames();
+  const name = window.prompt("输入记忆名称", names[slot - 1]);
+  if (!name?.trim()) return;
+  names[slot - 1] = name.trim().slice(0, 12);
+  localStorage.setItem(MEMORY_NAMES_KEY, JSON.stringify(names));
+  updateMemoryNames();
+}));
+updateMemoryNames();
 document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEventListener("click", () => {
   const slot = button.dataset.loadMemory;
   try {

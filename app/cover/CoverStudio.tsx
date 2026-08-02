@@ -63,6 +63,7 @@ type ExportAsset = {
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
+const MEMORY_NAMES_KEY = "nbo-cover-studio-memory-names";
 const getWatermarkVisibleHeight = (width: number) => Math.round(width * 0.03);
 
 const DEFAULT_SETTINGS: StudioSettings = {
@@ -545,6 +546,7 @@ export default function CoverStudio() {
   const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
+  const [memoryNames, setMemoryNames] = useState(["记忆 1", "记忆 2", "记忆 3"]);
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -574,6 +576,13 @@ export default function CoverStudio() {
       }
     }, 0);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(MEMORY_NAMES_KEY) || "null");
+      if (Array.isArray(saved) && saved.length === 3) setMemoryNames(saved);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -742,6 +751,15 @@ export default function CoverStudio() {
       setNotice(`记忆点 ${slot} 读取失败，请重新保存`);
     }
   }, []);
+
+  const renameMemory = useCallback((slot: number) => {
+    const name = window.prompt("输入记忆名称", memoryNames[slot - 1]);
+    if (!name?.trim()) return;
+    const next = [...memoryNames];
+    next[slot - 1] = name.trim().slice(0, 12);
+    setMemoryNames(next);
+    window.localStorage.setItem(MEMORY_NAMES_KEY, JSON.stringify(next));
+  }, [memoryNames]);
 
   const applySyncedCopy = useCallback((field: "topText" | "bottomText" | "all") => {
     if (!syncedCopy) {
@@ -1252,7 +1270,7 @@ export default function CoverStudio() {
           <div className="studio-memory">
             <button type="button" className="studio-reset" onClick={resetSettings}>恢复默认</button>
             {[1, 2, 3].map((slot) => (
-              <div key={slot}><b>记忆 {slot}</b><button type="button" onClick={() => saveMemory(slot)}>保存</button><button type="button" onClick={() => loadMemory(slot)}>应用</button></div>
+              <div key={slot}><b>{memoryNames[slot - 1]}</b><button type="button" onClick={() => renameMemory(slot)}>重命名</button><button type="button" onClick={() => saveMemory(slot)}>保存</button><button type="button" onClick={() => loadMemory(slot)}>应用</button></div>
             ))}
           </div>
         </aside>

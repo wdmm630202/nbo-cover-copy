@@ -64,7 +64,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .color-row input { width: 27px; height: 27px; padding: 2px; flex: 0 0 auto; border: 0; border-radius: 7px; background: #f3efeb; cursor: pointer; }
 .divider-toggle { margin-top: 11px; padding-top: 10px; }
 .memory-panel { margin-top: 18px; padding-top: 15px; display: grid; gap: 8px; border-top: 1px solid #eee8e2; }
-.memory-panel > div { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px; }
+.memory-panel > div { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 6px; }
 .memory-panel b { color: #625b55; font-size: 9px; }
 .memory-panel button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
 .memory-panel .reset-settings { width: 100%; min-height: 34px; border-color: #202020; background: #202020; color: #fff; }
