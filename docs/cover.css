@@ -42,7 +42,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .panel-heading > b { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #202020; color: #fff; font-size: 11px; }
 .panel-heading strong { font-size: 14px; }
 .panel-heading small { color: #9b948e; font-size: 10px; }
-.copy-sync { margin-bottom: 14px; padding: 12px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; border: 1px solid #e8e2dc; border-radius: 14px; background: #faf9f7; }
+.copy-sync { margin-bottom: 14px; padding: 12px 8px 12px 12px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; border: 1px solid #e8e2dc; border-radius: 14px; background: #faf9f7; }
 .copy-sync.ready { border-color: rgba(255,36,66,.28); background: #fff5f7; }
 .copy-sync > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .copy-sync strong { font-size: 11px; }
