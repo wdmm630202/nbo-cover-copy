@@ -622,12 +622,9 @@ export default function CoverStudio() {
     if (!image) return null;
     const sourceRatio = image.naturalWidth / image.naturalHeight;
     const targetRatio = preset.width / preset.height;
-    const isIPhoneOrIPad = /iP(?:hone|ad|od)/.test(navigator.userAgent);
-    let outputSize = isIPhoneOrIPad
-      ? { width: preset.width, height: preset.height }
-      : sourceRatio >= targetRatio
-        ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
-        : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
+    let outputSize = sourceRatio >= targetRatio
+      ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
+      : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
     const exportCanvas = document.createElement("canvas");
     const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => exportCanvas.toBlob(resolve, `image/${format}`, quality));
     const maxBytes = 19.9 * 1024 * 1024;
@@ -653,10 +650,12 @@ export default function CoverStudio() {
   useEffect(() => {
     const generation = ++exportGenerationRef.current;
     exportCacheRef.current = { jpeg: null, png: null };
-    setExportReady({ jpeg: false, png: false });
+    const isIPhoneOrIPad = /iP(?:hone|ad|od)/.test(navigator.userAgent);
+    setExportReady({ jpeg: false, png: isIPhoneOrIPad });
     if (!image) return;
     const timer = window.setTimeout(async () => {
-      for (const format of ["jpeg", "png"] as const) {
+      const formats = isIPhoneOrIPad ? ["jpeg"] as const : ["jpeg", "png"] as const;
+      for (const format of formats) {
         let asset: ExportAsset | null = null;
         try {
           asset = await buildExportAsset(format);
@@ -829,7 +828,19 @@ export default function CoverStudio() {
       return;
     }
     const asset = exportCacheRef.current[format];
-    if (!asset) return setNotice("高清图片正在准备，请等待按钮恢复后再点击");
+    if (!asset) {
+      setExportReady((current) => ({ ...current, [format]: false }));
+      setNotice(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}，完成后请再点一次`);
+      let prepared: ExportAsset | null = null;
+      try {
+        prepared = await buildExportAsset(format);
+      } catch {
+        prepared = null;
+      }
+      exportCacheRef.current[format] = prepared;
+      setExportReady((current) => ({ ...current, [format]: true }));
+      return setNotice(prepared ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
+    }
     if (navigator.canShare?.({ files: [asset.file] })) {
       try {
         await navigator.share({ files: [asset.file], title: "南铂封面" });

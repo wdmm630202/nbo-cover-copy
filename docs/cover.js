@@ -791,11 +791,13 @@ function scheduleExportPreparation() {
   window.clearTimeout(exportPrepareTimer);
   const revision = ++exportRevision;
   exportCache = { jpeg: null, png: null };
+  const isIPhoneOrIPad = /iP(?:hone|ad|od)/.test(navigator.userAgent);
   setExportReady("jpeg", false);
-  setExportReady("png", false);
+  setExportReady("png", isIPhoneOrIPad);
   if (!state.image) return;
   exportPrepareTimer = window.setTimeout(async () => {
-    for (const format of ["jpeg", "png"]) {
+    const formats = isIPhoneOrIPad ? ["jpeg"] : ["jpeg", "png"];
+    for (const format of formats) {
       let asset = null;
       try {
         asset = await buildExportAsset(format);
@@ -816,12 +818,9 @@ async function buildExportAsset(format) {
   const current = preset();
   const sourceRatio = state.image.naturalWidth / state.image.naturalHeight;
   const targetRatio = current.width / current.height;
-  const isIPhoneOrIPad = /iP(?:hone|ad|od)/.test(navigator.userAgent);
-  let outputSize = isIPhoneOrIPad
-    ? { width: current.width, height: current.height }
-    : sourceRatio >= targetRatio
-      ? { width: Math.round(state.image.naturalHeight * targetRatio), height: state.image.naturalHeight }
-      : { width: state.image.naturalWidth, height: Math.round(state.image.naturalWidth / targetRatio) };
+  let outputSize = sourceRatio >= targetRatio
+    ? { width: Math.round(state.image.naturalHeight * targetRatio), height: state.image.naturalHeight }
+    : { width: state.image.naturalWidth, height: Math.round(state.image.naturalWidth / targetRatio) };
   draw(false, output, outputSize);
   const toBlob = (quality) => new Promise((resolve) => output.toBlob(resolve, mimeType, quality));
   const maxBytes = 19.9 * 1024 * 1024;
@@ -845,8 +844,19 @@ async function buildExportAsset(format) {
 
 async function exportCover(format) {
   if (!state.image) return setStatus("请先上传一张照片");
-  const asset = exportCache[format];
-  if (!asset) return setStatus("这次生成没有完成，请重新上传照片后再试");
+  let asset = exportCache[format];
+  if (!asset) {
+    setExportReady(format, false);
+    setStatus(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}，完成后请再点一次`);
+    try {
+      asset = await buildExportAsset(format);
+    } catch {
+      asset = null;
+    }
+    exportCache[format] = asset;
+    setExportReady(format, true);
+    return setStatus(asset ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
+  }
   if (navigator.canShare?.({ files: [asset.file] })) {
     try {
       await navigator.share({ files: [asset.file], title: "南铂封面" });
