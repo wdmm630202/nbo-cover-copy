@@ -47,9 +47,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .copy-sync > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .copy-sync strong { font-size: 11px; }
 .copy-sync small { overflow: hidden; color: #948c85; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.copy-sync button, .field-title button { border: 0; border-radius: 999px; background: var(--red); color: #fff; font-weight: 750; cursor: pointer; }
+.copy-sync button, .field-control button { border: 0; border-radius: 999px; background: var(--red); color: #fff; font-weight: 750; cursor: pointer; }
 .copy-sync button { width: 58px; min-height: 28px; padding: 0; flex: 0 0 58px; font-size: 9px; }
-.copy-sync button:disabled, .field-title button:disabled { background: #ded9d4; color: #9b948e; cursor: default; }
+.copy-sync button:disabled, .field-control button:disabled { background: #ded9d4; color: #9b948e; cursor: default; }
 .upload-wrap { position: relative; }
 .upload { min-height: 76px; padding: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1.5px dashed #d8d0c8; border-radius: 15px; background: #faf8f5; cursor: pointer; }
 .upload.dragging { border-color: var(--red); background: #fff1f3; }
@@ -83,9 +83,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .field span b, .field-title b { color: #a29b94; font-size: 9px; }
 .field span b.yellow, .field-title b.yellow { color: #9b8900; }
 .field-title > span { display: flex; align-items: center; gap: 6px; }
-.field-title button { width: 58px; min-height: 28px; padding: 0; flex: 0 0 58px; font-size: 9px; }
+.field-control { position: relative; }
+.field-control button { width: 58px; min-height: 28px; padding: 0; position: absolute; top: 8px; right: 8px; font-size: 9px; }
 .field input, .field textarea { width: 100%; border: 1px solid #e1dad3; border-radius: 12px; outline: none; background: #fff; color: #24211f; font-size: 13px; }
-.field input { height: 44px; padding: 0 12px; }
+.field input { height: 44px; padding: 0 78px 0 12px; }
 .field textarea { min-height: 74px; padding: 11px 12px; resize: vertical; line-height: 1.6; }
 .field input:focus, .field textarea:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(255,36,66,.07); }
 .platforms { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }

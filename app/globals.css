@@ -416,7 +416,7 @@ body {
 }
 
 .studio-copy-sync button,
-.studio-field-heading button {
+.studio-field-control button {
   border: 0;
   border-radius: 999px;
   background: var(--red);
@@ -434,7 +434,7 @@ body {
 }
 
 .studio-copy-sync button:disabled,
-.studio-field-heading button:disabled {
+.studio-field-control button:disabled {
   background: #ded9d4;
   color: #9b948e;
   cursor: default;
@@ -572,12 +572,18 @@ body {
   gap: 6px;
 }
 
-.studio-field-heading button {
+.studio-field-control {
+  position: relative;
+}
+
+.studio-field-control button {
   width: 58px;
   min-height: 28px;
   padding: 0;
+  position: absolute;
+  top: 8px;
+  right: 8px;
   font-size: 9px;
-  flex: 0 0 58px;
 }
 
 .studio-field input,
@@ -593,7 +599,7 @@ body {
 
 .studio-field input {
   height: 44px;
-  padding: 0 12px;
+  padding: 0 78px 0 12px;
 }
 
 .studio-field textarea {

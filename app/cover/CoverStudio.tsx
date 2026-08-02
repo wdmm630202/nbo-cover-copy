@@ -980,15 +980,17 @@ export default function CoverStudio() {
           <div className="studio-field">
             <div className="studio-field-heading">
               <span>上行主标题 <b>默认纯白·可取色</b></span>
+            </div>
+            <div className="studio-field-control">
+              <input
+                aria-label="上行主标题"
+                value={settings.topText}
+                maxLength={18}
+                onChange={(event) => updateSetting("topText", event.target.value)}
+                placeholder="例如：男人的高级感"
+              />
               <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("topText")}>同步文案</button>
             </div>
-            <input
-              aria-label="上行主标题"
-              value={settings.topText}
-              maxLength={18}
-              onChange={(event) => updateSetting("topText", event.target.value)}
-              placeholder="例如：男人的高级感"
-            />
           </div>
           <div className="studio-color-row">
             <label><span>上行颜色</span><input type="color" value={settings.topColor} onChange={(event) => updateSetting("topColor", event.target.value.toUpperCase())} /></label>
@@ -1003,15 +1005,17 @@ export default function CoverStudio() {
           <div className="studio-field">
             <div className="studio-field-heading">
               <span>下行主标题 <b>默认纯白·可取色</b></span>
+            </div>
+            <div className="studio-field-control">
+              <input
+                aria-label="下行主标题"
+                value={settings.bottomText}
+                maxLength={18}
+                onChange={(event) => updateSetting("bottomText", event.target.value)}
+                placeholder="例如：藏在自然状态里"
+              />
               <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("bottomText")}>同步文案</button>
             </div>
-            <input
-              aria-label="下行主标题"
-              value={settings.bottomText}
-              maxLength={18}
-              onChange={(event) => updateSetting("bottomText", event.target.value)}
-              placeholder="例如：藏在自然状态里"
-            />
           </div>
           <label className="studio-field">
             <span>补充小字 <b>可不填</b></span>
