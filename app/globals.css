@@ -381,7 +381,8 @@ body {
 
 .studio-copy-sync {
   margin-bottom: 14px;
-  padding: 12px 8px 12px 12px;
+  padding: 12px 78px 12px 12px;
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -429,8 +430,11 @@ body {
   width: 58px;
   min-height: 28px;
   padding: 0;
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
   font-size: 9px;
-  flex: 0 0 58px;
 }
 
 .studio-copy-sync button:disabled,
