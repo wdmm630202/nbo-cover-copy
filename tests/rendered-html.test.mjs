@@ -124,6 +124,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /startsWith\("top-"\)/);
   assert.match(coverStudio, /startsWith\("bottom-"\)/);
   assert.match(coverStudio, /全部同步/);
+  assert.match(coverStudio, /彻底重置/);
+  assert.match(coverStudio, /window\.caches\?\.keys/);
+  assert.match(coverStudio, /COVER_COPY_SYNC_KEY/);
   assert.match(coverStudio, /同步文案/);
   assert.match(coverStudio, /同步封面/);
   assert.match(coverStudio, /照片和构图保持不变/);
@@ -155,6 +158,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /切换到文案页/);
   assert.match(publicCover, /id="syncAllCopy"/);
   assert.match(publicCover, /id="syncCoverImage"/);
+  assert.match(publicCover, /id="factoryReset"/);
+  assert.match(publicCover, /彻底重置/);
   assert.match(publicCover, /同步文案/);
   assert.doesNotMatch(publicCover, /返回智能文案/);
   assert.match(publicCoverScript, /0817/);
@@ -165,6 +170,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /BroadcastChannel/);
   assert.match(publicCoverScript, /applySyncedCopy/);
   assert.match(publicCoverScript, /applySyncedImage/);
+  assert.match(publicCoverScript, /window\.caches\?\.keys/);
+  assert.match(publicCoverScript, /localStorage\.removeItem/);
   assert.match(publicCoverScript, /NBO_COVER_IMAGE_REQUEST/);
   assert.match(publicEntry, /NBO_COVER_COPY_SELECTED/);
   assert.match(publicEntry, /NBO_COVER_IMAGE_READY/);

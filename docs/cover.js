@@ -661,6 +661,16 @@ $("#removeWatermark").addEventListener("click", () => {
   setStatus("临时水印已移除，已恢复南铂固定水印");
   draw();
 });
+$("#factoryReset").addEventListener("click", async () => {
+  if (!window.confirm("确定彻底重置吗？\n\n将清空本工具的照片、封面设置、记忆方案和同步记录，登录状态会保留。")) return;
+  [SETTINGS_KEY, MEMORY_NAMES_KEY, COPY_SYNC_KEY, ...[1, 2, 3].map((slot) => `${MEMORY_KEY_PREFIX}${slot}`)]
+    .forEach((key) => localStorage.removeItem(key));
+  try {
+    const keys = await window.caches?.keys();
+    await Promise.all((keys || []).map((key) => window.caches.delete(key)));
+  } catch {}
+  window.location.replace(`${window.location.pathname}?reset=${Date.now()}`);
+});
 $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, {
     platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",

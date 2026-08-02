@@ -1057,6 +1057,18 @@ export default function CoverStudio() {
     setNotice("已恢复默认构图和颜色");
   }, []);
 
+  const factoryReset = useCallback(async () => {
+    if (!window.confirm("确定彻底重置吗？\n\n将清空本工具的照片、封面设置、记忆方案和同步记录，登录状态会保留。")) return;
+
+    [STORAGE_KEY, MEMORY_NAMES_KEY, COVER_COPY_SYNC_KEY, ...[1, 2, 3].map((slot) => `${MEMORY_KEY_PREFIX}${slot}`)]
+      .forEach((key) => window.localStorage.removeItem(key));
+    try {
+      const keys = await window.caches?.keys();
+      await Promise.all((keys ?? []).map((key) => window.caches.delete(key)));
+    } catch {}
+    window.location.replace(`${window.location.pathname}?reset=${Date.now()}`);
+  }, []);
+
   const saveMemory = useCallback((slot: number) => {
     window.localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(settings));
     setNotice(`已保存到记忆点 ${slot}`);
@@ -1575,6 +1587,7 @@ export default function CoverStudio() {
             </div>
           </div>
 
+          <button type="button" className="studio-factory-reset" onClick={factoryReset}>彻底重置</button>
           <button type="button" className="studio-reset" onClick={resetSettings}>恢复默认</button>
           <div className="studio-retouch">
             <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
