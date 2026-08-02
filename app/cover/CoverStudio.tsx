@@ -248,7 +248,7 @@ function drawTemplateText(
   const headlineFontSize = Math.min(topFit, bottomFit);
   const topFontSize = headlineFontSize;
   const bottomFontSize = headlineFontSize;
-  const subtitleFontSize = Math.round(width * 0.03 * (settings.subtitleScale / 100));
+  const subtitleFontSize = Math.round(width * 0.061 * (settings.subtitleScale / 100));
   const activeHeadlineFontSize = headlineFontSize;
   context.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(context, settings.topText || "国");

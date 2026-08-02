@@ -589,7 +589,7 @@ function drawText(ctx, width, height) {
   const headlineFontSize = Math.min(topFit, bottomFit);
   const topFontSize = headlineFontSize;
   const bottomFontSize = headlineFontSize;
-  const subtitleFontSize = Math.round(width * .03 * state.subtitleScale / 100);
+  const subtitleFontSize = Math.round(width * .061 * state.subtitleScale / 100);
   const activeHeadlineFontSize = headlineFontSize;
   ctx.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(ctx, state.topText || "国");
