@@ -115,6 +115,13 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 canvas.addEventListener("pointermove", (event) => {
+  if (retouch.active) {
+    const rect = canvas.getBoundingClientRect();
+    const cursor = $("#brushCursor");
+    cursor.style.left = `${clamp((event.clientX - rect.left) / rect.width, 0, 1) * 100}%`;
+    cursor.style.top = `${clamp((event.clientY - rect.top) / rect.height, 0, 1) * 100}%`;
+    cursor.classList.add("visible");
+  }
   if (retouch.pointerId === event.pointerId) {
     const rect = canvas.getBoundingClientRect();
     retouch.strokes.at(-1)?.points.push({ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) });
@@ -146,6 +153,7 @@ const endImageDrag = (event) => {
 };
 canvas.addEventListener("pointerup", endImageDrag);
 canvas.addEventListener("pointercancel", endImageDrag);
+canvas.addEventListener("pointerleave", () => $("#brushCursor").classList.remove("visible"));
 
 canvas.addEventListener("wheel", (event) => {
   if (!state.image) return;
@@ -163,6 +171,17 @@ canvas.addEventListener("dblclick", (event) => {
   imageInteraction.rotationMode = !imageInteraction.rotationMode;
   $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
   setStatus(imageInteraction.rotationMode ? "已进入旋转：按住照片左右拖动，双击退出" : "已退出旋转，可按住照片移动");
+});
+
+window.addEventListener("keydown", (event) => {
+  if (!retouch.active || !event.metaKey) return;
+  const smaller = event.code === "BracketLeft" || event.key === "[" || event.key === "【";
+  const larger = event.code === "BracketRight" || event.key === "]" || event.key === "】";
+  if (!smaller && !larger) return;
+  event.preventDefault();
+  retouch.size = clamp(retouch.size + (larger ? 10 : -10), 20, 400);
+  $("#brushSize").value = retouch.size;
+  updateUi();
 });
 
 function normalizeSyncedCopy(value) {
@@ -441,6 +460,8 @@ function updateUi() {
   $("#brushStrengthValue").textContent = `${retouch.strength}%`;
   $("#undoRetouch").disabled = !retouch.strokes.length;
   $("#clearRetouch").disabled = !retouch.strokes.length;
+  $("#brushCursor").style.width = `${retouch.size / 10.8}%`;
+  if (!retouch.active) $("#brushCursor").classList.remove("visible");
 }
 updateUi();
 loadDefaultWatermark();

@@ -643,6 +643,7 @@ export default function CoverStudio() {
   const [brushSize, setBrushSize] = useState(120);
   const [brushFeather, setBrushFeather] = useState(70);
   const [brushStrength, setBrushStrength] = useState(100);
+  const [brushCursor, setBrushCursor] = useState({ x: 0.5, y: 0.5, visible: false });
   const [retouchStrokes, setRetouchStrokes] = useState<RetouchStroke[]>([]);
   const settingsRef = useRef(settings);
   const rotationModeRef = useRef(rotationMode);
@@ -710,6 +711,23 @@ export default function CoverStudio() {
   }, [brushFeather, brushMode, brushSize, brushStrength]);
 
   useEffect(() => {
+    if (!brushMode) {
+      setBrushCursor((current) => ({ ...current, visible: false }));
+      return;
+    }
+    const handleBrushShortcut = (event: KeyboardEvent) => {
+      if (!event.metaKey) return;
+      const smaller = event.code === "BracketLeft" || event.key === "[" || event.key === "【";
+      const larger = event.code === "BracketRight" || event.key === "]" || event.key === "】";
+      if (!smaller && !larger) return;
+      event.preventDefault();
+      setBrushSize((current) => Math.max(20, Math.min(400, current + (larger ? 10 : -10))));
+    };
+    window.addEventListener("keydown", handleBrushShortcut);
+    return () => window.removeEventListener("keydown", handleBrushShortcut);
+  }, [brushMode]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !image) return;
     let drag: { pointerId: number; x: number; y: number; offsetX: number; offsetY: number; rotation: number } | null = null;
@@ -739,6 +757,10 @@ export default function CoverStudio() {
       canvas.setPointerCapture(event.pointerId);
     };
     const handlePointerMove = (event: PointerEvent) => {
+      if (brushModeRef.current) {
+        const rect = canvas.getBoundingClientRect();
+        setBrushCursor({ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1), visible: true });
+      }
       if (brushPointerId === event.pointerId) {
         const rect = canvas.getBoundingClientRect();
         const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
@@ -785,6 +807,9 @@ export default function CoverStudio() {
         return next;
       });
     };
+    const handlePointerLeave = () => {
+      if (brushModeRef.current) setBrushCursor((current) => ({ ...current, visible: false }));
+    };
 
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
@@ -792,6 +817,7 @@ export default function CoverStudio() {
     canvas.addEventListener("pointercancel", endDrag);
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     canvas.addEventListener("dblclick", handleDoubleClick);
+    canvas.addEventListener("pointerleave", handlePointerLeave);
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointermove", handlePointerMove);
@@ -799,6 +825,7 @@ export default function CoverStudio() {
       canvas.removeEventListener("pointercancel", endDrag);
       canvas.removeEventListener("wheel", handleWheel);
       canvas.removeEventListener("dblclick", handleDoubleClick);
+      canvas.removeEventListener("pointerleave", handlePointerLeave);
     };
   }, [image]);
 
@@ -1380,6 +1407,11 @@ export default function CoverStudio() {
           </div>
           <div className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""} ${brushMode ? "is-brushing" : ""}`}>
             <canvas ref={canvasRef} aria-label="封面实时预览，可拖动照片；开启涂抹后可局部擦开压暗层" />
+            <span
+              className={`studio-brush-cursor ${brushCursor.visible && brushMode ? "is-visible" : ""}`}
+              style={{ left: `${brushCursor.x * 100}%`, top: `${brushCursor.y * 100}%`, width: `${brushSize / 10.8}%` }}
+              aria-hidden="true"
+            />
           </div>
           <div className="studio-export-row">
             <div>
@@ -1507,7 +1539,7 @@ export default function CoverStudio() {
               onChange={(value) => updateSetting("bottomShade", value)}
             />
             <div className="studio-retouch">
-              <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>擦开压暗层，不破坏原图</span></div>
+              <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
               <button
                 type="button"
                 className={brushMode ? "is-active" : ""}

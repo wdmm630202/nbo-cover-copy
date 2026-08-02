@@ -92,6 +92,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /画笔大小/);
   assert.match(coverStudio, /羽化/);
   assert.match(coverStudio, /涂抹强度/);
+  assert.match(coverStudio, /BracketLeft/);
+  assert.match(coverStudio, /BracketRight/);
+  assert.match(coverStudio, /studio-brush-cursor/);
   assert.match(coverStudio, /eraseShadeWithBrush/);
   assert.match(coverStudio, /label="亮度"[\s\S]*?min=\{0\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /strokeText/);
@@ -160,6 +163,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /原图尺寸文件已准备完成/);
   assert.match(publicCoverScript, /eraseShadeWithBrush/);
   assert.match(publicCover, /局部涂抹提亮/);
+  assert.match(publicCover, /id="brushCursor"/);
+  assert.match(publicCoverScript, /BracketLeft/);
+  assert.match(publicCoverScript, /BracketRight/);
   assert.match(publicCover, /id="brightness" type="range" min="0" max="200" value="100"/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);
   assert.match(publicCoverScript, /播放量避让区 144px/);

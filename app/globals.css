@@ -758,6 +758,7 @@ body {
   border-radius: 12px;
   background: #111;
   box-shadow: 0 22px 54px rgba(0, 0, 0, .36);
+  position: relative;
 }
 
 .studio-canvas-shell.ratio-9-16 {
@@ -968,7 +969,9 @@ body {
 .studio-retouch > button.is-active { border-color: var(--red); background: var(--red); color: #fff; }
 .studio-retouch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .studio-retouch button:disabled { cursor: not-allowed; opacity: .42; }
-.studio-canvas-shell.is-brushing canvas { cursor: crosshair; touch-action: none; }
+.studio-canvas-shell.is-brushing canvas { cursor: none; touch-action: none; }
+.studio-brush-cursor { aspect-ratio: 1; position: absolute; z-index: 5; border: 1.5px solid rgba(255,255,255,.96); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.9), inset 0 0 0 1px rgba(0,0,0,.36); pointer-events: none; opacity: 0; transform: translate(-50%, -50%); transition: width .08s, opacity .08s; }
+.studio-brush-cursor.is-visible { opacity: 1; }
 
 .studio-slider > span {
   margin-bottom: 7px;

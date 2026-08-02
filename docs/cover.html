@@ -101,6 +101,7 @@
             </div>
             <div class="canvas-shell ratio-9-16" id="canvasShell">
               <canvas id="coverCanvas" aria-label="封面实时预览，可拖动照片、滚轮缩放、双击旋转"></canvas>
+              <span class="brush-cursor" id="brushCursor" aria-hidden="true"></span>
             </div>
             <div class="export-row">
               <span><strong>导出前检查</strong><small>头顶、脸、手势和主标题均在安全区内</small></span>
@@ -136,7 +137,7 @@
               <label><span>压暗强度 <b id="shadeValue">0%</b></span><input id="shade" type="range" min="0" max="100" value="0" /></label>
               <label><span>底部向上压暗 <b id="bottomShadeValue">100%</b></span><input id="bottomShade" type="range" min="0" max="100" value="100" /></label>
               <div class="retouch-panel">
-                <div><b>局部涂抹提亮</b><span>擦开压暗层，不破坏原图</span></div>
+                <div><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
                 <button id="retouchToggle" type="button">开启涂抹</button>
                 <label><span>画笔大小 <b id="brushSizeValue">120</b></span><input id="brushSize" type="range" min="20" max="400" value="120" /></label>
                 <label><span>羽化 <b id="brushFeatherValue">70%</b></span><input id="brushFeather" type="range" min="0" max="100" value="70" /></label>
@@ -177,6 +178,6 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./cover.js?v=20260802-retouch-brightness"></script>
+    <script src="./cover.js?v=20260802-brush-circle-shortcuts"></script>
   </body>
 </html>
