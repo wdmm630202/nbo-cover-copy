@@ -1376,6 +1376,31 @@ export default function CoverStudio() {
               }}>移除</button>
             </div>
           </div>
+          <div className="studio-left-watermark-controls">
+            <div className="studio-watermark-align">
+              <span>水印位置</span>
+              <div>
+                {(["left", "center", "right"] as const).map((align) => (
+                  <button
+                    type="button"
+                    key={align}
+                    className={settings.watermarkAlign === align ? "is-active" : ""}
+                    onClick={() => updateSetting("watermarkAlign", align)}
+                  >
+                    {align === "left" ? "左侧对齐" : align === "center" ? "居中" : "右侧对齐"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Slider
+              label="水印透明度"
+              value={settings.watermarkOpacity}
+              min={0}
+              max={100}
+              suffix="%"
+              onChange={(value) => updateSetting("watermarkOpacity", value)}
+            />
+          </div>
 
           <div className="studio-platforms" aria-label="选择发布平台">
             {PLATFORM_PRESETS.map((item) => (
@@ -1394,7 +1419,6 @@ export default function CoverStudio() {
             {preset.width}×{preset.height} · {preset.note}
           </p>
           <div className="studio-memory">
-            <button type="button" className="studio-reset" onClick={resetSettings}>恢复默认</button>
             {[1, 2, 3].map((slot) => (
               <div key={slot}><b>{memoryNames[slot - 1]}</b><button type="button" onClick={() => renameMemory(slot)}>重命名</button><button type="button" onClick={() => saveMemory(slot)}>保存</button><button type="button" onClick={() => loadMemory(slot)}>应用</button></div>
             ))}
@@ -1470,6 +1494,7 @@ export default function CoverStudio() {
             </div>
           </div>
 
+          <button type="button" className="studio-reset" onClick={resetSettings}>恢复默认</button>
           <div className="studio-retouch">
             <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
             <button
@@ -1575,29 +1600,6 @@ export default function CoverStudio() {
               max={100}
               suffix="%"
               onChange={(value) => updateSetting("bottomShade", value)}
-            />
-            <div className="studio-watermark-align">
-              <span>水印位置</span>
-              <div>
-                {(["left", "center", "right"] as const).map((align) => (
-                  <button
-                    type="button"
-                    key={align}
-                    className={settings.watermarkAlign === align ? "is-active" : ""}
-                    onClick={() => updateSetting("watermarkAlign", align)}
-                  >
-                    {align === "left" ? "左侧对齐" : align === "center" ? "居中" : "右侧对齐"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Slider
-              label="水印透明度"
-              value={settings.watermarkOpacity}
-              min={0}
-              max={100}
-              suffix="%"
-              onChange={(value) => updateSetting("watermarkOpacity", value)}
             />
           </div>
         </aside>

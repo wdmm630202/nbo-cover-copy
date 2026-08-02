@@ -474,7 +474,8 @@ body {
 .studio-memory > div > button:last-child { grid-column: 1 / -1; }
 .studio-memory b { color: #625b55; font-size: 9px; }
 .studio-memory button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
-.studio-memory .studio-reset { width: 100%; min-height: 34px; border-color: #202020; background: #202020; color: #fff; }
+.studio-reset { width: 100%; min-height: 34px; border: 1px solid #202020; border-radius: 8px; background: #202020; color: #fff; font-size: 8px; font-weight: 750; cursor: pointer; }
+.studio-left-watermark-controls { margin-top: 8px; padding: 8px; display: grid; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; background: #faf9f7; }
 .studio-subtitle-tools { margin-top: 8px; display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
 .studio-subtitle-tools label { min-height: 45px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; color: #6e6761; font-size: 8px; }
 .studio-subtitle-tools label:last-child { flex-direction: column; align-items: stretch; }
@@ -1113,6 +1114,8 @@ body {
   .studio-subtitle-tools label { min-height: 38px; padding: 5px 8px; }
   .studio-watermark-box { margin-top: 8px; padding: 6px; }
   .studio-watermark-actions button { min-height: 25px; }
+  .studio-left-watermark-controls { margin-top: 6px; padding: 6px; grid-template-columns: 1fr; gap: 5px; }
+  .studio-left-watermark-controls .studio-watermark-align button { min-height: 23px; }
   .studio-platforms { margin-top: 8px; }
   .studio-platforms button { min-height: 44px; }
   .studio-preview-panel { padding: 13px; display: flex; flex-direction: column; }
@@ -1123,6 +1126,7 @@ body {
   .studio-export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
   .studio-design { display: flex; flex-direction: column; }
   .studio-design .studio-panel-heading { margin-bottom: 7px; }
+  .studio-design > .studio-reset { min-height: 28px; margin-bottom: 8px; }
   .studio-template-grid { width: 210px; height: 210px; gap: 5px; }
   .studio-template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
   .studio-template::after { width: 36px; height: 58px; }
@@ -1138,8 +1142,7 @@ body {
   .studio-retouch-note { align-self: center; line-height: 1.35; }
   .studio-watermark-align > span { margin-bottom: 3px; font-size: 8px; }
   .studio-watermark-align button { min-height: 28px; }
-  .studio-memory { min-height: 0; margin-top: 8px; padding-top: 8px; flex: 1; grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .studio-memory .studio-reset { min-height: 28px; height: 100%; }
+  .studio-memory { min-height: 0; margin-top: 8px; padding-top: 8px; flex: 1; grid-template-columns: 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .studio-memory > div { height: 100%; padding: 5px; grid-template-columns: 1fr auto auto auto; gap: 4px; }
   .studio-memory > div > button:last-child, .studio-memory > div b { grid-column: auto; }
   .studio-memory button { min-height: 23px; padding: 0 4px; }
