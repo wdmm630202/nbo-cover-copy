@@ -583,11 +583,11 @@ function drawText(ctx, width, height) {
   const bottomFontSize = headlineFontSize;
   const subtitleFontSize = Math.round(width * .061 * state.subtitleScale / 100);
   const activeHeadlineFontSize = headlineFontSize;
-  ctx.font = `900 ${topFontSize}px "Source Han Sans CN", sans-serif`;
+  ctx.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(ctx, state.topText || "国");
-  ctx.font = `900 ${activeHeadlineFontSize}px "Source Han Sans CN", sans-serif`;
+  ctx.font = `900 ${activeHeadlineFontSize}px sans-serif`;
   const activeHeadlineInk = measureInkBounds(ctx, state.bottomText || state.topText || "国");
-  ctx.font = `400 ${subtitleFontSize}px "Source Han Sans CN", sans-serif`;
+  ctx.font = `400 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
   const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
@@ -629,11 +629,11 @@ function drawText(ctx, width, height) {
   const dividerY = y + relativeDividerY;
   const subtitleBaseline = y + relativeSubtitleBaseline;
   ctx.fillStyle = state.topColor;
-  ctx.font = `900 ${topFontSize}px "Source Han Sans CN", sans-serif`;
+  ctx.font = `900 ${topFontSize}px sans-serif`;
   ctx.fillText(state.topText || "上行标题", x, y, maxWidth);
   if (state.bottomText.trim()) {
     ctx.fillStyle = state.bottomColor;
-    ctx.font = `900 ${bottomFontSize}px "Source Han Sans CN", sans-serif`;
+    ctx.font = `900 ${bottomFontSize}px sans-serif`;
     ctx.fillText(state.bottomText, x, secondBaseline, maxWidth);
   }
   if (state.divider) {
@@ -645,7 +645,7 @@ function drawText(ctx, width, height) {
   }
   if (state.subtitle.trim()) {
     ctx.fillStyle = state.subtitleColor;
-    ctx.font = `400 ${subtitleFontSize}px "Source Han Sans CN", sans-serif`;
+    ctx.font = `400 ${subtitleFontSize}px sans-serif`;
     const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
     drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleLineHeight, align);
   }
@@ -655,7 +655,7 @@ function drawText(ctx, width, height) {
 function fitText(ctx, text, start, maxWidth) {
   let size = start;
   while (size > start * .58) {
-    ctx.font = `900 ${size}px "Source Han Sans CN", sans-serif`;
+    ctx.font = `900 ${size}px sans-serif`;
     if (ctx.measureText(text || "标题").width <= maxWidth) break;
     size -= 2;
   }
@@ -941,4 +941,3 @@ function downloadExportAsset(asset, format) {
 }
 
 draw();
-document.fonts.ready.then(draw);

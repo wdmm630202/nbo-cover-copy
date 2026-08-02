@@ -249,11 +249,11 @@ function drawTemplateText(
   const bottomFontSize = headlineFontSize;
   const subtitleFontSize = Math.round(width * 0.061 * (settings.subtitleScale / 100));
   const activeHeadlineFontSize = headlineFontSize;
-  context.font = `900 ${topFontSize}px "Source Han Sans CN", sans-serif`;
+  context.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(context, settings.topText || "国");
-  context.font = `900 ${activeHeadlineFontSize}px "Source Han Sans CN", sans-serif`;
+  context.font = `900 ${activeHeadlineFontSize}px sans-serif`;
   const activeHeadlineInk = measureInkBounds(context, settings.bottomText || settings.topText || "国");
-  context.font = `400 ${subtitleFontSize}px "Source Han Sans CN", sans-serif`;
+  context.font = `400 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
   const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
@@ -295,12 +295,12 @@ function drawTemplateText(
   const subtitleBaseline = y + relativeSubtitleBaseline;
 
   context.fillStyle = settings.topColor;
-  context.font = `900 ${topFontSize}px "Source Han Sans CN", sans-serif`;
+  context.font = `900 ${topFontSize}px sans-serif`;
   context.fillText(settings.topText || "上行标题", x, y, maxWidth);
 
   if (settings.bottomText.trim()) {
     context.fillStyle = settings.bottomColor;
-    context.font = `900 ${bottomFontSize}px "Source Han Sans CN", sans-serif`;
+    context.font = `900 ${bottomFontSize}px sans-serif`;
     context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
   }
 
@@ -315,7 +315,7 @@ function drawTemplateText(
   if (settings.subtitle.trim()) {
     context.shadowBlur = 10;
     context.fillStyle = settings.subtitleColor;
-    context.font = `400 ${subtitleFontSize}px "Source Han Sans CN", sans-serif`;
+    context.font = `400 ${subtitleFontSize}px sans-serif`;
     drawWrappedText(
       context,
       settings.subtitle,
@@ -405,7 +405,7 @@ function fitText(
   let size = startingSize;
   const safeText = text || "标题";
   while (size > startingSize * 0.58) {
-    context.font = `900 ${size}px "Source Han Sans CN", sans-serif`;
+    context.font = `900 ${size}px sans-serif`;
     if (context.measureText(safeText).width <= maxWidth) break;
     size -= 2;
   }
@@ -524,7 +524,6 @@ export default function CoverStudio() {
   const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
-  const [fontsReady, setFontsReady] = useState(false);
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -554,10 +553,6 @@ export default function CoverStudio() {
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    document.fonts.ready.then(() => setFontsReady(true));
   }, []);
 
   useEffect(() => {
@@ -632,7 +627,7 @@ export default function CoverStudio() {
     if (canvasRef.current) {
       drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true);
     }
-  }, [fontsReady, image, preset, settings, watermark]);
+  }, [image, preset, settings, watermark]);
 
   const buildExportAsset = useCallback(async (format: "jpeg" | "png"): Promise<ExportAsset | null> => {
     if (!image) return null;
