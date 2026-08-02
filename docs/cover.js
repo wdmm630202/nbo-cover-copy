@@ -7,6 +7,7 @@ const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
 const getWatermarkVisibleHeight = (width) => Math.round(width * .03);
+let paletteTarget = "topColor";
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -372,6 +373,15 @@ function loadFile(file) {
     draw();
   });
 });
+document.querySelectorAll("[data-color-target]").forEach((button) => button.addEventListener("click", () => {
+  paletteTarget = button.dataset.colorTarget;
+  document.querySelectorAll("[data-color-target]").forEach((item) => item.classList.toggle("active", item === button));
+}));
+document.querySelectorAll("[data-artist-color]").forEach((button) => button.addEventListener("click", () => {
+  state[paletteTarget] = button.dataset.artistColor;
+  $(`#${paletteTarget}`).value = state[paletteTarget];
+  saveSettings(); draw();
+}));
 $("#subtitleScale").addEventListener("input", (event) => {
   state.subtitleScale = Number(event.target.value);
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
@@ -591,7 +601,7 @@ function drawText(ctx, width, height) {
   const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
   const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
-  const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * .055));
+  const dividerThickness = 4;
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
   const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
   const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
@@ -772,7 +782,7 @@ function drawGuide(ctx, width, height) {
   const top = (height - safeHeight) / 2;
   ctx.save();
   ctx.setLineDash([18, 14]);
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 4;
   ctx.strokeStyle = "rgba(254,232,0,.92)";
   ctx.strokeRect(18, top, width - 36, safeHeight);
   ctx.setLineDash([]);

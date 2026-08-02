@@ -63,6 +63,10 @@ type ExportAsset = {
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 const getWatermarkVisibleHeight = (width: number) => Math.round(width * 0.03);
+const COLOR_TARGETS = [
+  ["topColor", "上行"], ["bottomColor", "下行"], ["dividerColor", "横线"], ["subtitleColor", "小字"],
+] as const;
+const ARTIST_COLORS = ["#FFFFFF", "#1A1A1A", "#D9D2C5", "#C9A77A", "#C92A2A", "#D97706", "#8B5E3C", "#1F4E79", "#2F6B4F"];
 
 const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
@@ -161,7 +165,7 @@ function drawCover(
     const safeTop = (height - safeHeight) / 2;
     context.save();
     context.setLineDash([18, 14]);
-    context.lineWidth = 2;
+    context.lineWidth = 4;
     context.strokeStyle = "rgba(254,232,0,.92)";
     context.strokeRect(18, safeTop, width - 36, safeHeight);
     context.setLineDash([]);
@@ -257,7 +261,7 @@ function drawTemplateText(
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
   const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
-  const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * 0.055));
+  const dividerThickness = 4;
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
   const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
   const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
@@ -524,6 +528,7 @@ export default function CoverStudio() {
   const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
+  const [paletteTarget, setPaletteTarget] = useState<(typeof COLOR_TARGETS)[number][0]>("topColor");
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -1007,16 +1012,9 @@ export default function CoverStudio() {
             </div>
           </div>
           <div className="studio-color-row">
-            <label><span>上行颜色</span><input type="color" list="artist-colors" value={settings.topColor} onChange={(event) => updateSetting("topColor", event.target.value.toUpperCase())} /></label>
-            <label><span>下行颜色</span><input type="color" list="artist-colors" value={settings.bottomColor} onChange={(event) => updateSetting("bottomColor", event.target.value.toUpperCase())} /></label>
-            <label><span>横线颜色</span><input type="color" list="artist-colors" value={settings.dividerColor} onChange={(event) => updateSetting("dividerColor", event.target.value.toUpperCase())} /></label>
-            <datalist id="artist-colors">
-              <option value="#FFFFFF" label="钛白" /><option value="#1A1A1A" label="象牙黑" />
-              <option value="#D9D2C5" label="暖灰" /><option value="#C9A77A" label="金棕" />
-              <option value="#C92A2A" label="镉红" /><option value="#D97706" label="土黄" />
-              <option value="#8B5E3C" label="熟褐" /><option value="#1F4E79" label="群青" />
-              <option value="#2F6B4F" label="翠绿" />
-            </datalist>
+            <label><span>上行颜色</span><input type="color" value={settings.topColor} onChange={(event) => updateSetting("topColor", event.target.value.toUpperCase())} /></label>
+            <label><span>下行颜色</span><input type="color" value={settings.bottomColor} onChange={(event) => updateSetting("bottomColor", event.target.value.toUpperCase())} /></label>
+            <label><span>横线颜色</span><input type="color" value={settings.dividerColor} onChange={(event) => updateSetting("dividerColor", event.target.value.toUpperCase())} /></label>
           </div>
           <label className="studio-check studio-divider-toggle">
             <input type="checkbox" checked={settings.showDivider} onChange={(event) => updateSetting("showDivider", event.target.checked)} />
@@ -1048,8 +1046,12 @@ export default function CoverStudio() {
             />
           </label>
           <div className="studio-subtitle-tools">
-            <label><span>小字颜色</span><input type="color" list="artist-colors" value={settings.subtitleColor} onChange={(event) => updateSetting("subtitleColor", event.target.value.toUpperCase())} /></label>
+            <label><span>小字颜色</span><input type="color" value={settings.subtitleColor} onChange={(event) => updateSetting("subtitleColor", event.target.value.toUpperCase())} /></label>
             <label><span>小字大小 <b>{settings.subtitleScale}%</b></span><input type="range" min={60} max={160} value={settings.subtitleScale} onChange={(event) => updateSetting("subtitleScale", Number(event.target.value))} /></label>
+          </div>
+          <div className="studio-artist-palette">
+            <div>{COLOR_TARGETS.map(([key, label]) => <button type="button" className={paletteTarget === key ? "is-active" : ""} onClick={() => setPaletteTarget(key)} key={key}>{label}</button>)}</div>
+            <div>{ARTIST_COLORS.map((color) => <button type="button" aria-label={`选择 ${color}`} style={{ background: color }} onClick={() => updateSetting(paletteTarget, color)} key={color} />)}</div>
           </div>
 
           <div className="studio-watermark-box">

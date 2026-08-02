@@ -74,6 +74,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .subtitle-tools label:last-child span { display: flex; justify-content: space-between; }
 .subtitle-tools input[type="color"] { width: 27px; height: 27px; padding: 2px; border: 0; border-radius: 7px; background: #f3efeb; cursor: pointer; }
 .subtitle-tools input[type="range"] { width: 100%; accent-color: var(--red); }
+.artist-palette { margin-top: 8px; padding: 8px; display: grid; gap: 7px; border: 1px solid #e5ded7; border-radius: 10px; }
+.artist-palette > div { display: flex; gap: 5px; }
+.artist-palette > div:first-child button { flex: 1; min-height: 24px; border: 1px solid #ddd5cd; border-radius: 7px; background: #fff; color: #625b55; font-size: 8px; }
+.artist-palette > div:first-child button.active { background: #202020; color: #fff; }
+.artist-palette > div:last-child button { width: 23px; height: 23px; padding: 0; border: 1px solid #aaa29a; border-radius: 5px; }
 .upload strong { font-size: 13px; }
 .upload small { max-width: 250px; overflow: hidden; color: #9a928b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .image-sync { width: 58px; min-height: 28px; padding: 0; position: absolute; z-index: 2; top: 8px; right: 8px; border: 0; border-radius: 999px; background: var(--red); color: #fff; font-size: 9px; font-weight: 750; cursor: pointer; }
