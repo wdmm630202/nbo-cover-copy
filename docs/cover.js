@@ -630,7 +630,7 @@ function drawText(ctx, width, height) {
     : state.template.startsWith("bottom-")
       ? bottomTextLimit - blockBottom
       : (cropTop + cropBottom) / 2 - blockTop;
-  const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, usableBottom - blockBottom)));
+  const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
   const secondBaseline = y + lineGap;
   const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
   const dividerY = y + relativeDividerY;
