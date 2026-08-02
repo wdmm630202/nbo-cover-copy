@@ -145,7 +145,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /南铂封面制作台/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /control-swap/);
+  assert.match(publicCover, /spacing-correction/);
   assert.match(publicCover, /class="preview-tools"/);
   assert.match(publicCover, /访问密码/);
   assert.match(publicCover, /id="copyWorkspaceSwitch"/);

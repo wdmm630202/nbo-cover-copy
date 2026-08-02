@@ -1126,13 +1126,13 @@ body {
   .studio-export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
   .studio-design { display: flex; flex-direction: column; }
   .studio-design .studio-panel-heading { margin-bottom: 7px; }
-  .studio-design > .studio-reset { min-height: 28px; margin-bottom: 8px; }
+  .studio-design > .studio-reset { min-height: 52px; margin-bottom: 10px; border-radius: 10px; }
   .studio-template-grid { width: 210px; height: 210px; gap: 5px; }
   .studio-template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
   .studio-template::after { width: 36px; height: 58px; }
   .studio-template b { font-size: 8px; }
   .studio-template span { font-size: 6px; }
-  .studio-adjustments { min-height: 0; margin-top: 8px; flex: 1; grid-template-columns: 1fr; align-content: space-between; gap: 6px; }
+  .studio-adjustments { min-height: 0; margin-top: 16px; flex: 1; grid-template-columns: 1fr; grid-template-rows: repeat(10, minmax(0, 1fr)); align-items: center; gap: 0; }
   .studio-slider > span { margin-bottom: 3px; font-size: 9px; }
   .studio-slider input { height: 15px; }
   .studio-retouch { height: 210px; padding: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px 8px; }
