@@ -119,8 +119,6 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /ROTATION_SNAP_ANGLES[\s\S]*?-90[\s\S]*?90/);
   assert.match(coverStudio, /studio-transform-hud/);
   assert.match(coverStudio, /studio-snap-guide/);
-  assert.match(coverStudio, /navigator\.vibrate\?\.\(10\)/);
-  assert.match(coverStudio, /document\.addEventListener\("pointerdown", handleButtonPress/);
   assert.match(coverStudio, /settings\.watermarkAlign === "left"/);
   assert.match(coverStudio, /settings\.watermarkAlign === "right"/);
   assert.match(coverStudio, /startsWith\("top-"\)/);
@@ -209,8 +207,6 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /id="offsetY" type="range" min="-200" max="200" value="0"/);
   assert.match(publicCoverScript, /state\.watermarkAlign === "left"/);
   assert.match(publicCoverScript, /state\.watermarkAlign === "right"/);
-  assert.match(publicCoverScript, /navigator\.vibrate\?\.\(10\)/);
-  assert.match(publicCoverScript, /document\.addEventListener\("pointerdown"/);
   assert.match(publicCover, /data-template="top-left"/);
   assert.match(publicCover, /data-template="bottom-right"/);
   assert.match(publicCover, /data-watermark-align="center"/);

@@ -196,6 +196,15 @@ body {
     #f7f5f2;
 }
 
+.cover-page button {
+  transition: scale 70ms ease, filter 70ms ease;
+}
+
+.cover-page button:active:not(:disabled) {
+  scale: .97;
+  filter: brightness(.82);
+}
+
 .cover-studio-header {
   width: min(1480px, calc(100% - 40px));
   min-height: 76px;

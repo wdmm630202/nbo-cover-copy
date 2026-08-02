@@ -696,23 +696,6 @@ export default function CoverStudio() {
   const brushModeRef = useRef(brushMode);
   const brushSettingsRef = useRef({ size: brushSize, feather: brushFeather, strength: brushStrength });
 
-  useEffect(() => {
-    const handleButtonPress = (event: PointerEvent) => {
-      const target = event.target instanceof Element
-        ? event.target.closest<HTMLElement>('button, [role="button"], input[type="button"], input[type="submit"]')
-        : null;
-      if (!target || target.matches(":disabled") || target.getAttribute("aria-disabled") === "true") return;
-      try {
-        navigator.vibrate?.(10);
-      } catch {
-        // 不支持网页震动的浏览器直接忽略，不影响按钮原功能。
-      }
-    };
-
-    document.addEventListener("pointerdown", handleButtonPress, { passive: true });
-    return () => document.removeEventListener("pointerdown", handleButtonPress);
-  }, []);
-
   const showTransformHint = (text: string, guide: "horizontal" | "vertical" | null = null) => {
     const hud = transformHudRef.current;
     if (!hud) return;

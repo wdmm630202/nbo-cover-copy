@@ -20,6 +20,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .access-card button { width: 100%; height: 50px; margin-top: 14px; border: 0; border-radius: 13px; background: var(--red); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
 .access-card small { min-height: 18px; margin-top: 12px; display: block; color: var(--red); font-size: 10px; }
 .cover-page { min-height: 100vh; padding-bottom: 60px; }
+.cover-page button { transition: scale 70ms ease, filter 70ms ease; }
+.cover-page button:active:not(:disabled) { scale: .97; filter: brightness(.82); }
 .studio-header { width: min(1480px, calc(100% - 40px)); min-height: 76px; margin: 0 auto; position: sticky; z-index: 20; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: rgba(247,245,242,.92); backdrop-filter: blur(16px); }
 .brand { display: flex; align-items: center; gap: 11px; color: var(--ink); text-decoration: none; }
 .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: #202020; color: #fff; font: 800 23px/1 Georgia, serif; box-shadow: 0 8px 20px rgba(0,0,0,.16); }
