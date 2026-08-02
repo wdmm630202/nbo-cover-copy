@@ -58,6 +58,7 @@ type StudioSettings = {
   watermarkAlign: "left" | "center" | "right";
   watermarkOpacity: number;
   watermarkEnabled: boolean;
+  watermarkDefaultVersion: number;
 };
 
 type ExportAsset = {
@@ -111,7 +112,8 @@ const DEFAULT_SETTINGS: StudioSettings = {
   watermarkScale: 100,
   watermarkAlign: "left",
   watermarkOpacity: 50,
-  watermarkEnabled: true,
+  watermarkEnabled: false,
+  watermarkDefaultVersion: 1,
 };
 
 function normalizeTemplateId(value: unknown): CoverTemplate["id"] {
@@ -675,6 +677,10 @@ export default function CoverStudio() {
           if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
           if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
           if (Number(parsed.shade) === 62) parsed.shade = 0;
+          if (parsed.watermarkDefaultVersion !== 1) {
+            parsed.watermarkEnabled = false;
+            parsed.watermarkDefaultVersion = 1;
+          }
           if (parsed.titleScaleVersion !== 2) {
             parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
             parsed.titleScaleVersion = 2;

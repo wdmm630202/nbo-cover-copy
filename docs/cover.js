@@ -49,7 +49,8 @@ const state = {
   watermarkScale: 100,
   watermarkAlign: "left",
   watermarkOpacity: 50,
-  watermarkEnabled: true,
+  watermarkEnabled: false,
+  watermarkDefaultVersion: 1,
   image: null,
   watermark: null,
   fileName: "",
@@ -378,6 +379,10 @@ try {
     if (saved.bottomColor === "#FEE800") saved.bottomColor = "#FFFFFF";
     if (Number(saved.watermarkOpacity) === 92) saved.watermarkOpacity = 50;
     if (Number(saved.shade) === 62) saved.shade = 0;
+    if (saved.watermarkDefaultVersion !== 1) {
+      saved.watermarkEnabled = false;
+      saved.watermarkDefaultVersion = 1;
+    }
     if (saved.titleScaleVersion !== 2) {
       saved.textScale = Math.round(Number(saved.textScale || 100) / 1.8);
       saved.titleScaleVersion = 2;
@@ -610,7 +615,7 @@ $("#resetSettings").addEventListener("click", () => {
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100, brightness: 100,
     zoom: 100, offsetX: 0, offsetXRangeVersion: 2, offsetY: 0, rotation: 0, textScale: 100, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 2, shade: 0, bottomShade: 100,
-    safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
+    safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: false, watermarkDefaultVersion: 1,
   });
   retouch.active = false;
   retouch.strokes = [];
