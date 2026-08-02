@@ -427,9 +427,10 @@ body {
 
 .studio-copy-sync button {
   width: 58px;
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 28px;
+  padding: 0;
   font-size: 9px;
+  flex: 0 0 58px;
 }
 
 .studio-copy-sync button:disabled,
@@ -456,26 +457,7 @@ body {
   display: none;
 }
 
-.studio-watermark-box > button:first-of-type {
-  width: 100%;
-  min-height: 62px;
-  padding: 11px 48px 11px 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 4px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: #28231f;
-  text-align: left;
-  cursor: pointer;
-}
-
-.studio-watermark-box b { font-size: 11px; }
-.studio-watermark-box span { max-width: 100%; overflow: hidden; color: #9b8367; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.studio-watermark-actions { margin-top: 7px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.studio-watermark-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
 .studio-watermark-actions button { min-width: 0; min-height: 29px; padding: 0 3px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 9px; font-weight: 750; cursor: pointer; }
 .studio-watermark-actions button.is-active { border-color: #202020; background: #202020; color: #fff; }
 
@@ -592,9 +574,10 @@ body {
 
 .studio-field-heading button {
   width: 58px;
-  min-height: 25px;
-  padding: 0 9px;
+  min-height: 28px;
+  padding: 0;
   font-size: 9px;
+  flex: 0 0 58px;
 }
 
 .studio-field input,

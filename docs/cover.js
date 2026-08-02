@@ -384,10 +384,6 @@ document.querySelectorAll("[data-watermark-align]").forEach((button) => button.a
   updateUi(); saveSettings(); draw();
 }));
 $("#safeToggle").addEventListener("change", (event) => { state.safe = event.target.checked; saveSettings(); draw(); });
-$("#watermarkMain").addEventListener("click", () => {
-  state.watermarkEnabled = true;
-  updateUi(); saveSettings(); draw(); setStatus("已使用南铂固定水印");
-});
 $("#useWatermark").addEventListener("click", () => {
   state.watermarkEnabled = true;
   updateUi(); saveSettings(); draw(); setStatus("已使用水印");

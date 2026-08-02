@@ -1023,10 +1023,6 @@ export default function CoverStudio() {
                 event.target.value = "";
               }}
             />
-            <button type="button" onClick={() => updateSetting("watermarkEnabled", true)}>
-              <b>固定水印</b>
-              <span>{watermarkName || "南铂固定水印"}</span>
-            </button>
             <div className="studio-watermark-actions">
               <button type="button" className={settings.watermarkEnabled ? "is-active" : ""} onClick={() => updateSetting("watermarkEnabled", true)}>使用水印</button>
               <button type="button" className={!settings.watermarkEnabled ? "is-active" : ""} onClick={() => updateSetting("watermarkEnabled", false)}>不使用水印</button>
