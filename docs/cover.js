@@ -567,7 +567,7 @@ function drawText(ctx, width, height) {
   const horizontalInset = DOUYIN_HOME_SAFE.horizontalInset * geometryScale;
   const x = right ? width - horizontalInset : center ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
-  const baseFont = Math.max(1, Math.round(width * .074 * 1.8 * state.textScale / 100));
+  const baseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.textScale / 100));
   const lineGap = Math.round(baseFont * 1.32);
   ctx.save();
   ctx.textAlign = align;

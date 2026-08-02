@@ -233,7 +233,7 @@ function drawTemplateText(
   const horizontalInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * geometryScale;
   const x = isRight ? width - horizontalInset : isCenter ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
-  const baseFont = Math.max(1, Math.round(width * 0.074 * 1.8 * (settings.textScale / 100)));
+  const baseFont = Math.max(1, Math.round(width * 0.074 * 2.1 * (settings.textScale / 100)));
   const lineGap = Math.round(baseFont * 1.32);
 
   context.save();
