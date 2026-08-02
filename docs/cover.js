@@ -856,13 +856,15 @@ async function exportCover(format) {
     return setStatus(asset ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
   }
   const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
-  if (isMobile && navigator.canShare?.({ files: [asset.file] })) {
+  if (isMobile) {
+    showSavePreview(asset);
     try {
+      if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
       await navigator.share({ files: [asset.file], title: "南铂封面" });
       setStatus("已打开手机分享面板，请点击“存储图像”保存到相册");
       return;
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return setStatus("已取消保存，可再次点击导出");
+      return setStatus(error instanceof DOMException && error.name === "AbortError" ? "已取消系统分享，也可以长按成品图保存" : "系统分享未打开，请点击“打开手机分享”或长按成品图保存");
     }
   }
   if (!isMobile && window.showSaveFilePicker) {
@@ -883,9 +885,11 @@ async function exportCover(format) {
 }
 
 let savePreviewUrl = "";
+let savePreviewAsset = null;
 function showSavePreview(asset) {
   if (savePreviewUrl) URL.revokeObjectURL(savePreviewUrl);
   savePreviewUrl = URL.createObjectURL(asset.blob);
+  savePreviewAsset = asset;
   $("#savePreviewImage").src = savePreviewUrl;
   $("#savePreview").hidden = false;
   document.body.style.overflow = "hidden";
@@ -896,8 +900,15 @@ $("#closeSavePreview").addEventListener("click", () => {
   $("#savePreview").hidden = true;
   document.body.style.overflow = "";
 });
-$("#openPreviewImage").addEventListener("click", () => {
-  if (savePreviewUrl) window.location.href = savePreviewUrl;
+$("#openPreviewImage").addEventListener("click", async () => {
+  if (!savePreviewAsset) return;
+  try {
+    if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
+    await navigator.share({ files: [savePreviewAsset.file], title: "南铂封面" });
+    setStatus("已打开手机分享面板，请点击“存储图像”保存到相册");
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === "AbortError") && savePreviewUrl) window.location.href = savePreviewUrl;
+  }
 });
 
 function downloadExportAsset(asset, format) {

@@ -135,7 +135,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicEntry, /NBO_COVER_IMAGE_READY/);
   assert.match(publicEntry, /localStorage\.setItem/);
   assert.match(publicCoverScript, /image\/jpeg/);
-  assert.match(publicCoverScript, /navigator\.canShare/);
+  assert.match(publicCoverScript, /typeof navigator\.share/);
   assert.match(publicCoverScript, /navigator\.share/);
   assert.match(publicCoverScript, /存储图像/);
   assert.match(publicCoverScript, /scheduleExportPreparation/);

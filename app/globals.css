@@ -794,6 +794,9 @@ body {
   font-size: 10px;
   font-weight: 750;
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .export-secondary {

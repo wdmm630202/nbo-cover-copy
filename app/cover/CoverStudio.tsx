@@ -844,13 +844,19 @@ export default function CoverStudio() {
       return setNotice(prepared ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
     }
     const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
-    if (isMobile && navigator.canShare?.({ files: [asset.file] })) {
+    if (isMobile) {
+      const url = URL.createObjectURL(asset.blob);
+      setSavePreview((current) => {
+        if (current) URL.revokeObjectURL(current.url);
+        return { url, asset };
+      });
       try {
+        if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
         await navigator.share({ files: [asset.file], title: "南铂封面" });
         setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
         return;
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return setNotice("已取消保存，可再次点击导出");
+        return setNotice(error instanceof DOMException && error.name === "AbortError" ? "已取消系统分享，也可以长按成品图保存" : "系统分享未打开，请点击“打开手机分享”或长按成品图保存");
       }
     }
     const picker = (window as typeof window & {
@@ -888,7 +894,15 @@ export default function CoverStudio() {
             <p>请长按下面的图片，选择“存储到照片”</p>
             <img src={savePreview.url} alt="高清封面成品" />
             <div>
-              <button type="button" onClick={() => { window.location.href = savePreview.url; }}>打开高清图片</button>
+              <button type="button" onClick={async () => {
+                try {
+                  if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
+                  await navigator.share({ files: [savePreview.asset.file], title: "南铂封面" });
+                  setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
+                } catch (error) {
+                  if (!(error instanceof DOMException && error.name === "AbortError")) window.location.href = savePreview.url;
+                }
+              }}>打开手机分享</button>
               <button type="button" onClick={() => { URL.revokeObjectURL(savePreview.url); setSavePreview(null); }}>关闭</button>
             </div>
           </div>

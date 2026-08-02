@@ -114,6 +114,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .export-row strong { color: #fff; font-size: 10px; }
 .export-row small { color: rgba(255,255,255,.46); font-size: 8px; }
 .export-row button { height: 38px; padding: 0 13px; border-radius: 10px; font-size: 10px; font-weight: 750; cursor: pointer; }
+.export-row button { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .export-row .secondary { border: 1px solid rgba(255,255,255,.2); background: transparent; color: #fff; }
 .export-row .primary { border: 1px solid var(--red); background: var(--red); color: #fff; }
 .export-row button:disabled { opacity: .56; cursor: wait; }
