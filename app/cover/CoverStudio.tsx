@@ -47,6 +47,7 @@ type StudioSettings = {
   textScale: number;
   textStroke: number;
   textShadow: number;
+  textShadowDefaultVersion: number;
   titleScaleVersion: number;
   shade: number;
   bottomShade: number;
@@ -91,7 +92,8 @@ const DEFAULT_SETTINGS: StudioSettings = {
   rotation: 0,
   textScale: 100,
   textStroke: 0,
-  textShadow: 30,
+  textShadow: 50,
+  textShadowDefaultVersion: 1,
   titleScaleVersion: 2,
   shade: 0,
   bottomShade: 100,
@@ -598,6 +600,10 @@ export default function CoverStudio() {
             parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
             parsed.titleScaleVersion = 2;
           }
+          if (parsed.textShadowDefaultVersion !== 1) {
+            parsed.textShadow = 50;
+            parsed.textShadowDefaultVersion = 1;
+          }
           if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
@@ -848,6 +854,10 @@ export default function CoverStudio() {
       if (parsed.titleScaleVersion !== 2) {
         parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
         parsed.titleScaleVersion = 2;
+      }
+      if (parsed.textShadowDefaultVersion !== 1) {
+        parsed.textShadow = 50;
+        parsed.textShadowDefaultVersion = 1;
       }
       if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
       parsed.templateId = normalizeTemplateId(parsed.templateId);

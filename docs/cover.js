@@ -35,7 +35,8 @@ const state = {
   rotation: 0,
   textScale: 100,
   textStroke: 0,
-  textShadow: 30,
+  textShadow: 50,
+  textShadowDefaultVersion: 1,
   titleScaleVersion: 2,
   shade: 0,
   bottomShade: 100,
@@ -318,6 +319,10 @@ try {
       saved.textScale = Math.round(Number(saved.textScale || 100) / 1.8);
       saved.titleScaleVersion = 2;
     }
+    if (saved.textShadowDefaultVersion !== 1) {
+      saved.textShadow = 50;
+      saved.textShadowDefaultVersion = 1;
+    }
     if (saved.bottomText === "藏在自然状态里") saved.bottomText = "藏在自然状态";
     saved.template = normalizeTemplate(saved.template);
     Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
@@ -504,7 +509,7 @@ $("#resetSettings").addEventListener("click", () => {
     platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
-    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, textStroke: 0, textShadow: 30, titleScaleVersion: 2, shade: 0, bottomShade: 100,
+    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 2, shade: 0, bottomShade: 100,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
@@ -547,6 +552,10 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
     if (parsed.titleScaleVersion !== 2) {
       parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
       parsed.titleScaleVersion = 2;
+    }
+    if (parsed.textShadowDefaultVersion !== 1) {
+      parsed.textShadow = 50;
+      parsed.textShadowDefaultVersion = 1;
     }
     if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
     parsed.template = normalizeTemplate(parsed.template);
