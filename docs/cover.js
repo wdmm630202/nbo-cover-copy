@@ -81,6 +81,8 @@ let syncedCopy = null;
 let syncedImage = null;
 let defaultWatermark = null;
 let exportCache = { jpeg: null, png: null };
+let previewDrawFrame = 0;
+let saveSettingsTimer = 0;
 let imageInteraction = { rotationMode: false, drag: null };
 const retouch = { active: false, size: 120, feather: 70, strength: 100, strokes: [], pointerId: null, compareBefore: false };
 const syncChannel = "BroadcastChannel" in window
@@ -405,6 +407,11 @@ try {
 }
 
 function saveSettings() {
+  window.clearTimeout(saveSettingsTimer);
+  saveSettingsTimer = window.setTimeout(writeSettings, 250);
+}
+
+function writeSettings() {
   const settings = { ...state };
   delete settings.image;
   delete settings.watermark;
@@ -412,6 +419,11 @@ function saveSettings() {
   delete settings.watermarkName;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
+
+window.addEventListener("pagehide", () => {
+  window.clearTimeout(saveSettingsTimer);
+  writeSettings();
+});
 
 function loadDefaultWatermark() {
   const image = new Image();
@@ -705,9 +717,23 @@ function setStatus(message) {
 }
 
 function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, photoOnly = false) {
+  if (targetCanvas === canvas && !outputSize) {
+    if (previewDrawFrame) return;
+    previewDrawFrame = window.requestAnimationFrame(() => {
+      previewDrawFrame = 0;
+      drawNow(includeGuide, targetCanvas, outputSize, photoOnly);
+    });
+    return;
+  }
+  drawNow(includeGuide, targetCanvas, outputSize, photoOnly);
+}
+
+function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, photoOnly = false) {
   const targetContext = targetCanvas.getContext("2d");
   const current = preset();
-  const { width, height } = outputSize || current;
+  const previewWidth = Math.min(540, current.width);
+  const previewSize = { width: previewWidth, height: Math.round(previewWidth * current.height / current.width) };
+  const { width, height } = outputSize || (targetCanvas === canvas ? previewSize : current);
   targetCanvas.width = width;
   targetCanvas.height = height;
   targetContext.fillStyle = "#151515";
@@ -1072,31 +1098,33 @@ function getWatermarkVisibleBounds(watermark) {
 }
 
 function drawGuide(ctx, width, height) {
+  const guideScale = width / PRESETS.douyin.width;
   const safeHeight = width / 3 * 4;
   const top = (height - safeHeight) / 2;
   ctx.save();
-  ctx.setLineDash([18, 14]);
-  ctx.lineWidth = 4;
+  ctx.setLineDash([18 * guideScale, 14 * guideScale]);
+  ctx.lineWidth = 4 * guideScale;
   ctx.strokeStyle = "rgba(254,232,0,.92)";
-  ctx.strokeRect(18, top, width - 36, safeHeight);
+  ctx.strokeRect(18 * guideScale, top, width - 36 * guideScale, safeHeight);
   ctx.setLineDash([]);
   ctx.fillStyle = "rgba(254,232,0,.94)";
   ctx.font = `700 ${Math.round(width * .024)}px sans-serif`;
   ctx.textAlign = "right";
-  ctx.fillText("主页 3:4 安全区（导出时自动隐藏）", width - 30, top + 38);
-  const reserveTop = DOUYIN_HOME_SAFE.cropBottom - DOUYIN_HOME_SAFE.playCountReserve;
+  ctx.fillText("主页 3:4 安全区（导出时自动隐藏）", width - 30 * guideScale, top + 38 * guideScale);
+  const reserveTop = (DOUYIN_HOME_SAFE.cropBottom - DOUYIN_HOME_SAFE.playCountReserve) * guideScale;
+  const reserveHeight = DOUYIN_HOME_SAFE.playCountReserve * guideScale;
   ctx.fillStyle = "rgba(255,45,70,.12)";
-  ctx.fillRect(18, reserveTop, width - 36, DOUYIN_HOME_SAFE.playCountReserve);
-  ctx.setLineDash([12, 10]);
+  ctx.fillRect(18 * guideScale, reserveTop, width - 36 * guideScale, reserveHeight);
+  ctx.setLineDash([12 * guideScale, 10 * guideScale]);
   ctx.strokeStyle = "rgba(255,80,96,.9)";
   ctx.beginPath();
-  ctx.moveTo(18, reserveTop);
-  ctx.lineTo(width - 18, reserveTop);
+  ctx.moveTo(18 * guideScale, reserveTop);
+  ctx.lineTo(width - 18 * guideScale, reserveTop);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = "rgba(255,110,120,.96)";
   ctx.textAlign = "left";
-  ctx.fillText("播放量避让区 144px", 30, reserveTop + 38);
+  ctx.fillText("播放量避让区 144px", 30 * guideScale, reserveTop + 38 * guideScale);
   ctx.restore();
 }
 

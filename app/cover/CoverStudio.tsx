@@ -195,31 +195,33 @@ function drawCover(
   }
 
   if (!photoOnly && includeGuide && settings.showSafeArea && preset.id === "douyin") {
+    const guideScale = width / preset.width;
     const safeHeight = width / 3 * 4;
     const safeTop = (height - safeHeight) / 2;
     context.save();
-    context.setLineDash([18, 14]);
-    context.lineWidth = 4;
+    context.setLineDash([18 * guideScale, 14 * guideScale]);
+    context.lineWidth = 4 * guideScale;
     context.strokeStyle = "rgba(254,232,0,.92)";
-    context.strokeRect(18, safeTop, width - 36, safeHeight);
+    context.strokeRect(18 * guideScale, safeTop, width - 36 * guideScale, safeHeight);
     context.setLineDash([]);
     context.fillStyle = "rgba(254,232,0,.94)";
     context.font = `700 ${Math.round(width * 0.024)}px sans-serif`;
     context.textAlign = "right";
-    context.fillText("主页 3:4 安全区（导出时自动隐藏）", width - 30, safeTop + 38);
-    const reserveTop = DOUYIN_HOME_GRID_SAFE_AREA.cropBottom - DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve;
+    context.fillText("主页 3:4 安全区（导出时自动隐藏）", width - 30 * guideScale, safeTop + 38 * guideScale);
+    const reserveTop = (DOUYIN_HOME_GRID_SAFE_AREA.cropBottom - DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve) * guideScale;
+    const reserveHeight = DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * guideScale;
     context.fillStyle = "rgba(255,45,70,.12)";
-    context.fillRect(18, reserveTop, width - 36, DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve);
-    context.setLineDash([12, 10]);
+    context.fillRect(18 * guideScale, reserveTop, width - 36 * guideScale, reserveHeight);
+    context.setLineDash([12 * guideScale, 10 * guideScale]);
     context.strokeStyle = "rgba(255,80,96,.9)";
     context.beginPath();
-    context.moveTo(18, reserveTop);
-    context.lineTo(width - 18, reserveTop);
+    context.moveTo(18 * guideScale, reserveTop);
+    context.lineTo(width - 18 * guideScale, reserveTop);
     context.stroke();
     context.setLineDash([]);
     context.fillStyle = "rgba(255,110,120,.96)";
     context.textAlign = "left";
-    context.fillText("播放量避让区 144px", 30, reserveTop + 38);
+    context.fillText("播放量避让区 144px", 30 * guideScale, reserveTop + 38 * guideScale);
     context.restore();
   }
 }
@@ -713,8 +715,11 @@ export default function CoverStudio() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     settingsRef.current = settings;
+    const timer = window.setTimeout(() => {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    }, 250);
+    return () => window.clearTimeout(timer);
   }, [settings]);
 
   useEffect(() => {
@@ -922,9 +927,14 @@ export default function CoverStudio() {
   }, []);
 
   useEffect(() => {
-    if (canvasRef.current) {
-      drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true, undefined, false, showRetouchBefore ? [] : retouchStrokes);
-    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const frame = window.requestAnimationFrame(() => {
+      const width = Math.min(540, preset.width);
+      const previewSize = { width, height: Math.round(width * preset.height / preset.width) };
+      drawCover(canvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, true, previewSize, false, showRetouchBefore ? [] : retouchStrokes);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [image, preset, retouchStrokes, settings, showRetouchBefore, watermark]);
 
   const buildExportAsset = useCallback(async (format: "jpeg" | "png", photoOnly = false): Promise<ExportAsset | null> => {
