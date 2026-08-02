@@ -1470,10 +1470,6 @@ export default function CoverStudio() {
             </div>
           </div>
           <div className="studio-export-row">
-            <div>
-              <strong>导出前检查</strong>
-              <span>头顶、脸、手势和主标题均在安全区内</span>
-            </div>
             <button type="button" className="export-original" onClick={() => exportCover("png", true)}>导出原图 PNG</button>
             <button type="button" className="export-original" onClick={() => exportCover("jpeg", true)}>导出原图 JPG</button>
             <button type="button" className="export-secondary" disabled={Boolean(image) && !exportReady.png} onClick={() => exportCover("png")}>
