@@ -115,12 +115,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .canvas-shell.has-image canvas { cursor: grab; touch-action: none; user-select: none; }
 .canvas-shell.has-image canvas:active { cursor: grabbing; }
 .canvas-shell.is-rotating canvas, .canvas-shell.is-rotating canvas:active { cursor: ew-resize; }
-.export-row { margin-top: 16px; display: grid; grid-template-columns: 1fr auto auto; gap: 9px; align-items: center; }
+.export-row { margin-top: 16px; display: grid; grid-template-columns: 1fr repeat(4, auto); gap: 9px; align-items: center; }
 .export-row strong { color: #fff; font-size: 10px; }
 .export-row small { color: rgba(255,255,255,.46); font-size: 8px; }
 .export-row button { height: 38px; padding: 0 13px; border-radius: 10px; font-size: 10px; font-weight: 750; cursor: pointer; }
 .export-row button { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .export-row .secondary { border: 1px solid rgba(255,255,255,.2); background: transparent; color: #fff; }
+.export-row .original { border: 1px solid rgba(255,45,70,.72); background: transparent; color: #ff5368; }
 .export-row .primary { border: 1px solid var(--red); background: var(--red); color: #fff; }
 .export-row button:disabled { opacity: .56; cursor: wait; }
 .save-preview { position: fixed; inset: 0; z-index: 9999; padding: 18px; background: rgba(0,0,0,.82); overflow: auto; }

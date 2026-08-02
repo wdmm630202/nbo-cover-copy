@@ -792,7 +792,7 @@ body {
 .studio-export-row {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr repeat(4, auto);
   gap: 9px;
   align-items: center;
 }
@@ -829,6 +829,12 @@ body {
   border: 1px solid rgba(255, 255, 255, .2);
   background: transparent;
   color: #fff;
+}
+
+.export-original {
+  border: 1px solid rgba(255, 45, 70, .72);
+  background: transparent;
+  color: #ff5368;
 }
 
 .export-primary {

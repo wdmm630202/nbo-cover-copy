@@ -83,7 +83,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(copyWorkspaceSwitch, /window\.opener/);
   assert.match(copyWorkspaceSwitch, /window\.opener\.focus\(\)/);
   assert.match(copyWorkspaceSwitch, /window\.open\("\/", "nbo-copy-studio"\)/);
-  assert.match(coverStudio, /导出高清 JPG/);
+  assert.match(coverStudio, /导出原图 JPG/);
+  assert.match(coverStudio, /导出设计 JPG/);
+  assert.match(coverStudio, /photoOnly/);
   assert.match(coverStudio, /#FEE800/);
   assert.match(coverStudio, /主页 3:4 安全区/);
   assert.match(coverStudio, /图片不上传、不保存/);

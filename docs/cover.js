@@ -569,6 +569,8 @@ $("#templates").addEventListener("click", (event) => {
   saveSettings();
   draw();
 });
+$("#exportOriginalPng").addEventListener("click", () => exportCover("png", true));
+$("#exportOriginalJpg").addEventListener("click", () => exportCover("jpeg", true));
 $("#exportJpg").addEventListener("click", () => exportCover("jpeg"));
 $("#exportPng").addEventListener("click", () => exportCover("png"));
 
@@ -576,7 +578,7 @@ function setStatus(message) {
   $("#statusText").textContent = message;
 }
 
-function draw(includeGuide = true, targetCanvas = canvas, outputSize = null) {
+function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, photoOnly = false) {
   const targetContext = targetCanvas.getContext("2d");
   const current = preset();
   const { width, height } = outputSize || current;
@@ -611,10 +613,12 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null) {
     targetContext.fillText("上传照片后在这里预览", width / 2, height / 2);
   }
 
-  drawShade(targetContext, width, height);
-  drawText(targetContext, width, height);
-  if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
-  if (includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);
+  if (!photoOnly) {
+    drawShade(targetContext, width, height);
+    drawText(targetContext, width, height);
+    if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
+  }
+  if (!photoOnly && includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);
   if (targetCanvas === canvas) scheduleExportPreparation();
 }
 
@@ -926,7 +930,7 @@ function scheduleExportPreparation() {
   }, 120);
 }
 
-async function buildExportAsset(format) {
+async function buildExportAsset(format, photoOnly = false) {
   if (!state.image) return null;
   const output = document.createElement("canvas");
   const mimeType = format === "png" ? "image/png" : "image/jpeg";
@@ -936,7 +940,7 @@ async function buildExportAsset(format) {
   let outputSize = sourceRatio >= targetRatio
     ? { width: Math.round(state.image.naturalHeight * targetRatio), height: state.image.naturalHeight }
     : { width: state.image.naturalWidth, height: Math.round(state.image.naturalWidth / targetRatio) };
-  draw(false, output, outputSize);
+  draw(false, output, outputSize, photoOnly);
   const toBlob = (quality) => new Promise((resolve) => output.toBlob(resolve, mimeType, quality));
   const maxBytes = 19.9 * 1024 * 1024;
   let quality = format === "jpeg" ? .98 : undefined;
@@ -948,7 +952,7 @@ async function buildExportAsset(format) {
   while (blob && blob.size > maxBytes && outputSize.width > 320) {
     const ratio = Math.min(.94, Math.sqrt(maxBytes / blob.size) * .98);
     outputSize = { width: Math.max(320, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
-    draw(false, output, outputSize);
+    draw(false, output, outputSize, photoOnly);
     blob = await toBlob(quality);
   }
   if (!blob) return null;
@@ -957,10 +961,18 @@ async function buildExportAsset(format) {
   return { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
 }
 
-async function exportCover(format) {
+async function exportCover(format, photoOnly = false) {
   if (!state.image) return setStatus("请先上传一张照片");
-  let asset = exportCache[format];
-  if (!asset) {
+  let asset = photoOnly ? null : exportCache[format];
+  if (photoOnly) {
+    setStatus(`正在生成无文字、无水印的${format === "png" ? " PNG" : " JPG"}…`);
+    try {
+      asset = await buildExportAsset(format, true);
+    } catch {
+      asset = null;
+    }
+    if (!asset) return setStatus("原图生成没有完成，请重新上传照片后再试");
+  } else if (!asset) {
     setExportReady(format, false);
     setStatus(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}，完成后请再点一次`);
     try {
@@ -974,7 +986,7 @@ async function exportCover(format) {
   }
   const current = preset();
   const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
-  const exportName = `${name}_${current.label}_${current.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;
+  const exportName = `${name}_${photoOnly ? "原图" : "设计"}_${current.label}_${current.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;
   asset = { ...asset, file: new File([asset.blob], exportName, { type: asset.blob.type }) };
   const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
   if (isMobile) {
