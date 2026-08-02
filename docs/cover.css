@@ -112,6 +112,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .canvas-shell.ratio-9-16 { aspect-ratio: 9/16; }
 .canvas-shell.ratio-3-4 { aspect-ratio: 3/4; }
 .canvas-shell canvas { width: 100%; height: 100%; display: block; }
+.canvas-shell.has-image canvas { cursor: grab; touch-action: none; user-select: none; }
+.canvas-shell.has-image canvas:active { cursor: grabbing; }
+.canvas-shell.is-rotating canvas, .canvas-shell.is-rotating canvas:active { cursor: ew-resize; }
 .export-row { margin-top: 16px; display: grid; grid-template-columns: 1fr auto auto; gap: 9px; align-items: center; }
 .export-row strong { color: #fff; font-size: 10px; }
 .export-row small { color: rgba(255,255,255,.46); font-size: 8px; }

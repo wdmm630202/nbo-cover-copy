@@ -68,9 +68,63 @@ let defaultWatermark = null;
 let exportCache = { jpeg: null, png: null };
 let exportRevision = 0;
 let exportPrepareTimer = 0;
+let imageInteraction = { rotationMode: false, drag: null };
 const syncChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(COPY_SYNC_CHANNEL)
   : null;
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+canvas.addEventListener("pointerdown", (event) => {
+  if (!state.image || event.button !== 0) return;
+  imageInteraction.drag = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    offsetX: state.offsetX,
+    offsetY: state.offsetY,
+    rotation: state.rotation,
+  };
+  canvas.setPointerCapture(event.pointerId);
+});
+
+canvas.addEventListener("pointermove", (event) => {
+  const drag = imageInteraction.drag;
+  if (!state.image || !drag || drag.pointerId !== event.pointerId) return;
+  const rect = canvas.getBoundingClientRect();
+  if (imageInteraction.rotationMode) {
+    state.rotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
+  } else {
+    state.offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -40, 40);
+    state.offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -40, 40);
+  }
+  updateUi(); saveSettings(); draw();
+});
+
+const endImageDrag = (event) => {
+  const drag = imageInteraction.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+  imageInteraction.drag = null;
+};
+canvas.addEventListener("pointerup", endImageDrag);
+canvas.addEventListener("pointercancel", endImageDrag);
+
+canvas.addEventListener("wheel", (event) => {
+  if (!state.image) return;
+  event.preventDefault();
+  const amount = clamp(-event.deltaY * .02, -2, 2);
+  state.zoom = clamp(Math.round((state.zoom + amount) * 10) / 10, 100, 180);
+  updateUi(); saveSettings(); draw();
+}, { passive: false });
+
+canvas.addEventListener("dblclick", (event) => {
+  if (!state.image) return;
+  event.preventDefault();
+  imageInteraction.rotationMode = !imageInteraction.rotationMode;
+  $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
+  setStatus(imageInteraction.rotationMode ? "已进入旋转：按住照片左右拖动，双击退出" : "已退出旋转，可按住照片移动");
+});
 
 function normalizeSyncedCopy(value) {
   if (!value || typeof value !== "object") return null;
@@ -325,6 +379,8 @@ function updateUi() {
   $("#presetNote").textContent = `${current.width}×${current.height} · ${current.note}`;
   $("#previewRatio").textContent = `${current.label} · ${current.ratio}`;
   $("#canvasShell").className = `canvas-shell ratio-${current.ratio.replace(":", "-")}`;
+  $("#canvasShell").classList.toggle("has-image", Boolean(state.image));
+  $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
 }
 updateUi();
 loadDefaultWatermark();

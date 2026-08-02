@@ -774,6 +774,21 @@ body {
   display: block;
 }
 
+.studio-canvas-shell.has-image canvas {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.studio-canvas-shell.has-image canvas:active {
+  cursor: grabbing;
+}
+
+.studio-canvas-shell.is-rotating canvas,
+.studio-canvas-shell.is-rotating canvas:active {
+  cursor: ew-resize;
+}
+
 .studio-export-row {
   margin-top: 16px;
   display: grid;

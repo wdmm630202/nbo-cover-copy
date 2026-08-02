@@ -547,6 +547,9 @@ export default function CoverStudio() {
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
   const [memoryNames, setMemoryNames] = useState(["记忆 1", "记忆 2", "记忆 3"]);
+  const [rotationMode, setRotationMode] = useState(false);
+  const settingsRef = useRef(settings);
+  const rotationModeRef = useRef(rotationMode);
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -587,7 +590,82 @@ export default function CoverStudio() {
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    rotationModeRef.current = rotationMode;
+  }, [rotationMode]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !image) return;
+    let drag: { pointerId: number; x: number; y: number; offsetX: number; offsetY: number; rotation: number } | null = null;
+    const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const current = settingsRef.current;
+      drag = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        offsetX: current.offsetX,
+        offsetY: current.offsetY,
+        rotation: current.rotation,
+      };
+      canvas.setPointerCapture(event.pointerId);
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rotationModeRef.current) {
+        const rotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
+        setSettings((current) => ({ ...current, rotation }));
+      } else {
+        const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -40, 40);
+        const offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -40, 40);
+        setSettings((current) => ({ ...current, offsetX, offsetY }));
+      }
+    };
+    const endDrag = (event: PointerEvent) => {
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      drag = null;
+    };
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const amount = clamp(-event.deltaY * 0.02, -2, 2);
+      setSettings((current) => ({
+        ...current,
+        zoom: clamp(Math.round((current.zoom + amount) * 10) / 10, 100, 180),
+      }));
+    };
+    const handleDoubleClick = (event: MouseEvent) => {
+      event.preventDefault();
+      setRotationMode((current) => {
+        const next = !current;
+        rotationModeRef.current = next;
+        setNotice(next ? "已进入旋转：按住照片左右拖动，双击退出" : "已退出旋转，可按住照片移动");
+        return next;
+      });
+    };
+
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    canvas.addEventListener("dblclick", handleDoubleClick);
+    return () => {
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", endDrag);
+      canvas.removeEventListener("pointercancel", endDrag);
+      canvas.removeEventListener("wheel", handleWheel);
+      canvas.removeEventListener("dblclick", handleDoubleClick);
+    };
+  }, [image]);
 
   useEffect(() => {
     const acceptSync = (value: unknown, isLiveUpdate = false) => {
@@ -1141,8 +1219,8 @@ export default function CoverStudio() {
               安全区
             </label>
           </div>
-          <div className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")}`}>
-            <canvas ref={canvasRef} aria-label="封面实时预览" />
+          <div className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""}`}>
+            <canvas ref={canvasRef} aria-label="封面实时预览，可拖动照片、滚轮缩放、双击旋转" />
           </div>
           <div className="studio-export-row">
             <div>
