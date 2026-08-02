@@ -83,6 +83,7 @@ let defaultWatermark = null;
 let exportCache = { jpeg: null, png: null };
 let previewDrawFrame = 0;
 let saveSettingsTimer = 0;
+const previewScratch = { shade: document.createElement("canvas"), stroke: document.createElement("canvas") };
 let imageInteraction = { rotationMode: false, drag: null };
 const retouch = { active: false, size: 120, feather: 70, strength: 100, strokes: [], pointerId: null, compareBefore: false };
 const syncChannel = "BroadcastChannel" in window
@@ -146,11 +147,17 @@ canvas.addEventListener("pointermove", (event) => {
   const rect = canvas.getBoundingClientRect();
   if (imageInteraction.rotationMode) {
     state.rotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
+    $("#rotation").value = state.rotation;
+    $("#rotationValue").textContent = `${state.rotation}°`;
   } else {
     state.offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -200, 200);
     state.offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -200, 200);
+    $("#offsetX").value = state.offsetX;
+    $("#offsetXValue").textContent = state.offsetX;
+    $("#offsetY").value = state.offsetY;
+    $("#offsetYValue").textContent = state.offsetY;
   }
-  updateUi(); saveSettings(); draw();
+  saveSettings(); draw();
 });
 
 const endImageDrag = (event) => {
@@ -731,7 +738,8 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, pho
 function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, photoOnly = false) {
   const targetContext = targetCanvas.getContext("2d");
   const current = preset();
-  const previewWidth = Math.min(540, current.width);
+  const lowPower = (navigator.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4;
+  const previewWidth = Math.min(lowPower ? 420 : 540, current.width);
   const previewSize = { width: previewWidth, height: Math.round(previewWidth * current.height / current.width) };
   const { width, height } = outputSize || (targetCanvas === canvas ? previewSize : current);
   targetCanvas.width = width;
@@ -767,14 +775,18 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
   }
 
   if (!photoOnly) {
-    const shadeCanvas = document.createElement("canvas");
-    shadeCanvas.width = width;
-    shadeCanvas.height = height;
+    const shadeCanvas = targetCanvas === canvas ? previewScratch.shade : document.createElement("canvas");
+    const strokeCanvas = targetCanvas === canvas ? previewScratch.stroke : document.createElement("canvas");
+    if (shadeCanvas.width !== width) shadeCanvas.width = width;
+    if (shadeCanvas.height !== height) shadeCanvas.height = height;
+    if (strokeCanvas.width !== width) strokeCanvas.width = width;
+    if (strokeCanvas.height !== height) strokeCanvas.height = height;
     const shadeContext = shadeCanvas.getContext("2d");
     if (shadeContext) {
+      shadeContext.clearRect(0, 0, width, height);
       drawShade(shadeContext, width, height);
       const visibleStrokes = targetCanvas === canvas && retouch.compareBefore ? [] : retouch.strokes;
-      eraseShadeWithBrush(shadeContext, width, height, visibleStrokes);
+      eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, visibleStrokes);
       targetContext.drawImage(shadeCanvas, 0, 0);
     }
     drawText(targetContext, width, height);
@@ -784,11 +796,8 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
   if (targetCanvas === canvas) scheduleExportPreparation();
 }
 
-function eraseShadeWithBrush(ctx, width, height, strokes) {
+function eraseShadeWithBrush(ctx, strokeCanvas, width, height, strokes) {
   if (!strokes.length) return;
-  const strokeCanvas = document.createElement("canvas");
-  strokeCanvas.width = width;
-  strokeCanvas.height = height;
   const strokeContext = strokeCanvas.getContext("2d");
   if (!strokeContext) return;
   strokes.forEach((stroke) => {

@@ -69,6 +69,22 @@ type ExportAsset = {
 
 type RetouchPoint = { x: number; y: number };
 type RetouchStroke = { points: RetouchPoint[]; size: number; feather: number; strength: number };
+type CoverScratch = { shade: HTMLCanvasElement; stroke: HTMLCanvasElement };
+
+const coverScratch = new WeakMap<HTMLCanvasElement, CoverScratch>();
+
+function getCoverScratch(canvas: HTMLCanvasElement, width: number, height: number) {
+  let scratch = coverScratch.get(canvas);
+  if (!scratch) {
+    scratch = { shade: document.createElement("canvas"), stroke: document.createElement("canvas") };
+    coverScratch.set(canvas, scratch);
+  }
+  for (const item of [scratch.shade, scratch.stroke]) {
+    if (item.width !== width) item.width = width;
+    if (item.height !== height) item.height = height;
+  }
+  return scratch;
+}
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
@@ -181,13 +197,13 @@ function drawCover(
   }
 
   if (!photoOnly) {
-    const shadeCanvas = document.createElement("canvas");
-    shadeCanvas.width = width;
-    shadeCanvas.height = height;
+    const scratch = getCoverScratch(canvas, width, height);
+    const shadeCanvas = scratch.shade;
     const shadeContext = shadeCanvas.getContext("2d");
     if (shadeContext) {
+      shadeContext.clearRect(0, 0, width, height);
       drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
-      eraseShadeWithBrush(shadeContext, width, height, retouchStrokes);
+      eraseShadeWithBrush(shadeContext, scratch.stroke, width, height, retouchStrokes);
       context.drawImage(shadeCanvas, 0, 0);
     }
     drawTemplateText(context, settings, width, height, watermark);
@@ -228,14 +244,12 @@ function drawCover(
 
 function eraseShadeWithBrush(
   context: CanvasRenderingContext2D,
+  strokeCanvas: HTMLCanvasElement,
   width: number,
   height: number,
   strokes: RetouchStroke[],
 ) {
   if (!strokes.length) return;
-  const strokeCanvas = document.createElement("canvas");
-  strokeCanvas.width = width;
-  strokeCanvas.height = height;
   const strokeContext = strokeCanvas.getContext("2d");
   if (!strokeContext) return;
   for (const stroke of strokes) {
@@ -764,6 +778,8 @@ export default function CoverStudio() {
     if (!canvas || !image) return;
     let drag: { pointerId: number; x: number; y: number; offsetX: number; offsetY: number; rotation: number } | null = null;
     let brushPointerId: number | null = null;
+    let pointerMoveFrame = 0;
+    let pendingPointerMove: { pointerId: number; clientX: number; clientY: number } | null = null;
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -789,7 +805,11 @@ export default function CoverStudio() {
       };
       canvas.setPointerCapture(event.pointerId);
     };
-    const handlePointerMove = (event: PointerEvent) => {
+    const applyPointerMove = () => {
+      pointerMoveFrame = 0;
+      const event = pendingPointerMove;
+      pendingPointerMove = null;
+      if (!event) return;
       if (brushModeRef.current) {
         const rect = canvas.getBoundingClientRect();
         setBrushCursor({ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1), visible: true });
@@ -811,7 +831,15 @@ export default function CoverStudio() {
         setSettings((current) => ({ ...current, offsetX, offsetY }));
       }
     };
+    const handlePointerMove = (event: PointerEvent) => {
+      pendingPointerMove = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+      if (!pointerMoveFrame) pointerMoveFrame = window.requestAnimationFrame(applyPointerMove);
+    };
     const endDrag = (event: PointerEvent) => {
+      if (pendingPointerMove?.pointerId === event.pointerId) {
+        if (pointerMoveFrame) window.cancelAnimationFrame(pointerMoveFrame);
+        applyPointerMove();
+      }
       if (brushPointerId === event.pointerId) {
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
         brushPointerId = null;
@@ -852,6 +880,7 @@ export default function CoverStudio() {
     canvas.addEventListener("dblclick", handleDoubleClick);
     canvas.addEventListener("pointerleave", handlePointerLeave);
     return () => {
+      if (pointerMoveFrame) window.cancelAnimationFrame(pointerMoveFrame);
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointermove", handlePointerMove);
       canvas.removeEventListener("pointerup", endDrag);
@@ -930,7 +959,9 @@ export default function CoverStudio() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const frame = window.requestAnimationFrame(() => {
-      const width = Math.min(540, preset.width);
+      const device = navigator as Navigator & { deviceMemory?: number };
+      const lowPower = (device.deviceMemory ?? 8) <= 4 || (device.hardwareConcurrency ?? 8) <= 4;
+      const width = Math.min(lowPower ? 420 : 540, preset.width);
       const previewSize = { width, height: Math.round(width * preset.height / preset.width) };
       drawCover(canvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, true, previewSize, false, showRetouchBefore ? [] : retouchStrokes);
     });

@@ -171,7 +171,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /navigator\.share/);
   assert.match(publicCoverScript, /存储图像/);
   assert.match(publicCoverScript, /scheduleExportPreparation/);
-  assert.match(publicCoverScript, /Math\.min\(540, current\.width\)/);
+  assert.match(publicCoverScript, /lowPower \? 420 : 540/);
+  assert.match(publicCoverScript, /navigator\.hardwareConcurrency/);
   assert.match(publicCoverScript, /requestAnimationFrame/);
   assert.match(publicCoverScript, /pagehide/);
   assert.match(publicCoverScript, /这次生成没有完成/);
