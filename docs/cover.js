@@ -34,6 +34,7 @@ const state = {
   offsetY: 0,
   rotation: 0,
   textScale: 100,
+  textEffect: 0,
   titleScaleVersion: 2,
   shade: 0,
   bottomShade: 100,
@@ -363,7 +364,7 @@ function updateUi() {
   $("#subtitleScale").value = state.subtitleScale;
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   $("#safeToggle").checked = state.safe;
-  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
+  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "textEffect", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
   $("#zoomValue").textContent = `${state.zoom}%`;
@@ -371,6 +372,7 @@ function updateUi() {
   $("#offsetYValue").textContent = state.offsetY;
   $("#rotationValue").textContent = `${state.rotation}°`;
   $("#textScaleValue").textContent = `${state.textScale}%`;
+  $("#textEffectValue").textContent = `${state.textEffect}%`;
   $("#shadeValue").textContent = `${state.shade}%`;
   $("#bottomShadeValue").textContent = `${state.bottomShade}%`;
   $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
@@ -441,7 +443,7 @@ $("#subtitleScale").addEventListener("input", (event) => {
   saveSettings(); draw();
 });
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
-["zoom", "offsetX", "offsetY", "rotation", "textScale", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
+["zoom", "offsetX", "offsetY", "rotation", "textScale", "textEffect", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = Number(event.target.value);
     updateUi();
@@ -500,7 +502,7 @@ $("#resetSettings").addEventListener("click", () => {
     platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
-    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, titleScaleVersion: 2, shade: 0, bottomShade: 100,
+    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, textEffect: 0, titleScaleVersion: 2, shade: 0, bottomShade: 100,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
@@ -672,8 +674,14 @@ function drawText(ctx, width, height) {
   const baseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.textScale / 100));
   ctx.save();
   ctx.textAlign = align;
-  ctx.shadowColor = "rgba(0,0,0,.42)";
-  ctx.shadowBlur = 16;
+  const textEffect = Math.max(0, Math.min(1, state.textEffect / 100));
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = `rgba(0,0,0,${.92 * textEffect})`;
+  ctx.lineWidth = width * .012 * textEffect;
+  ctx.shadowColor = `rgba(0,0,0,${.78 * textEffect})`;
+  ctx.shadowBlur = width * .024 * textEffect;
+  ctx.shadowOffsetX = width * .004 * textEffect;
+  ctx.shadowOffsetY = width * .006 * textEffect;
   const hasBottomText = Boolean(state.bottomText.trim());
   const topFit = fitText(ctx, state.topText, baseFont, maxWidth);
   const bottomFit = hasBottomText ? fitText(ctx, state.bottomText, baseFont, maxWidth) : topFit;
@@ -729,16 +737,21 @@ function drawText(ctx, width, height) {
   const subtitleBaseline = y + relativeSubtitleBaseline;
   ctx.fillStyle = state.topColor;
   ctx.font = `900 ${topFontSize}px sans-serif`;
+  if (textEffect > 0) ctx.strokeText(state.topText || "上行标题", x, y, maxWidth);
   ctx.fillText(state.topText || "上行标题", x, y, maxWidth);
   if (state.bottomText.trim()) {
     ctx.fillStyle = state.bottomColor;
     ctx.font = `900 ${bottomFontSize}px sans-serif`;
+    if (textEffect > 0) ctx.strokeText(state.bottomText, x, secondBaseline, maxWidth);
     ctx.fillText(state.bottomText, x, secondBaseline, maxWidth);
   }
   if (state.divider) {
     const dividerWidth = activeHeadlineFontSize;
     const dividerX = right ? x - dividerWidth : center ? x - dividerWidth / 2 : x;
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
     const dividerGradient = ctx.createLinearGradient(dividerX, 0, dividerX + dividerWidth, 0);
     dividerGradient.addColorStop(0, colorWithAlpha(state.dividerColor, 0));
     dividerGradient.addColorStop(.18, colorWithAlpha(state.dividerColor, 1));
@@ -748,6 +761,10 @@ function drawText(ctx, width, height) {
     ctx.fillRect(Math.round(dividerX), dividerY, Math.round(dividerWidth), dividerThickness);
   }
   if (state.subtitle.trim()) {
+    ctx.shadowColor = `rgba(0,0,0,${.78 * textEffect})`;
+    ctx.shadowBlur = width * .024 * textEffect;
+    ctx.shadowOffsetX = width * .004 * textEffect;
+    ctx.shadowOffsetY = width * .006 * textEffect;
     ctx.fillStyle = state.subtitleColor;
     ctx.font = `400 ${subtitleFontSize}px sans-serif`;
     const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
@@ -790,7 +807,10 @@ function drawWrapped(ctx, text, x, y, maxWidth, lineHeight, align) {
   ctx.textAlign = align;
   lines.slice(0, 2).forEach((line, index) => {
     const lineY = y + index * lineHeight;
-    if (Array.from(line).length !== 12) return ctx.fillText(line, x, lineY, maxWidth);
+    if (Array.from(line).length !== 12) {
+      if (ctx.lineWidth > 0) ctx.strokeText(line, x, lineY, maxWidth);
+      return ctx.fillText(line, x, lineY, maxWidth);
+    }
     const left = align === "right" ? x - maxWidth : align === "center" ? x - maxWidth / 2 : x;
     const glyphs = Array.from(line).map((character) => ({ character, metrics: ctx.measureText(character) }));
     const widths = glyphs.map(({ metrics }) =>
@@ -800,6 +820,7 @@ function drawWrapped(ctx, text, x, y, maxWidth, lineHeight, align) {
     let cursor = left;
     ctx.textAlign = "left";
     glyphs.forEach(({ character, metrics }, glyphIndex) => {
+      if (ctx.lineWidth > 0) ctx.strokeText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
       ctx.fillText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
       cursor += widths[glyphIndex] + gap;
     });

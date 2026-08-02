@@ -45,6 +45,7 @@ type StudioSettings = {
   offsetY: number;
   rotation: number;
   textScale: number;
+  textEffect: number;
   titleScaleVersion: number;
   shade: number;
   bottomShade: number;
@@ -88,6 +89,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   offsetY: 0,
   rotation: 0,
   textScale: 100,
+  textEffect: 0,
   titleScaleVersion: 2,
   shade: 0,
   bottomShade: 100,
@@ -262,8 +264,14 @@ function drawTemplateText(
   context.save();
   context.textAlign = textAlign;
   context.textBaseline = "alphabetic";
-  context.shadowColor = "rgba(0,0,0,.42)";
-  context.shadowBlur = 16;
+  const textEffect = Math.max(0, Math.min(1, settings.textEffect / 100));
+  context.lineJoin = "round";
+  context.strokeStyle = `rgba(0,0,0,${0.92 * textEffect})`;
+  context.lineWidth = width * 0.012 * textEffect;
+  context.shadowColor = `rgba(0,0,0,${0.78 * textEffect})`;
+  context.shadowBlur = width * 0.024 * textEffect;
+  context.shadowOffsetX = width * 0.004 * textEffect;
+  context.shadowOffsetY = width * 0.006 * textEffect;
 
   const hasBottomText = Boolean(settings.bottomText.trim());
   const topFit = fitText(context, settings.topText, baseFont, maxWidth);
@@ -320,18 +328,23 @@ function drawTemplateText(
 
   context.fillStyle = settings.topColor;
   context.font = `900 ${topFontSize}px sans-serif`;
+  if (textEffect > 0) context.strokeText(settings.topText || "上行标题", x, y, maxWidth);
   context.fillText(settings.topText || "上行标题", x, y, maxWidth);
 
   if (settings.bottomText.trim()) {
     context.fillStyle = settings.bottomColor;
     context.font = `900 ${bottomFontSize}px sans-serif`;
+    if (textEffect > 0) context.strokeText(settings.bottomText, x, secondBaseline, maxWidth);
     context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
   }
 
   if (settings.showDivider) {
     const dividerWidth = activeHeadlineFontSize;
     const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
-    context.shadowBlur = 8;
+    context.shadowColor = "transparent";
+    context.shadowBlur = 0;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
     const dividerGradient = context.createLinearGradient(dividerX, 0, dividerX + dividerWidth, 0);
     dividerGradient.addColorStop(0, colorWithAlpha(settings.dividerColor, 0));
     dividerGradient.addColorStop(0.18, colorWithAlpha(settings.dividerColor, 1));
@@ -342,7 +355,10 @@ function drawTemplateText(
   }
 
   if (settings.subtitle.trim()) {
-    context.shadowBlur = 10;
+    context.shadowColor = `rgba(0,0,0,${0.78 * textEffect})`;
+    context.shadowBlur = width * 0.024 * textEffect;
+    context.shadowOffsetX = width * 0.004 * textEffect;
+    context.shadowOffsetY = width * 0.006 * textEffect;
     context.fillStyle = settings.subtitleColor;
     context.font = `400 ${subtitleFontSize}px sans-serif`;
     drawWrappedText(
@@ -475,6 +491,7 @@ function drawWrappedText(
   lines.slice(0, 2).forEach((line, index) => {
     const lineY = y + index * lineHeight;
     if (Array.from(line).length !== 12) {
+      if (context.lineWidth > 0) context.strokeText(line, x, lineY, maxWidth);
       context.fillText(line, x, lineY, maxWidth);
       return;
     }
@@ -487,6 +504,7 @@ function drawWrappedText(
     let cursor = left;
     context.textAlign = "left";
     glyphs.forEach(({ character, metrics }, glyphIndex) => {
+      if (context.lineWidth > 0) context.strokeText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
       context.fillText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
       cursor += widths[glyphIndex] + gap;
     });
@@ -1324,6 +1342,14 @@ export default function CoverStudio() {
               max={200}
               suffix="%"
               onChange={(value) => updateSetting("textScale", value)}
+            />
+            <Slider
+              label="字体描边＋阴影"
+              value={settings.textEffect}
+              min={0}
+              max={100}
+              suffix="%"
+              onChange={(value) => updateSetting("textEffect", value)}
             />
             <Slider
               label="压暗强度"
