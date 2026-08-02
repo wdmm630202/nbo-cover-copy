@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#202020" />
     <meta name="robots" content="noindex,nofollow" />
     <title>NBO南铂封面制作台</title>
-    <link rel="stylesheet" href="./cover.css?v=20260803-reset-label-half" />
+    <link rel="stylesheet" href="./cover.css?v=20260803-mobile-safe-gestures" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -102,6 +102,7 @@
             </div>
             <div class="canvas-shell ratio-9-16" id="canvasShell">
               <canvas id="coverCanvas" aria-label="封面实时预览，可拖动照片、滚轮缩放、双击旋转"></canvas>
+              <span class="mobile-touch-zone" id="mobileTouchZone" aria-hidden="true"></span>
               <span class="transform-hud" id="transformHud" aria-live="polite"></span>
               <span class="snap-guide horizontal" id="snapHorizontal" aria-hidden="true"></span>
               <span class="snap-guide vertical" id="snapVertical" aria-hidden="true"></span>
@@ -179,6 +180,6 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./cover.js?v=20260802-auxiliary-inside-guides"></script>
+    <script src="./cover.js?v=20260803-mobile-safe-gestures"></script>
   </body>
 </html>

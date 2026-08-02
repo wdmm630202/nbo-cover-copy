@@ -661,6 +661,7 @@ function Slider({
 export default function CoverStudio() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasShellRef = useRef<HTMLDivElement>(null);
+  const mobileTouchZoneRef = useRef<HTMLSpanElement>(null);
   const transformHudRef = useRef<HTMLSpanElement>(null);
   const snapHorizontalRef = useRef<HTMLSpanElement>(null);
   const snapVerticalRef = useRef<HTMLSpanElement>(null);
@@ -831,6 +832,7 @@ export default function CoverStudio() {
         canvas.setPointerCapture(event.pointerId);
         return;
       }
+      if (event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches) return;
       const current = settingsRef.current;
       drag = {
         pointerId: event.pointerId,
@@ -928,6 +930,120 @@ export default function CoverStudio() {
       canvas.removeEventListener("wheel", handleWheel);
       canvas.removeEventListener("dblclick", handleDoubleClick);
       canvas.removeEventListener("pointerleave", handlePointerLeave);
+    };
+  }, [image]);
+
+  useEffect(() => {
+    const zone = mobileTouchZoneRef.current;
+    const canvas = canvasRef.current;
+    if (!zone || !canvas || !image) return;
+    type Point = { x: number; y: number };
+    type Baseline =
+      | { mode: "move"; x: number; y: number; offsetX: number; offsetY: number }
+      | { mode: "transform"; midX: number; midY: number; distance: number; angle: number; offsetX: number; offsetY: number; zoom: number; rotation: number };
+    const pointers = new Map<number, Point>();
+    let holdTimer = 0;
+    let active = false;
+    let baseline: Baseline | null = null;
+    const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+    const isMobileTouch = (event: PointerEvent) => event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches;
+    const setBaseline = () => {
+      const points = [...pointers.values()];
+      const current = settingsRef.current;
+      if (!points.length) { baseline = null; return; }
+      if (points.length === 1) {
+        baseline = { mode: "move", x: points[0].x, y: points[0].y, offsetX: current.offsetX, offsetY: current.offsetY };
+        return;
+      }
+      const [a, b] = points;
+      baseline = {
+        mode: "transform",
+        midX: (a.x + b.x) / 2,
+        midY: (a.y + b.y) / 2,
+        distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+        angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI,
+        offsetX: current.offsetX,
+        offsetY: current.offsetY,
+        zoom: current.zoom,
+        rotation: current.rotation,
+      };
+    };
+    const updateTransform = (patch: Partial<Pick<StudioSettings, "offsetX" | "offsetY" | "zoom" | "rotation">>) => {
+      setSettings((current) => {
+        const next = { ...current, ...patch };
+        settingsRef.current = next;
+        return next;
+      });
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!isMobileTouch(event) || brushModeRef.current) return;
+      event.preventDefault();
+      zone.setPointerCapture(event.pointerId);
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size === 1) {
+        active = false;
+        baseline = null;
+        window.clearTimeout(holdTimer);
+        holdTimer = window.setTimeout(() => {
+          if (!pointers.size) return;
+          active = true;
+          setBaseline();
+          showTransformHint("已锁定照片");
+        }, 220);
+      } else if (active) setBaseline();
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!pointers.has(event.pointerId)) return;
+      event.preventDefault();
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (!active || !baseline) return;
+      const points = [...pointers.values()];
+      const rect = canvas.getBoundingClientRect();
+      if (points.length === 1 && baseline.mode === "move") {
+        const offsetX = clamp(Math.round(baseline.offsetX + (points[0].x - baseline.x) / rect.width * 100), -200, 200);
+        const offsetY = clamp(Math.round(baseline.offsetY + (points[0].y - baseline.y) / rect.height * 100), -200, 200);
+        updateTransform({ offsetX, offsetY });
+        showTransformHint(`${offsetX}, ${offsetY}`);
+        return;
+      }
+      if (points.length >= 2 && baseline.mode === "transform") {
+        const [a, b] = points;
+        const midX = (a.x + b.x) / 2;
+        const midY = (a.y + b.y) / 2;
+        const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+        const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+        const angleDelta = ((angle - baseline.angle + 540) % 360) - 180;
+        const snapped = snapRotation(clamp(Math.round(baseline.rotation + angleDelta), -180, 180));
+        const zoom = clamp(Math.round(baseline.zoom * distance / baseline.distance), 0, 400);
+        const offsetX = clamp(Math.round(baseline.offsetX + (midX - baseline.midX) / rect.width * 100), -200, 200);
+        const offsetY = clamp(Math.round(baseline.offsetY + (midY - baseline.midY) / rect.height * 100), -200, 200);
+        updateTransform({ zoom, offsetX, offsetY, rotation: snapped.value });
+        showTransformHint(`${zoom}% · ${snapped.value}°`, snapped.guide);
+        return;
+      }
+      setBaseline();
+    };
+    const endGesture = (event: PointerEvent) => {
+      if (!pointers.has(event.pointerId)) return;
+      pointers.delete(event.pointerId);
+      if (zone.hasPointerCapture(event.pointerId)) zone.releasePointerCapture(event.pointerId);
+      if (active && pointers.size) setBaseline();
+      else if (!pointers.size) {
+        window.clearTimeout(holdTimer);
+        active = false;
+        baseline = null;
+      }
+    };
+    zone.addEventListener("pointerdown", handlePointerDown);
+    zone.addEventListener("pointermove", handlePointerMove);
+    zone.addEventListener("pointerup", endGesture);
+    zone.addEventListener("pointercancel", endGesture);
+    return () => {
+      window.clearTimeout(holdTimer);
+      zone.removeEventListener("pointerdown", handlePointerDown);
+      zone.removeEventListener("pointermove", handlePointerMove);
+      zone.removeEventListener("pointerup", endGesture);
+      zone.removeEventListener("pointercancel", endGesture);
     };
   }, [image]);
 
@@ -1537,6 +1653,7 @@ export default function CoverStudio() {
           </div>
           <div ref={canvasShellRef} className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""} ${brushMode ? "is-brushing" : ""}`}>
             <canvas ref={canvasRef} aria-label="封面实时预览，可拖动照片；开启涂抹后可局部擦开压暗层" />
+            <span ref={mobileTouchZoneRef} className={`studio-mobile-touch-zone ${image && settings.platformId === "douyin" && !brushMode ? "is-active" : ""}`} aria-hidden="true" />
             <span ref={transformHudRef} className="studio-transform-hud" aria-live="polite" />
             <span ref={snapHorizontalRef} className="studio-snap-guide is-horizontal" aria-hidden="true" />
             <span ref={snapVerticalRef} className="studio-snap-guide is-vertical" aria-hidden="true" />

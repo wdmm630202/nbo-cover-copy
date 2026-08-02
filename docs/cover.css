@@ -121,6 +121,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .canvas-shell canvas { width: 100%; height: 100%; display: block; }
 .canvas-shell.has-image canvas { cursor: grab; touch-action: none; user-select: none; }
 .canvas-shell.has-image canvas:active { cursor: grabbing; }
+.mobile-touch-zone { display: none; }
 .canvas-shell.is-rotating canvas, .canvas-shell.is-rotating canvas:active { cursor: ew-resize; }
 .transform-hud { position: absolute; z-index: 8; left: 50%; top: 50%; min-width: 68px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; background: rgba(12,12,12,.76); color: #fff; font-size: 14px; font-weight: 800; line-height: 1; text-align: center; pointer-events: none; opacity: 0; transform: translate(-50%, -50%) scale(.96); transition: opacity .12s, transform .12s; }
 .transform-hud.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -267,6 +268,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .status { width: 100%; min-width: 0; }
   .studio-grid { grid-template-columns: 1fr; }
   .preview-panel { min-height: 0; order: -1; }
+  .canvas-shell.has-image canvas { touch-action: pan-y; }
+  .canvas-shell.is-brushing canvas { touch-action: none; }
+  .mobile-touch-zone.active { display: block; position: absolute; z-index: 5; left: 1.6667%; right: 1.6667%; top: 12.5%; bottom: 12.5%; touch-action: none; -webkit-touch-callout: none; user-select: none; }
   .design { grid-column: auto; }
   .templates { grid-template-columns: repeat(3, 1fr); }
   .standard { grid-template-columns: 1fr; }
