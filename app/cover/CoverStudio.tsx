@@ -653,6 +653,7 @@ export default function CoverStudio() {
   const [brushStrength, setBrushStrength] = useState(100);
   const [brushCursor, setBrushCursor] = useState({ x: 0.5, y: 0.5, visible: false });
   const [retouchStrokes, setRetouchStrokes] = useState<RetouchStroke[]>([]);
+  const [showRetouchBefore, setShowRetouchBefore] = useState(false);
   const settingsRef = useRef(settings);
   const rotationModeRef = useRef(rotationMode);
   const brushModeRef = useRef(brushMode);
@@ -745,6 +746,7 @@ export default function CoverStudio() {
     const handlePointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
       if (brushModeRef.current) {
+        setShowRetouchBefore(false);
         const rect = canvas.getBoundingClientRect();
         const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
         const brush = brushSettingsRef.current;
@@ -903,9 +905,9 @@ export default function CoverStudio() {
 
   useEffect(() => {
     if (canvasRef.current) {
-      drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true, undefined, false, retouchStrokes);
+      drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true, undefined, false, showRetouchBefore ? [] : retouchStrokes);
     }
-  }, [image, preset, retouchStrokes, settings, watermark]);
+  }, [image, preset, retouchStrokes, settings, showRetouchBefore, watermark]);
 
   const buildExportAsset = useCallback(async (format: "jpeg" | "png", photoOnly = false): Promise<ExportAsset | null> => {
     if (!image) return null;
@@ -969,6 +971,7 @@ export default function CoverStudio() {
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_SETTINGS);
     setRetouchStrokes([]);
+    setShowRetouchBefore(false);
     setBrushMode(false);
     setNotice("已恢复默认构图和颜色");
   }, []);
@@ -1050,6 +1053,7 @@ export default function CoverStudio() {
     nextImage.onload = () => {
       setImage(nextImage);
       setRetouchStrokes([]);
+      setShowRetouchBefore(false);
       setFileName(syncedImage.fileName);
       if (!quiet) setNotice("文案页封面照片已同步，文字和构图保持不变");
     };
@@ -1093,6 +1097,7 @@ export default function CoverStudio() {
     nextImage.onload = () => {
       setImage(nextImage);
       setRetouchStrokes([]);
+      setShowRetouchBefore(false);
       setFileName(file.name);
       setNotice("照片已载入，可以调整构图和文字");
       URL.revokeObjectURL(url);
@@ -1560,9 +1565,14 @@ export default function CoverStudio() {
               <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} />
               <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} />
               <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} />
+              <div className="studio-retouch-compare">
+                <button type="button" disabled={!retouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
+                <button type="button" className={!showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(false)}>涂抹后</button>
+              </div>
+              <small className="studio-retouch-note">仅切换预览，导出始终保留涂抹效果</small>
               <div className="studio-retouch-actions">
-                <button type="button" disabled={!retouchStrokes.length} onClick={() => setRetouchStrokes((current) => current.slice(0, -1))}>撤销一步</button>
-                <button type="button" disabled={!retouchStrokes.length} onClick={() => setRetouchStrokes([])}>全部清除</button>
+                <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes((current) => current.slice(0, -1)); }}>撤销一步</button>
+                <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes([]); }}>全部清除</button>
               </div>
             </div>
             <div className="studio-watermark-align">

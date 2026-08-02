@@ -154,6 +154,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .retouch-panel > button, .retouch-panel section button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
 .retouch-panel > button.active { border-color: var(--red); background: var(--red); color: #fff; }
 .retouch-panel section { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.retouch-panel .retouch-compare button.active { border-color: #202020; background: #202020; color: #fff; }
+.retouch-panel > small { color: #9b9188; font-size: 8px; text-align: center; }
 .retouch-panel button:disabled { cursor: not-allowed; opacity: .42; }
 .canvas-shell.is-brushing canvas { cursor: none; touch-action: none; }
 .brush-cursor { aspect-ratio: 1; position: absolute; z-index: 5; border: 1.5px solid rgba(255,255,255,.96); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.9), inset 0 0 0 1px rgba(0,0,0,.36); pointer-events: none; opacity: 0; transform: translate(-50%, -50%); transition: width .08s, opacity .08s; }

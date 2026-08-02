@@ -95,6 +95,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /BracketLeft/);
   assert.match(coverStudio, /BracketRight/);
   assert.match(coverStudio, /studio-brush-cursor/);
+  assert.match(coverStudio, /涂抹前/);
+  assert.match(coverStudio, /涂抹后/);
+  assert.match(coverStudio, /showRetouchBefore \? \[\] : retouchStrokes/);
   assert.match(coverStudio, /eraseShadeWithBrush/);
   assert.match(coverStudio, /quadraticCurveTo/);
   assert.match(coverStudio, /filter = `blur\(/);
@@ -168,6 +171,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /filter = `blur\(/);
   assert.match(publicCover, /局部涂抹提亮/);
   assert.match(publicCover, /id="brushCursor"/);
+  assert.match(publicCover, /id="compareBefore"/);
+  assert.match(publicCover, /id="compareAfter"/);
+  assert.match(publicCoverScript, /targetCanvas === canvas && retouch\.compareBefore \? \[\] : retouch\.strokes/);
   assert.match(publicCoverScript, /BracketLeft/);
   assert.match(publicCoverScript, /BracketRight/);
   assert.match(publicCover, /id="brightness" type="range" min="0" max="200" value="100"/);

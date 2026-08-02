@@ -81,7 +81,7 @@ let exportCache = { jpeg: null, png: null };
 let exportRevision = 0;
 let exportPrepareTimer = 0;
 let imageInteraction = { rotationMode: false, drag: null };
-const retouch = { active: false, size: 120, feather: 70, strength: 100, strokes: [], pointerId: null };
+const retouch = { active: false, size: 120, feather: 70, strength: 100, strokes: [], pointerId: null, compareBefore: false };
 const syncChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(COPY_SYNC_CHANNEL)
   : null;
@@ -91,6 +91,7 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 canvas.addEventListener("pointerdown", (event) => {
   if (!state.image || event.button !== 0) return;
   if (retouch.active) {
+    retouch.compareBefore = false;
     const rect = canvas.getBoundingClientRect();
     retouch.pointerId = event.pointerId;
     retouch.strokes.push({
@@ -308,6 +309,7 @@ function applySyncedImage(quiet = false) {
   nextImage.onload = () => {
     state.image = nextImage;
     retouch.strokes = [];
+    retouch.compareBefore = false;
     state.fileName = syncedImage.fileName;
     $("#uploadTitle").textContent = "更换照片";
     $("#fileName").textContent = syncedImage.fileName;
@@ -460,6 +462,9 @@ function updateUi() {
   $("#brushStrengthValue").textContent = `${retouch.strength}%`;
   $("#undoRetouch").disabled = !retouch.strokes.length;
   $("#clearRetouch").disabled = !retouch.strokes.length;
+  $("#compareBefore").disabled = !retouch.strokes.length;
+  $("#compareBefore").classList.toggle("active", retouch.compareBefore);
+  $("#compareAfter").classList.toggle("active", !retouch.compareBefore);
   $("#brushCursor").style.width = `${retouch.size / 10.8}%`;
   if (!retouch.active) $("#brushCursor").classList.remove("visible");
 }
@@ -485,6 +490,7 @@ function loadFile(file) {
   image.onload = () => {
     state.image = image;
     retouch.strokes = [];
+    retouch.compareBefore = false;
     state.fileName = file.name;
     $("#uploadTitle").textContent = "更换照片";
     $("#fileName").textContent = file.name;
@@ -539,8 +545,10 @@ $("#retouchToggle").addEventListener("click", () => {
     updateUi();
   });
 });
-$("#undoRetouch").addEventListener("click", () => { retouch.strokes.pop(); updateUi(); draw(); });
-$("#clearRetouch").addEventListener("click", () => { retouch.strokes = []; updateUi(); draw(); });
+$("#compareBefore").addEventListener("click", () => { if (!retouch.strokes.length) return; retouch.compareBefore = true; updateUi(); draw(); });
+$("#compareAfter").addEventListener("click", () => { retouch.compareBefore = false; updateUi(); draw(); });
+$("#undoRetouch").addEventListener("click", () => { retouch.compareBefore = false; retouch.strokes.pop(); updateUi(); draw(); });
+$("#clearRetouch").addEventListener("click", () => { retouch.compareBefore = false; retouch.strokes = []; updateUi(); draw(); });
 document.querySelectorAll("[data-watermark-align]").forEach((button) => button.addEventListener("click", () => {
   state.watermarkAlign = button.dataset.watermarkAlign;
   updateUi(); saveSettings(); draw();
@@ -597,6 +605,7 @@ $("#resetSettings").addEventListener("click", () => {
   });
   retouch.active = false;
   retouch.strokes = [];
+  retouch.compareBefore = false;
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
 });
 document.querySelectorAll("[data-save-memory]").forEach((button) => button.addEventListener("click", () => {
@@ -724,7 +733,8 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, pho
     const shadeContext = shadeCanvas.getContext("2d");
     if (shadeContext) {
       drawShade(shadeContext, width, height);
-      eraseShadeWithBrush(shadeContext, width, height, retouch.strokes);
+      const visibleStrokes = targetCanvas === canvas && retouch.compareBefore ? [] : retouch.strokes;
+      eraseShadeWithBrush(shadeContext, width, height, visibleStrokes);
       targetContext.drawImage(shadeCanvas, 0, 0);
     }
     drawText(targetContext, width, height);

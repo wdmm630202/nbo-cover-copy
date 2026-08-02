@@ -965,9 +965,11 @@ body {
 .studio-retouch-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .studio-retouch-heading b { color: #28231f; font-size: 10px; }
 .studio-retouch-heading span { color: #9b9188; font-size: 8px; }
-.studio-retouch > button, .studio-retouch-actions button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
+.studio-retouch > button, .studio-retouch-actions button, .studio-retouch-compare button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
 .studio-retouch > button.is-active { border-color: var(--red); background: var(--red); color: #fff; }
-.studio-retouch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.studio-retouch-actions, .studio-retouch-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.studio-retouch-compare button.is-active { border-color: #202020; background: #202020; color: #fff; }
+.studio-retouch-note { color: #9b9188; font-size: 8px; text-align: center; }
 .studio-retouch button:disabled { cursor: not-allowed; opacity: .42; }
 .studio-canvas-shell.is-brushing canvas { cursor: none; touch-action: none; }
 .studio-brush-cursor { aspect-ratio: 1; position: absolute; z-index: 5; border: 1.5px solid rgba(255,255,255,.96); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.9), inset 0 0 0 1px rgba(0,0,0,.36); pointer-events: none; opacity: 0; transform: translate(-50%, -50%); transition: width .08s, opacity .08s; }
