@@ -66,9 +66,9 @@ const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
   templateId: "top-left",
-  topText: "男人的高级感",
-  bottomText: "藏在自然状态",
-  subtitle: "不被定义的自己，才是最有张力的表达",
+  topText: "男人的",
+  bottomText: "高级感",
+  subtitle: "不被定义的自己",
   topColor: "#FFFFFF",
   bottomColor: "#FFFFFF",
   dividerColor: "#C9A77A",
@@ -545,10 +545,6 @@ export default function CoverStudio() {
             parsed.titleScaleVersion = 2;
           }
           if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
-          if (parsed.topText === "男人的" && parsed.bottomText === "高级感") {
-            parsed.topText = "男人的高级感";
-            parsed.bottomText = "藏在自然状态";
-          }
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
         }
@@ -718,10 +714,6 @@ export default function CoverStudio() {
         parsed.titleScaleVersion = 2;
       }
       if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
-      if (parsed.topText === "男人的" && parsed.bottomText === "高级感") {
-        parsed.topText = "男人的高级感";
-        parsed.bottomText = "藏在自然状态";
-      }
       parsed.templateId = normalizeTemplateId(parsed.templateId);
       setSettings({ ...DEFAULT_SETTINGS, ...parsed });
       setNotice(`已应用记忆点 ${slot}`);
@@ -1009,7 +1001,7 @@ export default function CoverStudio() {
                 value={settings.topText}
                 maxLength={18}
                 onChange={(event) => updateSetting("topText", event.target.value)}
-                placeholder="例如：男人的高级感"
+                placeholder="例如：男人的"
               />
               <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("topText")}>同步文案</button>
             </div>
@@ -1034,7 +1026,7 @@ export default function CoverStudio() {
                 value={settings.bottomText}
                 maxLength={18}
                 onChange={(event) => updateSetting("bottomText", event.target.value)}
-                placeholder="例如：藏在自然状态"
+                placeholder="例如：高级感"
               />
               <button type="button" disabled={!syncedCopy} onClick={() => applySyncedCopy("bottomText")}>同步文案</button>
             </div>

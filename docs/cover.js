@@ -14,9 +14,9 @@ const PRESETS = {
 const state = {
   platform: "douyin",
   template: "top-left",
-  topText: "男人的高级感",
-  bottomText: "藏在自然状态",
-  subtitle: "不被定义的自己，才是最有张力的表达",
+  topText: "男人的",
+  bottomText: "高级感",
+  subtitle: "不被定义的自己",
   topColor: "#FFFFFF",
   bottomColor: "#FFFFFF",
   dividerColor: "#C9A77A",
@@ -256,10 +256,6 @@ try {
       saved.titleScaleVersion = 2;
     }
     if (saved.bottomText === "藏在自然状态里") saved.bottomText = "藏在自然状态";
-    if (saved.topText === "男人的" && saved.bottomText === "高级感") {
-      saved.topText = "男人的高级感";
-      saved.bottomText = "藏在自然状态";
-    }
     saved.template = normalizeTemplate(saved.template);
     Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
   }
@@ -437,8 +433,8 @@ $("#removeWatermark").addEventListener("click", () => {
 });
 $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, {
-    platform: "douyin", template: "top-left", topText: "男人的高级感", bottomText: "藏在自然状态",
-    subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
+    platform: "douyin", template: "top-left", topText: "男人的", bottomText: "高级感",
+    subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
     zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, titleScaleVersion: 2, shade: 0,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
@@ -466,10 +462,6 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
       parsed.titleScaleVersion = 2;
     }
     if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
-    if (parsed.topText === "男人的" && parsed.bottomText === "高级感") {
-      parsed.topText = "男人的高级感";
-      parsed.bottomText = "藏在自然状态";
-    }
     parsed.template = normalizeTemplate(parsed.template);
     Object.assign(state, parsed);
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
