@@ -8,6 +8,10 @@ const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
 const getWatermarkVisibleHeight = (width) => Math.round(width * .03);
+const formatExportTimestamp = (date = new Date()) => {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+};
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -968,6 +972,10 @@ async function exportCover(format) {
     setExportReady(format, true);
     return setStatus(asset ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
   }
+  const current = preset();
+  const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
+  const exportName = `${name}_${current.label}_${current.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;
+  asset = { ...asset, file: new File([asset.blob], exportName, { type: asset.blob.type }) };
   const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
   if (isMobile) {
     showSavePreview(asset);

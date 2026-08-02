@@ -66,6 +66,11 @@ const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 const MEMORY_NAMES_KEY = "nbo-cover-studio-memory-names";
 const getWatermarkVisibleHeight = (width: number) => Math.round(width * 0.03);
 
+function formatExportTimestamp(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
 const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
   templateId: "middle-left",
@@ -974,16 +979,19 @@ export default function CoverStudio() {
       setExportReady((current) => ({ ...current, [format]: true }));
       return setNotice(prepared ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
     }
+    const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
+    const exportName = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;
+    const namedAsset = { ...asset, file: new File([asset.blob], exportName, { type: asset.blob.type }) };
     const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
     if (isMobile) {
       const url = URL.createObjectURL(asset.blob);
       setSavePreview((current) => {
         if (current) URL.revokeObjectURL(current.url);
-        return { url, asset };
+        return { url, asset: namedAsset };
       });
       try {
         if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
-        await navigator.share({ files: [asset.file], title: "南铂封面" });
+        await navigator.share({ files: [namedAsset.file], title: "南铂封面" });
         setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
         return;
       } catch (error) {
@@ -996,7 +1004,7 @@ export default function CoverStudio() {
     if (!isMobile && picker) {
       try {
         const handle = await picker({
-          suggestedName: asset.file.name,
+          suggestedName: namedAsset.file.name,
           types: [{ description: format === "png" ? "PNG 图片" : "JPG 图片", accept: { [asset.blob.type]: [format === "png" ? ".png" : ".jpg"] } }],
         });
         const writable = await handle.createWritable();
@@ -1011,7 +1019,7 @@ export default function CoverStudio() {
     const url = URL.createObjectURL(asset.blob);
     setSavePreview((current) => {
       if (current) URL.revokeObjectURL(current.url);
-      return { url, asset };
+      return { url, asset: namedAsset };
     });
     setNotice(`高清成品已生成 ${asset.outputSize.width}×${asset.outputSize.height}，请长按图片存储到照片`);
   };
