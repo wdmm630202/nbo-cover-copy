@@ -866,6 +866,28 @@ async function exportCover(format) {
       if (error instanceof DOMException && error.name === "AbortError") return setStatus("已取消保存，可再次点击导出");
     }
   }
+  showSavePreview(asset);
+}
+
+let savePreviewUrl = "";
+function showSavePreview(asset) {
+  if (savePreviewUrl) URL.revokeObjectURL(savePreviewUrl);
+  savePreviewUrl = URL.createObjectURL(asset.blob);
+  $("#savePreviewImage").src = savePreviewUrl;
+  $("#savePreview").hidden = false;
+  document.body.style.overflow = "hidden";
+  setStatus(`高清成品已生成 ${asset.outputSize.width}×${asset.outputSize.height}，请长按图片存储到照片`);
+}
+
+$("#closeSavePreview").addEventListener("click", () => {
+  $("#savePreview").hidden = true;
+  document.body.style.overflow = "";
+});
+$("#openPreviewImage").addEventListener("click", () => {
+  if (savePreviewUrl) window.location.href = savePreviewUrl;
+});
+
+function downloadExportAsset(asset, format) {
   const url = URL.createObjectURL(asset.blob);
   const link = document.createElement("a");
   link.href = url;

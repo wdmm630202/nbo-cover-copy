@@ -517,6 +517,7 @@ export default function CoverStudio() {
   const exportGenerationRef = useRef(0);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
+  const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
 
@@ -851,18 +852,28 @@ export default function CoverStudio() {
       }
     }
     const url = URL.createObjectURL(asset.blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = asset.file.name;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    setNotice(`已导出高清 ${asset.outputSize.width}×${asset.outputSize.height} ${format === "png" ? "PNG" : "JPG"} · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
+    setSavePreview((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return { url, asset };
+    });
+    setNotice(`高清成品已生成 ${asset.outputSize.width}×${asset.outputSize.height}，请长按图片存储到照片`);
   };
 
   return (
     <section className="cover-studio">
+      {savePreview && (
+        <div className="save-preview">
+          <div className="save-preview-card">
+            <strong>高清成品已生成</strong>
+            <p>请长按下面的图片，选择“存储到照片”</p>
+            <img src={savePreview.url} alt="高清封面成品" />
+            <div>
+              <button type="button" onClick={() => { window.location.href = savePreview.url; }}>打开高清图片</button>
+              <button type="button" onClick={() => { URL.revokeObjectURL(savePreview.url); setSavePreview(null); }}>关闭</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="cover-studio-intro">
         <div>
           <span>配套服务 02</span>
