@@ -32,6 +32,7 @@ const state = {
   divider: true,
   subtitleColor: "#FFFFFF",
   subtitleScale: 100,
+  brightness: 100,
   zoom: 100,
   offsetX: 0,
   offsetXRangeVersion: 2,
@@ -80,6 +81,7 @@ let exportCache = { jpeg: null, png: null };
 let exportRevision = 0;
 let exportPrepareTimer = 0;
 let imageInteraction = { rotationMode: false, drag: null };
+const retouch = { active: false, size: 120, feather: 70, strength: 100, strokes: [], pointerId: null };
 const syncChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(COPY_SYNC_CHANNEL)
   : null;
@@ -88,6 +90,19 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 canvas.addEventListener("pointerdown", (event) => {
   if (!state.image || event.button !== 0) return;
+  if (retouch.active) {
+    const rect = canvas.getBoundingClientRect();
+    retouch.pointerId = event.pointerId;
+    retouch.strokes.push({
+      points: [{ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) }],
+      size: retouch.size,
+      feather: retouch.feather,
+      strength: retouch.strength,
+    });
+    canvas.setPointerCapture(event.pointerId);
+    draw();
+    return;
+  }
   imageInteraction.drag = {
     pointerId: event.pointerId,
     x: event.clientX,
@@ -100,6 +115,12 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 canvas.addEventListener("pointermove", (event) => {
+  if (retouch.pointerId === event.pointerId) {
+    const rect = canvas.getBoundingClientRect();
+    retouch.strokes.at(-1)?.points.push({ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) });
+    draw();
+    return;
+  }
   const drag = imageInteraction.drag;
   if (!state.image || !drag || drag.pointerId !== event.pointerId) return;
   const rect = canvas.getBoundingClientRect();
@@ -113,6 +134,11 @@ canvas.addEventListener("pointermove", (event) => {
 });
 
 const endImageDrag = (event) => {
+  if (retouch.pointerId === event.pointerId) {
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    retouch.pointerId = null;
+    return;
+  }
   const drag = imageInteraction.drag;
   if (!drag || drag.pointerId !== event.pointerId) return;
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
@@ -123,14 +149,16 @@ canvas.addEventListener("pointercancel", endImageDrag);
 
 canvas.addEventListener("wheel", (event) => {
   if (!state.image) return;
+  if (retouch.active) return;
   event.preventDefault();
   const amount = clamp(-event.deltaY * .02, -2, 2);
-  state.zoom = clamp(Math.round((state.zoom + amount) * 10) / 10, 100, 180);
+  state.zoom = clamp(Math.round((state.zoom + amount) * 10) / 10, 0, 400);
   updateUi(); saveSettings(); draw();
 }, { passive: false });
 
 canvas.addEventListener("dblclick", (event) => {
   if (!state.image) return;
+  if (retouch.active) return;
   event.preventDefault();
   imageInteraction.rotationMode = !imageInteraction.rotationMode;
   $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
@@ -260,6 +288,7 @@ function applySyncedImage(quiet = false) {
   const nextImage = new Image();
   nextImage.onload = () => {
     state.image = nextImage;
+    retouch.strokes = [];
     state.fileName = syncedImage.fileName;
     $("#uploadTitle").textContent = "更换照片";
     $("#fileName").textContent = syncedImage.fileName;
@@ -379,7 +408,7 @@ function updateUi() {
   $("#subtitleScale").value = state.subtitleScale;
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   $("#safeToggle").checked = state.safe;
-  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "textStroke", "textShadow", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
+  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
   $("#zoomValue").textContent = `${state.zoom}%`;
@@ -389,6 +418,7 @@ function updateUi() {
   $("#textScaleValue").textContent = `${state.textScale}%`;
   $("#textStrokeValue").textContent = `${state.textStroke}%`;
   $("#textShadowValue").textContent = `${state.textShadow}%`;
+  $("#brightnessValue").textContent = `${state.brightness}%`;
   $("#shadeValue").textContent = `${state.shade}%`;
   $("#bottomShadeValue").textContent = `${state.bottomShade}%`;
   $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
@@ -403,6 +433,14 @@ function updateUi() {
   $("#canvasShell").className = `canvas-shell ratio-${current.ratio.replace(":", "-")}`;
   $("#canvasShell").classList.toggle("has-image", Boolean(state.image));
   $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
+  $("#canvasShell").classList.toggle("is-brushing", retouch.active);
+  $("#retouchToggle").classList.toggle("active", retouch.active);
+  $("#retouchToggle").textContent = retouch.active ? "退出涂抹" : "开启涂抹";
+  $("#brushSizeValue").textContent = retouch.size;
+  $("#brushFeatherValue").textContent = `${retouch.feather}%`;
+  $("#brushStrengthValue").textContent = `${retouch.strength}%`;
+  $("#undoRetouch").disabled = !retouch.strokes.length;
+  $("#clearRetouch").disabled = !retouch.strokes.length;
 }
 updateUi();
 loadDefaultWatermark();
@@ -425,6 +463,7 @@ function loadFile(file) {
   const image = new Image();
   image.onload = () => {
     state.image = image;
+    retouch.strokes = [];
     state.fileName = file.name;
     $("#uploadTitle").textContent = "更换照片";
     $("#fileName").textContent = file.name;
@@ -459,7 +498,7 @@ $("#subtitleScale").addEventListener("input", (event) => {
   saveSettings(); draw();
 });
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
-["zoom", "offsetX", "offsetY", "rotation", "textScale", "textStroke", "textShadow", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
+["zoom", "offsetX", "offsetY", "rotation", "textScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = Number(event.target.value);
     updateUi();
@@ -467,6 +506,20 @@ $("#dividerToggle").addEventListener("change", (event) => { state.divider = even
     draw();
   });
 });
+$("#retouchToggle").addEventListener("click", () => {
+  retouch.active = !retouch.active;
+  imageInteraction.rotationMode = false;
+  updateUi();
+  setStatus(retouch.active ? "已开启涂抹，请在照片上按住绘制" : "已退出涂抹，可继续移动照片");
+});
+[["brushSize", "size"], ["brushFeather", "feather"], ["brushStrength", "strength"]].forEach(([id, key]) => {
+  $(`#${id}`).addEventListener("input", (event) => {
+    retouch[key] = Number(event.target.value);
+    updateUi();
+  });
+});
+$("#undoRetouch").addEventListener("click", () => { retouch.strokes.pop(); updateUi(); draw(); });
+$("#clearRetouch").addEventListener("click", () => { retouch.strokes = []; updateUi(); draw(); });
 document.querySelectorAll("[data-watermark-align]").forEach((button) => button.addEventListener("click", () => {
   state.watermarkAlign = button.dataset.watermarkAlign;
   updateUi(); saveSettings(); draw();
@@ -517,10 +570,12 @@ $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, {
     platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
-    dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
+    dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100, brightness: 100,
     zoom: 100, offsetX: 0, offsetXRangeVersion: 2, offsetY: 0, rotation: 0, textScale: 100, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 2, shade: 0, bottomShade: 100,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
   });
+  retouch.active = false;
+  retouch.strokes = [];
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
 });
 document.querySelectorAll("[data-save-memory]").forEach((button) => button.addEventListener("click", () => {
@@ -623,6 +678,7 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, pho
     const imageWidth = state.image.naturalWidth * scale;
     const imageHeight = state.image.naturalHeight * scale;
     targetContext.save();
+    targetContext.filter = `brightness(${state.brightness}%)`;
     targetContext.translate(width / 2 + state.offsetX / 100 * width, height / 2 + state.offsetY / 100 * height);
     targetContext.rotate(radians);
     targetContext.drawImage(state.image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
@@ -641,12 +697,53 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, pho
   }
 
   if (!photoOnly) {
-    drawShade(targetContext, width, height);
+    const shadeCanvas = document.createElement("canvas");
+    shadeCanvas.width = width;
+    shadeCanvas.height = height;
+    const shadeContext = shadeCanvas.getContext("2d");
+    if (shadeContext) {
+      drawShade(shadeContext, width, height);
+      eraseShadeWithBrush(shadeContext, width, height, retouch.strokes);
+      targetContext.drawImage(shadeCanvas, 0, 0);
+    }
     drawText(targetContext, width, height);
     if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
   }
   if (!photoOnly && includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);
   if (targetCanvas === canvas) scheduleExportPreparation();
+}
+
+function eraseShadeWithBrush(ctx, width, height, strokes) {
+  if (!strokes.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  strokes.forEach((stroke) => {
+    const radius = Math.max(1, stroke.size * width / 2160);
+    const feather = clamp(stroke.feather / 100, 0, 1);
+    const strength = clamp(stroke.strength / 100, 0, 1);
+    const innerRadius = radius * (1 - feather * .98);
+    const points = [];
+    stroke.points.forEach((point, index) => {
+      const previous = stroke.points[index - 1];
+      if (!previous) return points.push(point);
+      const dx = (point.x - previous.x) * width;
+      const dy = (point.y - previous.y) * height;
+      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / Math.max(2, radius * .28)));
+      for (let step = 1; step <= steps; step += 1) {
+        points.push({ x: previous.x + (point.x - previous.x) * step / steps, y: previous.y + (point.y - previous.y) * step / steps });
+      }
+    });
+    points.forEach((point) => {
+      const x = point.x * width;
+      const y = point.y * height;
+      const gradient = ctx.createRadialGradient(x, y, innerRadius, x, y, radius);
+      gradient.addColorStop(0, `rgba(0,0,0,${strength})`);
+      gradient.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    });
+  });
+  ctx.restore();
 }
 
 function drawShade(ctx, width, height) {

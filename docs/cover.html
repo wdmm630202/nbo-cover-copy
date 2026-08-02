@@ -132,8 +132,17 @@
               <label><span>标题大小 <b id="textScaleValue">100%</b></span><input id="textScale" type="range" min="0" max="200" value="100" /></label>
               <label><span>字体描边 <b id="textStrokeValue">0%</b></span><input id="textStroke" type="range" min="0" max="100" value="0" /></label>
               <label><span>字体阴影 <b id="textShadowValue">50%</b></span><input id="textShadow" type="range" min="0" max="100" value="50" /></label>
+              <label><span>亮度 <b id="brightnessValue">100%</b></span><input id="brightness" type="range" min="0" max="200" value="100" /></label>
               <label><span>压暗强度 <b id="shadeValue">0%</b></span><input id="shade" type="range" min="0" max="100" value="0" /></label>
               <label><span>底部向上压暗 <b id="bottomShadeValue">100%</b></span><input id="bottomShade" type="range" min="0" max="100" value="100" /></label>
+              <div class="retouch-panel">
+                <div><b>局部涂抹提亮</b><span>擦开压暗层，不破坏原图</span></div>
+                <button id="retouchToggle" type="button">开启涂抹</button>
+                <label><span>画笔大小 <b id="brushSizeValue">120</b></span><input id="brushSize" type="range" min="20" max="400" value="120" /></label>
+                <label><span>羽化 <b id="brushFeatherValue">70%</b></span><input id="brushFeather" type="range" min="0" max="100" value="70" /></label>
+                <label><span>涂抹强度 <b id="brushStrengthValue">100%</b></span><input id="brushStrength" type="range" min="0" max="100" value="100" /></label>
+                <section><button id="undoRetouch" type="button" disabled>撤销一步</button><button id="clearRetouch" type="button" disabled>全部清除</button></section>
+              </div>
               <div class="watermark-align"><span>水印位置</span><div><button type="button" data-watermark-align="left">左侧对齐</button><button type="button" class="active" data-watermark-align="center">居中</button><button type="button" data-watermark-align="right">右侧对齐</button></div></div>
               <label><span>水印透明度 <b id="watermarkOpacityValue">50%</b></span><input id="watermarkOpacity" type="range" min="0" max="100" value="50" /></label>
             </div>
@@ -168,6 +177,6 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./cover.js?v=20260802-smart-photo-range"></script>
+    <script src="./cover.js?v=20260802-retouch-brightness"></script>
   </body>
 </html>

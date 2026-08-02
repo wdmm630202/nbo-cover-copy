@@ -147,6 +147,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .sliders label > span { margin-bottom: 7px; display: flex; justify-content: space-between; color: #6e6761; font-size: 10px; }
 .sliders label > span b { color: #262321; }
 .sliders input { width: 100%; accent-color: var(--red); }
+.retouch-panel { padding: 12px; display: grid; gap: 11px; border: 1px dashed #c9a77a; border-radius: 12px; background: #fffaf3; }
+.retouch-panel > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.retouch-panel > div b { color: #28231f; font-size: 10px; }
+.retouch-panel > div span { color: #9b9188; font-size: 8px; }
+.retouch-panel > button, .retouch-panel section button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
+.retouch-panel > button.active { border-color: var(--red); background: var(--red); color: #fff; }
+.retouch-panel section { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.retouch-panel button:disabled { cursor: not-allowed; opacity: .42; }
+.canvas-shell.is-brushing canvas { cursor: crosshair; touch-action: none; }
 .watermark-align > span { margin-bottom: 7px; display: block; color: #6e6761; font-size: 10px; }
 .watermark-align > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .watermark-align button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }

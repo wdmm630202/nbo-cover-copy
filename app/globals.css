@@ -960,6 +960,16 @@ body {
   gap: 14px;
 }
 
+.studio-retouch { padding: 12px; display: grid; gap: 11px; border: 1px dashed #c9a77a; border-radius: 12px; background: #fffaf3; }
+.studio-retouch-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.studio-retouch-heading b { color: #28231f; font-size: 10px; }
+.studio-retouch-heading span { color: #9b9188; font-size: 8px; }
+.studio-retouch > button, .studio-retouch-actions button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
+.studio-retouch > button.is-active { border-color: var(--red); background: var(--red); color: #fff; }
+.studio-retouch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.studio-retouch button:disabled { cursor: not-allowed; opacity: .42; }
+.studio-canvas-shell.is-brushing canvas { cursor: crosshair; touch-action: none; }
+
 .studio-slider > span {
   margin-bottom: 7px;
   display: flex;

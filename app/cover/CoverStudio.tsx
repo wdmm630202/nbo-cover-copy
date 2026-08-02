@@ -40,6 +40,7 @@ type StudioSettings = {
   showDivider: boolean;
   subtitleColor: string;
   subtitleScale: number;
+  brightness: number;
   zoom: number;
   offsetX: number;
   offsetXRangeVersion: number;
@@ -64,6 +65,9 @@ type ExportAsset = {
   file: File;
   outputSize: { width: number; height: number };
 };
+
+type RetouchPoint = { x: number; y: number };
+type RetouchStroke = { points: RetouchPoint[]; size: number; feather: number; strength: number };
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
@@ -90,6 +94,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   showDivider: true,
   subtitleColor: "#FFFFFF",
   subtitleScale: 100,
+  brightness: 100,
   zoom: 100,
   offsetX: 0,
   offsetXRangeVersion: 2,
@@ -134,6 +139,7 @@ function drawCover(
   includeGuide: boolean,
   outputSize?: { width: number; height: number },
   photoOnly = false,
+  retouchStrokes: RetouchStroke[] = [],
 ) {
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -154,6 +160,7 @@ function drawCover(
     const imageWidth = image.naturalWidth * scale;
     const imageHeight = image.naturalHeight * scale;
     context.save();
+    context.filter = `brightness(${settings.brightness}%)`;
     context.translate(width / 2 + (settings.offsetX / 100) * width, height / 2 + (settings.offsetY / 100) * height);
     context.rotate(radians);
     context.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
@@ -172,7 +179,15 @@ function drawCover(
   }
 
   if (!photoOnly) {
-    drawTemplateShade(context, settings.templateId, width, height, settings.shade, settings.bottomShade);
+    const shadeCanvas = document.createElement("canvas");
+    shadeCanvas.width = width;
+    shadeCanvas.height = height;
+    const shadeContext = shadeCanvas.getContext("2d");
+    if (shadeContext) {
+      drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
+      eraseShadeWithBrush(shadeContext, width, height, retouchStrokes);
+      context.drawImage(shadeCanvas, 0, 0);
+    }
     drawTemplateText(context, settings, width, height, watermark);
     if (watermark) drawWatermark(context, watermark, settings, width, height);
   }
@@ -205,6 +220,47 @@ function drawCover(
     context.fillText("播放量避让区 144px", 30, reserveTop + 38);
     context.restore();
   }
+}
+
+function eraseShadeWithBrush(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  strokes: RetouchStroke[],
+) {
+  if (!strokes.length) return;
+  context.save();
+  context.globalCompositeOperation = "destination-out";
+  for (const stroke of strokes) {
+    const radius = Math.max(1, stroke.size * width / 2160);
+    const feather = Math.max(0, Math.min(1, stroke.feather / 100));
+    const strength = Math.max(0, Math.min(1, stroke.strength / 100));
+    const innerRadius = radius * (1 - feather * 0.98);
+    const points: RetouchPoint[] = [];
+    stroke.points.forEach((point, index) => {
+      const previous = stroke.points[index - 1];
+      if (!previous) {
+        points.push(point);
+        return;
+      }
+      const dx = (point.x - previous.x) * width;
+      const dy = (point.y - previous.y) * height;
+      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / Math.max(2, radius * 0.28)));
+      for (let step = 1; step <= steps; step += 1) {
+        points.push({ x: previous.x + (point.x - previous.x) * step / steps, y: previous.y + (point.y - previous.y) * step / steps });
+      }
+    });
+    for (const point of points) {
+      const x = point.x * width;
+      const y = point.y * height;
+      const gradient = context.createRadialGradient(x, y, innerRadius, x, y, radius);
+      gradient.addColorStop(0, `rgba(0,0,0,${strength})`);
+      gradient.addColorStop(1, "rgba(0,0,0,0)");
+      context.fillStyle = gradient;
+      context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    }
+  }
+  context.restore();
 }
 
 function drawTemplateShade(
@@ -583,8 +639,15 @@ export default function CoverStudio() {
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
   const [memoryNames, setMemoryNames] = useState(["记忆 1", "记忆 2", "记忆 3"]);
   const [rotationMode, setRotationMode] = useState(false);
+  const [brushMode, setBrushMode] = useState(false);
+  const [brushSize, setBrushSize] = useState(120);
+  const [brushFeather, setBrushFeather] = useState(70);
+  const [brushStrength, setBrushStrength] = useState(100);
+  const [retouchStrokes, setRetouchStrokes] = useState<RetouchStroke[]>([]);
   const settingsRef = useRef(settings);
   const rotationModeRef = useRef(rotationMode);
+  const brushModeRef = useRef(brushMode);
+  const brushSettingsRef = useRef({ size: brushSize, feather: brushFeather, strength: brushStrength });
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -642,13 +705,28 @@ export default function CoverStudio() {
   }, [rotationMode]);
 
   useEffect(() => {
+    brushModeRef.current = brushMode;
+    brushSettingsRef.current = { size: brushSize, feather: brushFeather, strength: brushStrength };
+  }, [brushFeather, brushMode, brushSize, brushStrength]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !image) return;
     let drag: { pointerId: number; x: number; y: number; offsetX: number; offsetY: number; rotation: number } | null = null;
+    let brushPointerId: number | null = null;
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
     const handlePointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
+      if (brushModeRef.current) {
+        const rect = canvas.getBoundingClientRect();
+        const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+        const brush = brushSettingsRef.current;
+        brushPointerId = event.pointerId;
+        setRetouchStrokes((current) => [...current, { points: [point], ...brush }]);
+        canvas.setPointerCapture(event.pointerId);
+        return;
+      }
       const current = settingsRef.current;
       drag = {
         pointerId: event.pointerId,
@@ -661,6 +739,12 @@ export default function CoverStudio() {
       canvas.setPointerCapture(event.pointerId);
     };
     const handlePointerMove = (event: PointerEvent) => {
+      if (brushPointerId === event.pointerId) {
+        const rect = canvas.getBoundingClientRect();
+        const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+        setRetouchStrokes((current) => current.map((stroke, index) => index === current.length - 1 ? { ...stroke, points: [...stroke.points, point] } : stroke));
+        return;
+      }
       if (!drag || drag.pointerId !== event.pointerId) return;
       const rect = canvas.getBoundingClientRect();
       if (rotationModeRef.current) {
@@ -673,19 +757,26 @@ export default function CoverStudio() {
       }
     };
     const endDrag = (event: PointerEvent) => {
+      if (brushPointerId === event.pointerId) {
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        brushPointerId = null;
+        return;
+      }
       if (!drag || drag.pointerId !== event.pointerId) return;
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
       drag = null;
     };
     const handleWheel = (event: WheelEvent) => {
+      if (brushModeRef.current) return;
       event.preventDefault();
       const amount = clamp(-event.deltaY * 0.02, -2, 2);
       setSettings((current) => ({
         ...current,
-        zoom: clamp(Math.round((current.zoom + amount) * 10) / 10, 100, 180),
+        zoom: clamp(Math.round((current.zoom + amount) * 10) / 10, 0, 400),
       }));
     };
     const handleDoubleClick = (event: MouseEvent) => {
+      if (brushModeRef.current) return;
       event.preventDefault();
       setRotationMode((current) => {
         const next = !current;
@@ -777,9 +868,9 @@ export default function CoverStudio() {
 
   useEffect(() => {
     if (canvasRef.current) {
-      drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true);
+      drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true, undefined, false, retouchStrokes);
     }
-  }, [image, preset, settings, watermark]);
+  }, [image, preset, retouchStrokes, settings, watermark]);
 
   const buildExportAsset = useCallback(async (format: "jpeg" | "png", photoOnly = false): Promise<ExportAsset | null> => {
     if (!image) return null;
@@ -792,7 +883,7 @@ export default function CoverStudio() {
     const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => exportCanvas.toBlob(resolve, `image/${format}`, quality));
     const maxBytes = 19.9 * 1024 * 1024;
     let quality = format === "jpeg" ? 0.98 : undefined;
-    drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize, photoOnly);
+    drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize, photoOnly, retouchStrokes);
     let blob = await toBlob(quality);
     while (blob && blob.size > maxBytes && format === "jpeg" && (quality ?? 0) > 0.56) {
       quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
@@ -801,14 +892,14 @@ export default function CoverStudio() {
     while (blob && blob.size > maxBytes && outputSize.width > 320) {
       const ratio = Math.min(0.94, Math.sqrt(maxBytes / blob.size) * 0.98);
       outputSize = { width: Math.max(320, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
-      drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize, photoOnly);
+      drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize, photoOnly, retouchStrokes);
       blob = await toBlob(quality);
     }
     if (!blob) return null;
     const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
     const exportName = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
     return { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
-  }, [fileName, image, preset, settings, watermark]);
+  }, [fileName, image, preset, retouchStrokes, settings, watermark]);
 
   useEffect(() => {
     const generation = ++exportGenerationRef.current;
@@ -842,6 +933,8 @@ export default function CoverStudio() {
 
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_SETTINGS);
+    setRetouchStrokes([]);
+    setBrushMode(false);
     setNotice("已恢复默认构图和颜色");
   }, []);
 
@@ -921,6 +1014,7 @@ export default function CoverStudio() {
     const nextImage = new Image();
     nextImage.onload = () => {
       setImage(nextImage);
+      setRetouchStrokes([]);
       setFileName(syncedImage.fileName);
       if (!quiet) setNotice("文案页封面照片已同步，文字和构图保持不变");
     };
@@ -963,6 +1057,7 @@ export default function CoverStudio() {
     const nextImage = new Image();
     nextImage.onload = () => {
       setImage(nextImage);
+      setRetouchStrokes([]);
       setFileName(file.name);
       setNotice("照片已载入，可以调整构图和文字");
       URL.revokeObjectURL(url);
@@ -1283,8 +1378,8 @@ export default function CoverStudio() {
               安全区
             </label>
           </div>
-          <div className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""}`}>
-            <canvas ref={canvasRef} aria-label="封面实时预览，可拖动照片、滚轮缩放、双击旋转" />
+          <div className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""} ${brushMode ? "is-brushing" : ""}`}>
+            <canvas ref={canvasRef} aria-label="封面实时预览，可拖动照片；开启涂抹后可局部擦开压暗层" />
           </div>
           <div className="studio-export-row">
             <div>
@@ -1388,6 +1483,14 @@ export default function CoverStudio() {
               onChange={(value) => updateSetting("textShadow", value)}
             />
             <Slider
+              label="亮度"
+              value={settings.brightness}
+              min={0}
+              max={200}
+              suffix="%"
+              onChange={(value) => updateSetting("brightness", value)}
+            />
+            <Slider
               label="压暗强度"
               value={settings.shade}
               min={0}
@@ -1403,6 +1506,25 @@ export default function CoverStudio() {
               suffix="%"
               onChange={(value) => updateSetting("bottomShade", value)}
             />
+            <div className="studio-retouch">
+              <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>擦开压暗层，不破坏原图</span></div>
+              <button
+                type="button"
+                className={brushMode ? "is-active" : ""}
+                onClick={() => {
+                  setBrushMode((current) => !current);
+                  setRotationMode(false);
+                  setNotice(brushMode ? "已退出涂抹，可继续移动照片" : "已开启涂抹，请在照片上按住绘制");
+                }}
+              >{brushMode ? "退出涂抹" : "开启涂抹"}</button>
+              <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} />
+              <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} />
+              <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} />
+              <div className="studio-retouch-actions">
+                <button type="button" disabled={!retouchStrokes.length} onClick={() => setRetouchStrokes((current) => current.slice(0, -1))}>撤销一步</button>
+                <button type="button" disabled={!retouchStrokes.length} onClick={() => setRetouchStrokes([])}>全部清除</button>
+              </div>
+            </div>
             <div className="studio-watermark-align">
               <span>水印位置</span>
               <div>
