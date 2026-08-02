@@ -42,6 +42,7 @@ type StudioSettings = {
   subtitleScale: number;
   zoom: number;
   offsetX: number;
+  offsetXRangeVersion: number;
   offsetY: number;
   rotation: number;
   textScale: number;
@@ -90,7 +91,8 @@ const DEFAULT_SETTINGS: StudioSettings = {
   subtitleColor: "#FFFFFF",
   subtitleScale: 100,
   zoom: 100,
-  offsetX: 0,
+  offsetX: 100,
+  offsetXRangeVersion: 1,
   offsetY: 0,
   rotation: 0,
   textScale: 100,
@@ -152,7 +154,7 @@ function drawCover(
     const imageWidth = image.naturalWidth * scale;
     const imageHeight = image.naturalHeight * scale;
     context.save();
-    context.translate(width / 2 + (settings.offsetX / 100) * width, height / 2 + (settings.offsetY / 100) * height);
+    context.translate(width / 2 + ((settings.offsetX - 100) / 100) * width, height / 2 + (settings.offsetY / 100) * height);
     context.rotate(radians);
     context.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
     context.restore();
@@ -607,6 +609,10 @@ export default function CoverStudio() {
             parsed.textShadow = 50;
             parsed.textShadowDefaultVersion = 1;
           }
+          if (parsed.offsetXRangeVersion !== 1) {
+            parsed.offsetX = Math.max(0, Math.min(200, Number(parsed.offsetX || 0) + 100));
+            parsed.offsetXRangeVersion = 1;
+          }
           if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
@@ -660,7 +666,7 @@ export default function CoverStudio() {
         const rotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
         setSettings((current) => ({ ...current, rotation }));
       } else {
-        const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -40, 40);
+        const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), 0, 200);
         const offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -40, 40);
         setSettings((current) => ({ ...current, offsetX, offsetY }));
       }
@@ -861,6 +867,10 @@ export default function CoverStudio() {
       if (parsed.textShadowDefaultVersion !== 1) {
         parsed.textShadow = 50;
         parsed.textShadowDefaultVersion = 1;
+      }
+      if (parsed.offsetXRangeVersion !== 1) {
+        parsed.offsetX = Math.max(0, Math.min(200, Number(parsed.offsetX || 0) + 100));
+        parsed.offsetXRangeVersion = 1;
       }
       if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
       parsed.templateId = normalizeTemplateId(parsed.templateId);
@@ -1330,8 +1340,8 @@ export default function CoverStudio() {
             <Slider
               label="左右位置"
               value={settings.offsetX}
-              min={-40}
-              max={40}
+              min={0}
+              max={200}
               suffix=""
               onChange={(value) => updateSetting("offsetX", value)}
             />
