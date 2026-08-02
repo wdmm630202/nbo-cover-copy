@@ -116,6 +116,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /label="照片缩放"[\s\S]*?min=\{0\}[\s\S]*?max=\{400\}/);
   assert.match(coverStudio, /label="左右位置"[\s\S]*?min=\{-200\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /label="上下位置"[\s\S]*?min=\{-200\}[\s\S]*?max=\{200\}/);
+  assert.match(coverStudio, /ROTATION_SNAP_ANGLES[\s\S]*?-90[\s\S]*?90/);
+  assert.match(coverStudio, /studio-transform-hud/);
+  assert.match(coverStudio, /studio-snap-guide/);
   assert.match(coverStudio, /settings\.watermarkAlign === "left"/);
   assert.match(coverStudio, /settings\.watermarkAlign === "right"/);
   assert.match(coverStudio, /startsWith\("top-"\)/);
@@ -190,6 +193,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /BracketRight/);
   assert.match(publicCover, /id="brightness" type="range" min="0" max="200" value="100"/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);
+  assert.match(publicCoverScript, /rotationSnapAngles[\s\S]*?-90[\s\S]*?90/);
+  assert.match(publicCover, /transformHud/);
+  assert.match(publicCover, /snapHorizontal/);
   assert.match(publicCoverScript, /播放量避让区 144px/);
   assert.match(publicCoverScript, /requestedY/);
   assert.match(publicCoverScript, /getWatermarkVisibleHeight\(width\) \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);

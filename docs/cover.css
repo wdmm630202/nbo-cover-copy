@@ -118,6 +118,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .canvas-shell.has-image canvas { cursor: grab; touch-action: none; user-select: none; }
 .canvas-shell.has-image canvas:active { cursor: grabbing; }
 .canvas-shell.is-rotating canvas, .canvas-shell.is-rotating canvas:active { cursor: ew-resize; }
+.transform-hud { position: absolute; z-index: 8; left: 50%; top: 50%; min-width: 68px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; background: rgba(12,12,12,.76); color: #fff; font-size: 14px; font-weight: 800; line-height: 1; text-align: center; pointer-events: none; opacity: 0; transform: translate(-50%, -50%) scale(.96); transition: opacity .12s, transform .12s; }
+.transform-hud.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.snap-guide { position: absolute; z-index: 7; left: 50%; top: 50%; background: rgba(255,255,255,.9); box-shadow: 0 0 0 1px rgba(0,0,0,.28); pointer-events: none; opacity: 0; }
+.snap-guide.horizontal { width: 100%; height: 1px; transform: translate(-50%, -50%); }
+.snap-guide.vertical { width: 1px; height: 100%; transform: translate(-50%, -50%); }
+.snap-guide.visible { opacity: .9; }
 .export-row { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; align-items: center; }
 .export-row strong { color: #fff; font-size: 10px; }
 .export-row small { color: rgba(255,255,255,.46); font-size: 8px; }

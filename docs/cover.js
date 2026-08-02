@@ -85,6 +85,28 @@ let previewDrawFrame = 0;
 let saveSettingsTimer = 0;
 const previewScratch = { shade: document.createElement("canvas"), stroke: document.createElement("canvas") };
 let imageInteraction = { rotationMode: false, drag: null };
+const rotationSnapAngles = [-180, -90, 0, 90, 180];
+let transformHintTimer = 0;
+
+function snapRotation(value) {
+  const nearest = rotationSnapAngles.reduce((best, angle) => Math.abs(angle - value) < Math.abs(best - value) ? angle : best);
+  const snapped = Math.abs(nearest - value) <= 3;
+  return { value: snapped ? nearest : value, guide: snapped ? (Math.abs(nearest) === 90 ? "vertical" : "horizontal") : "" };
+}
+
+function showTransformHint(text, guide = "") {
+  const hud = $("#transformHud");
+  hud.textContent = text;
+  hud.classList.add("visible");
+  $("#snapHorizontal").classList.toggle("visible", guide === "horizontal");
+  $("#snapVertical").classList.toggle("visible", guide === "vertical");
+  window.clearTimeout(transformHintTimer);
+  transformHintTimer = window.setTimeout(() => {
+    hud.classList.remove("visible");
+    $("#snapHorizontal").classList.remove("visible");
+    $("#snapVertical").classList.remove("visible");
+  }, 650);
+}
 const retouch = { active: false, size: 120, feather: 70, strength: 100, strokes: [], pointerId: null, compareBefore: false };
 const syncChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(COPY_SYNC_CHANNEL)
@@ -146,9 +168,11 @@ canvas.addEventListener("pointermove", (event) => {
   if (!state.image || !drag || drag.pointerId !== event.pointerId) return;
   const rect = canvas.getBoundingClientRect();
   if (imageInteraction.rotationMode) {
-    state.rotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
+    const snapped = snapRotation(clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180));
+    state.rotation = snapped.value;
     $("#rotation").value = state.rotation;
     $("#rotationValue").textContent = `${state.rotation}°`;
+    showTransformHint(`${state.rotation}°`, snapped.guide);
   } else {
     state.offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -200, 200);
     state.offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -200, 200);
@@ -181,6 +205,7 @@ canvas.addEventListener("wheel", (event) => {
   event.preventDefault();
   const amount = clamp(-event.deltaY * .02, -2, 2);
   state.zoom = clamp(Math.round((state.zoom + amount) * 10) / 10, 0, 400);
+  showTransformHint(`${state.zoom}%`);
   updateUi(); saveSettings(); draw();
 }, { passive: false });
 
@@ -560,7 +585,15 @@ $("#subtitleScale").addEventListener("input", (event) => {
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
 ["zoom", "offsetX", "offsetY", "rotation", "textScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
-    state[id] = Number(event.target.value);
+    const rawValue = Number(event.target.value);
+    if (id === "rotation") {
+      const snapped = snapRotation(rawValue);
+      state.rotation = snapped.value;
+      showTransformHint(`${state.rotation}°`, snapped.guide);
+    } else {
+      state[id] = rawValue;
+      if (id === "zoom") showTransformHint(`${state.zoom}%`);
+    }
     updateUi();
     saveSettings();
     draw();

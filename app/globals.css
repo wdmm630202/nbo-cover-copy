@@ -775,6 +775,12 @@ body {
   height: 100%;
   display: block;
 }
+.studio-transform-hud { position: absolute; z-index: 8; left: 50%; top: 50%; min-width: 68px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; background: rgba(12,12,12,.76); color: #fff; font-size: 14px; font-weight: 800; line-height: 1; text-align: center; pointer-events: none; opacity: 0; transform: translate(-50%, -50%) scale(.96); transition: opacity .12s, transform .12s; }
+.studio-transform-hud.is-visible { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.studio-snap-guide { position: absolute; z-index: 7; left: 50%; top: 50%; background: rgba(255,255,255,.9); box-shadow: 0 0 0 1px rgba(0,0,0,.28); pointer-events: none; opacity: 0; }
+.studio-snap-guide.is-horizontal { width: 100%; height: 1px; transform: translate(-50%, -50%); }
+.studio-snap-guide.is-vertical { width: 1px; height: 100%; transform: translate(-50%, -50%); }
+.studio-snap-guide.is-visible { opacity: .9; }
 
 .studio-canvas-shell.has-image canvas {
   cursor: grab;

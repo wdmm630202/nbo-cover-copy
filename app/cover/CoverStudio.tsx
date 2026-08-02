@@ -609,6 +609,20 @@ function countWrappedLines(_context: CanvasRenderingContext2D, text: string, _ma
   return Math.min(Math.ceil(Array.from(text).length / 12), 2);
 }
 
+const ROTATION_SNAP_ANGLES = [-180, -90, 0, 90, 180];
+const ROTATION_SNAP_DISTANCE = 3;
+
+function snapRotation(value: number) {
+  const nearest = ROTATION_SNAP_ANGLES.reduce((best, angle) =>
+    Math.abs(angle - value) < Math.abs(best - value) ? angle : best,
+  );
+  const snapped = Math.abs(nearest - value) <= ROTATION_SNAP_DISTANCE;
+  return {
+    value: snapped ? nearest : value,
+    guide: snapped ? (Math.abs(nearest) === 90 ? "vertical" : "horizontal") : null,
+  } as const;
+}
+
 function Slider({
   label,
   value,
@@ -647,6 +661,10 @@ function Slider({
 export default function CoverStudio() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasShellRef = useRef<HTMLDivElement>(null);
+  const transformHudRef = useRef<HTMLSpanElement>(null);
+  const snapHorizontalRef = useRef<HTMLSpanElement>(null);
+  const snapVerticalRef = useRef<HTMLSpanElement>(null);
+  const transformHudTimerRef = useRef<number | null>(null);
   const previewToolsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
@@ -677,6 +695,25 @@ export default function CoverStudio() {
   const rotationModeRef = useRef(rotationMode);
   const brushModeRef = useRef(brushMode);
   const brushSettingsRef = useRef({ size: brushSize, feather: brushFeather, strength: brushStrength });
+
+  const showTransformHint = (text: string, guide: "horizontal" | "vertical" | null = null) => {
+    const hud = transformHudRef.current;
+    if (!hud) return;
+    hud.textContent = text;
+    hud.classList.add("is-visible");
+    snapHorizontalRef.current?.classList.toggle("is-visible", guide === "horizontal");
+    snapVerticalRef.current?.classList.toggle("is-visible", guide === "vertical");
+    if (transformHudTimerRef.current) window.clearTimeout(transformHudTimerRef.current);
+    transformHudTimerRef.current = window.setTimeout(() => {
+      hud.classList.remove("is-visible");
+      snapHorizontalRef.current?.classList.remove("is-visible");
+      snapVerticalRef.current?.classList.remove("is-visible");
+    }, 650);
+  };
+
+  useEffect(() => () => {
+    if (transformHudTimerRef.current) window.clearTimeout(transformHudTimerRef.current);
+  }, []);
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -823,8 +860,10 @@ export default function CoverStudio() {
       if (!drag || drag.pointerId !== event.pointerId) return;
       const rect = canvas.getBoundingClientRect();
       if (rotationModeRef.current) {
-        const rotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
-        setSettings((current) => ({ ...current, rotation }));
+        const rawRotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
+        const snapped = snapRotation(rawRotation);
+        setSettings((current) => ({ ...current, rotation: snapped.value }));
+        showTransformHint(`${snapped.value}°`, snapped.guide);
       } else {
         const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -200, 200);
         const offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -200, 200);
@@ -853,10 +892,11 @@ export default function CoverStudio() {
       if (brushModeRef.current) return;
       event.preventDefault();
       const amount = clamp(-event.deltaY * 0.02, -2, 2);
-      setSettings((current) => ({
-        ...current,
-        zoom: clamp(Math.round((current.zoom + amount) * 10) / 10, 0, 400),
-      }));
+      setSettings((current) => {
+        const zoom = clamp(Math.round((current.zoom + amount) * 10) / 10, 0, 400);
+        showTransformHint(`${zoom}%`);
+        return { ...current, zoom };
+      });
     };
     const handleDoubleClick = (event: MouseEvent) => {
       if (brushModeRef.current) return;
@@ -1485,6 +1525,9 @@ export default function CoverStudio() {
           </div>
           <div ref={canvasShellRef} className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""} ${brushMode ? "is-brushing" : ""}`}>
             <canvas ref={canvasRef} aria-label="封面实时预览，可拖动照片；开启涂抹后可局部擦开压暗层" />
+            <span ref={transformHudRef} className="studio-transform-hud" aria-live="polite" />
+            <span ref={snapHorizontalRef} className="studio-snap-guide is-horizontal" aria-hidden="true" />
+            <span ref={snapVerticalRef} className="studio-snap-guide is-vertical" aria-hidden="true" />
             <span
               className={`studio-brush-cursor ${brushCursor.visible && brushMode ? "is-visible" : ""}`}
               style={{ left: `${brushCursor.x * 100}%`, top: `${brushCursor.y * 100}%`, width: `${brushSize / 10.8}%` }}
@@ -1565,7 +1608,7 @@ export default function CoverStudio() {
               min={0}
               max={400}
               suffix="%"
-              onChange={(value) => updateSetting("zoom", value)}
+              onChange={(value) => { updateSetting("zoom", value); showTransformHint(`${value}%`); }}
             />
             <Slider
               label="左右位置"
@@ -1589,7 +1632,11 @@ export default function CoverStudio() {
               min={-180}
               max={180}
               suffix="°"
-              onChange={(value) => updateSetting("rotation", value)}
+              onChange={(value) => {
+                const snapped = snapRotation(value);
+                updateSetting("rotation", snapped.value);
+                showTransformHint(`${snapped.value}°`, snapped.guide);
+              }}
             />
             <Slider
               label="标题大小"
