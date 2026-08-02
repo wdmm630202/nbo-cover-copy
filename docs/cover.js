@@ -830,9 +830,9 @@ async function buildExportAsset(format) {
     quality = Math.max(.56, quality - .07);
     blob = await toBlob(quality);
   }
-  while (blob && blob.size > maxBytes && outputSize.width > 1080) {
+  while (blob && blob.size > maxBytes && outputSize.width > 320) {
     const ratio = Math.min(.94, Math.sqrt(maxBytes / blob.size) * .98);
-    outputSize = { width: Math.max(1080, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
+    outputSize = { width: Math.max(320, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
     draw(false, output, outputSize);
     blob = await toBlob(quality);
   }
@@ -857,11 +857,26 @@ async function exportCover(format) {
     setExportReady(format, true);
     return setStatus(asset ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
   }
-  if (navigator.canShare?.({ files: [asset.file] })) {
+  const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
+  if (isMobile && navigator.canShare?.({ files: [asset.file] })) {
     try {
       await navigator.share({ files: [asset.file], title: "南铂封面" });
       setStatus("已打开手机分享面板，请点击“存储图像”保存到相册");
       return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return setStatus("已取消保存，可再次点击导出");
+    }
+  }
+  if (!isMobile && window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: asset.file.name,
+        types: [{ description: format === "png" ? "PNG 图片" : "JPG 图片", accept: { [asset.blob.type]: [format === "png" ? ".png" : ".jpg"] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(asset.blob);
+      await writable.close();
+      return setStatus(`已保存高清图片 · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return setStatus("已取消保存，可再次点击导出");
     }

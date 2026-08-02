@@ -636,9 +636,9 @@ export default function CoverStudio() {
       quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
       blob = await toBlob(quality);
     }
-    while (blob && blob.size > maxBytes && outputSize.width > 1080) {
+    while (blob && blob.size > maxBytes && outputSize.width > 320) {
       const ratio = Math.min(0.94, Math.sqrt(maxBytes / blob.size) * 0.98);
-      outputSize = { width: Math.max(1080, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
+      outputSize = { width: Math.max(320, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
       drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize);
       blob = await toBlob(quality);
     }
@@ -842,10 +842,29 @@ export default function CoverStudio() {
       setExportReady((current) => ({ ...current, [format]: true }));
       return setNotice(prepared ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
     }
-    if (navigator.canShare?.({ files: [asset.file] })) {
+    const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
+    if (isMobile && navigator.canShare?.({ files: [asset.file] })) {
       try {
         await navigator.share({ files: [asset.file], title: "南铂封面" });
         setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return setNotice("已取消保存，可再次点击导出");
+      }
+    }
+    const picker = (window as typeof window & {
+      showSaveFilePicker?: (options: { suggestedName: string; types: Array<{ description: string; accept: Record<string, string[]> }> }) => Promise<{ createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }> }>;
+    }).showSaveFilePicker;
+    if (!isMobile && picker) {
+      try {
+        const handle = await picker({
+          suggestedName: asset.file.name,
+          types: [{ description: format === "png" ? "PNG 图片" : "JPG 图片", accept: { [asset.blob.type]: [format === "png" ? ".png" : ".jpg"] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(asset.blob);
+        await writable.close();
+        setNotice(`已保存高清图片 · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return setNotice("已取消保存，可再次点击导出");
