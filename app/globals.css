@@ -484,8 +484,8 @@ body {
 .studio-memory b { color: #625b55; font-size: 9px; }
 .studio-memory button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
 .studio-factory-reset, .studio-reset { width: 100%; min-height: 34px; border-radius: 8px; font-size: 7px; font-weight: 700; cursor: pointer; }
-.studio-factory-reset { margin-bottom: 8px; border: 1px solid var(--red); background: #fff; color: var(--red); }
-.studio-reset { border: 1px solid #202020; background: #202020; color: #fff; }
+.studio-factory-reset { margin-bottom: 8px; border: 1px solid var(--red); background: var(--red); color: #fff; }
+.studio-reset { border: 1px solid #202020; background: #202020; color: #fff; font-size: 22px; line-height: 1; }
 .studio-left-watermark-controls { margin-top: 8px; padding: 8px; display: grid; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; background: #faf9f7; }
 .studio-subtitle-tools { margin-top: 8px; display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
 .studio-subtitle-tools label { min-height: 45px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; color: #6e6761; font-size: 8px; }
@@ -1148,6 +1148,7 @@ body {
   .studio-design { display: flex; flex-direction: column; }
   .studio-design .studio-panel-heading { margin-bottom: 7px; }
   .studio-design > .studio-factory-reset, .studio-design > .studio-reset { min-height: 52px; border-radius: 10px; }
+  .studio-design > .studio-reset { font-size: 34px; }
   .studio-design > .studio-reset { margin-bottom: 10px; }
   .studio-template-grid { width: 100%; height: auto; aspect-ratio: 1; gap: 6px; }
   .studio-template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
