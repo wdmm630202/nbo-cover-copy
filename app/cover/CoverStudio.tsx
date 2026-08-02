@@ -67,7 +67,10 @@ type ExportAsset = {
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 const MEMORY_NAMES_KEY = "nbo-cover-studio-memory-names";
-const getWatermarkVisibleHeight = (width: number) => Math.round(width * 0.03);
+const WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32;
+const WATERMARK_BOTTOM_GAP_AT_1080 = 36;
+const getWatermarkVisibleHeight = (width: number) => Math.round(WATERMARK_VISIBLE_HEIGHT_AT_1080 * (width / 1080));
+const getWatermarkBottomGap = (width: number) => Math.round(WATERMARK_BOTTOM_GAP_AT_1080 * (width / 1080));
 
 function formatExportTimestamp(date = new Date()) {
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -314,7 +317,7 @@ function drawTemplateText(
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
   const watermarkBounds = watermark ? getWatermarkVisibleBounds(watermark) : null;
   const fixedWatermarkScale = watermarkBounds ? getWatermarkVisibleHeight(width) / Math.max(1, watermarkBounds.bottom - watermarkBounds.top) : 0;
-  const watermarkEdgeGap = (DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset - 18) * geometryScale;
+  const watermarkEdgeGap = getWatermarkBottomGap(width);
   const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
   const watermarkTop = watermark
     ? watermarkBottom - ((watermarkBounds?.bottom ?? 0) - (watermarkBounds?.top ?? 0)) * fixedWatermarkScale
@@ -394,7 +397,7 @@ function drawWatermark(
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
   const safeInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * (width / 1080);
-  const watermarkEdgeGap = (DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset - 18) * (width / 1080);
+  const watermarkEdgeGap = getWatermarkBottomGap(width);
   const x = settings.watermarkAlign === "left"
     ? safeInset - bounds.left * scale
     : settings.watermarkAlign === "right"

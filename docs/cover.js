@@ -7,7 +7,10 @@ const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
-const getWatermarkVisibleHeight = (width) => Math.round(width * .03);
+const WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32;
+const WATERMARK_BOTTOM_GAP_AT_1080 = 36;
+const getWatermarkVisibleHeight = (width) => Math.round(WATERMARK_VISIBLE_HEIGHT_AT_1080 * width / 1080);
+const getWatermarkBottomGap = (width) => Math.round(WATERMARK_BOTTOM_GAP_AT_1080 * width / 1080);
 const formatExportTimestamp = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, "0");
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
@@ -731,7 +734,7 @@ function drawText(ctx, width, height) {
   const watermarkScale = state.watermark && state.watermarkEnabled
     ? getWatermarkVisibleHeight(width) / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
     : 0;
-  const watermarkEdgeGap = (DOUYIN_HOME_SAFE.horizontalInset - 18) * geometryScale;
+  const watermarkEdgeGap = getWatermarkBottomGap(width);
   const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
   const watermarkTop = state.watermark && state.watermarkEnabled
     ? watermarkBottom - (getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top) * watermarkScale
@@ -852,7 +855,7 @@ function drawWatermark(ctx, width, height) {
   const drawWidth = state.watermark.naturalWidth * scale;
   const drawHeight = state.watermark.naturalHeight * scale;
   const safeInset = DOUYIN_HOME_SAFE.horizontalInset * (width / 1080);
-  const watermarkEdgeGap = (DOUYIN_HOME_SAFE.horizontalInset - 18) * (width / 1080);
+  const watermarkEdgeGap = getWatermarkBottomGap(width);
   const x = state.watermarkAlign === "left"
     ? safeInset - bounds.left * scale
     : state.watermarkAlign === "right"
