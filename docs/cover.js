@@ -88,6 +88,18 @@ let imageInteraction = { rotationMode: false, drag: null };
 const rotationSnapAngles = [-180, -90, 0, 90, 180];
 let transformHintTimer = 0;
 
+document.addEventListener("pointerdown", (event) => {
+  const target = event.target instanceof Element
+    ? event.target.closest('button, [role="button"], input[type="button"], input[type="submit"]')
+    : null;
+  if (!target || target.matches(":disabled") || target.getAttribute("aria-disabled") === "true") return;
+  try {
+    navigator.vibrate?.(10);
+  } catch {
+    // 不支持网页震动的浏览器直接忽略，不影响按钮原功能。
+  }
+}, { passive: true });
+
 function snapRotation(value) {
   const nearest = rotationSnapAngles.reduce((best, angle) => Math.abs(angle - value) < Math.abs(best - value) ? angle : best);
   const snapped = Math.abs(nearest - value) <= 3;
