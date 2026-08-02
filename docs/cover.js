@@ -796,10 +796,15 @@ function scheduleExportPreparation() {
   if (!state.image) return;
   exportPrepareTimer = window.setTimeout(async () => {
     for (const format of ["jpeg", "png"]) {
-      const asset = await buildExportAsset(format);
+      let asset = null;
+      try {
+        asset = await buildExportAsset(format);
+      } catch {
+        setStatus("手机生成失败，请更换照片后重试");
+      }
       if (revision !== exportRevision) return;
       exportCache[format] = asset;
-      if (asset) setExportReady(format, true);
+      setExportReady(format, true);
     }
   }, 120);
 }
@@ -811,9 +816,12 @@ async function buildExportAsset(format) {
   const current = preset();
   const sourceRatio = state.image.naturalWidth / state.image.naturalHeight;
   const targetRatio = current.width / current.height;
-  let outputSize = sourceRatio >= targetRatio
-    ? { width: Math.round(state.image.naturalHeight * targetRatio), height: state.image.naturalHeight }
-    : { width: state.image.naturalWidth, height: Math.round(state.image.naturalWidth / targetRatio) };
+  const isIPhoneOrIPad = /iP(?:hone|ad|od)/.test(navigator.userAgent);
+  let outputSize = isIPhoneOrIPad
+    ? { width: current.width, height: current.height }
+    : sourceRatio >= targetRatio
+      ? { width: Math.round(state.image.naturalHeight * targetRatio), height: state.image.naturalHeight }
+      : { width: state.image.naturalWidth, height: Math.round(state.image.naturalWidth / targetRatio) };
   draw(false, output, outputSize);
   const toBlob = (quality) => new Promise((resolve) => output.toBlob(resolve, mimeType, quality));
   const maxBytes = 19.9 * 1024 * 1024;
@@ -838,7 +846,7 @@ async function buildExportAsset(format) {
 async function exportCover(format) {
   if (!state.image) return setStatus("请先上传一张照片");
   const asset = exportCache[format];
-  if (!asset) return setStatus("高清图片正在准备，请等待按钮恢复后再点击");
+  if (!asset) return setStatus("这次生成没有完成，请重新上传照片后再试");
   if (navigator.canShare?.({ files: [asset.file] })) {
     try {
       await navigator.share({ files: [asset.file], title: "南铂封面" });

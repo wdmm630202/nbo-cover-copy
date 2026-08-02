@@ -139,7 +139,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /navigator\.share/);
   assert.match(publicCoverScript, /存储图像/);
   assert.match(publicCoverScript, /scheduleExportPreparation/);
-  assert.match(publicCoverScript, /高清图片正在准备/);
+  assert.match(publicCoverScript, /这次生成没有完成/);
+  assert.match(publicCoverScript, /iP\(\?:hone\|ad\|od\)/);
   assert.match(publicCoverScript, /主页 3:4 安全区/);
   assert.match(publicCoverScript, /播放量避让区 144px/);
   assert.match(publicCoverScript, /requestedY/);

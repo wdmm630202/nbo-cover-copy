@@ -622,9 +622,12 @@ export default function CoverStudio() {
     if (!image) return null;
     const sourceRatio = image.naturalWidth / image.naturalHeight;
     const targetRatio = preset.width / preset.height;
-    let outputSize = sourceRatio >= targetRatio
-      ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
-      : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
+    const isIPhoneOrIPad = /iP(?:hone|ad|od)/.test(navigator.userAgent);
+    let outputSize = isIPhoneOrIPad
+      ? { width: preset.width, height: preset.height }
+      : sourceRatio >= targetRatio
+        ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
+        : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
     const exportCanvas = document.createElement("canvas");
     const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => exportCanvas.toBlob(resolve, `image/${format}`, quality));
     const maxBytes = 19.9 * 1024 * 1024;
@@ -654,10 +657,15 @@ export default function CoverStudio() {
     if (!image) return;
     const timer = window.setTimeout(async () => {
       for (const format of ["jpeg", "png"] as const) {
-        const asset = await buildExportAsset(format);
+        let asset: ExportAsset | null = null;
+        try {
+          asset = await buildExportAsset(format);
+        } catch {
+          setNotice("手机生成失败，请更换照片后重试");
+        }
         if (generation !== exportGenerationRef.current) return;
         exportCacheRef.current[format] = asset;
-        if (asset) setExportReady((current) => ({ ...current, [format]: true }));
+        setExportReady((current) => ({ ...current, [format]: true }));
       }
     }, 120);
     return () => window.clearTimeout(timer);
