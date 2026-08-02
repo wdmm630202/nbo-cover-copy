@@ -686,32 +686,33 @@ function measureInkBounds(ctx, text) {
 }
 
 function drawWrapped(ctx, text, x, y, maxWidth, lineHeight, align) {
-  const lines = [];
-  let current = "";
-  Array.from(text).forEach((character) => {
-    const candidate = current + character;
-    if (ctx.measureText(candidate).width > maxWidth && current) {
-      lines.push(current);
-      current = character;
-    } else current = candidate;
-  });
-  if (current) lines.push(current);
+  const characters = Array.from(text);
+  const lines = Array.from({ length: Math.ceil(characters.length / 12) }, (_, index) =>
+    characters.slice(index * 12, index * 12 + 12).join("")
+  );
   ctx.textAlign = align;
-  lines.slice(0, 2).forEach((line, index) => ctx.fillText(line, x, y + index * lineHeight, maxWidth));
+  lines.slice(0, 2).forEach((line, index) => {
+    const lineY = y + index * lineHeight;
+    if (Array.from(line).length !== 12) return ctx.fillText(line, x, lineY, maxWidth);
+    const left = align === "right" ? x - maxWidth : align === "center" ? x - maxWidth / 2 : x;
+    const glyphs = Array.from(line).map((character) => ({ character, metrics: ctx.measureText(character) }));
+    const widths = glyphs.map(({ metrics }) =>
+      (metrics.actualBoundingBoxLeft || 0) + (metrics.actualBoundingBoxRight || metrics.width)
+    );
+    const gap = Math.max(0, (maxWidth - widths.reduce((sum, width) => sum + width, 0)) / 11);
+    let cursor = left;
+    ctx.textAlign = "left";
+    glyphs.forEach(({ character, metrics }, glyphIndex) => {
+      ctx.fillText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
+      cursor += widths[glyphIndex] + gap;
+    });
+    ctx.textAlign = align;
+  });
 }
 
 function countWrappedLines(ctx, text, maxWidth) {
   if (!text.trim()) return 0;
-  let lines = 1;
-  let current = "";
-  Array.from(text).forEach((character) => {
-    const candidate = current + character;
-    if (ctx.measureText(candidate).width > maxWidth && current) {
-      lines += 1;
-      current = character;
-    } else current = candidate;
-  });
-  return Math.min(lines, 2);
+  return Math.min(Math.ceil(Array.from(text).length / 12), 2);
 }
 
 function drawWatermark(ctx, width, height) {

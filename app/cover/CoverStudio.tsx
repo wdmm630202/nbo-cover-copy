@@ -438,38 +438,36 @@ function drawWrappedText(
   align: CanvasTextAlign,
 ) {
   const characters = Array.from(text);
-  const lines: string[] = [];
-  let current = "";
-
-  characters.forEach((character) => {
-    const candidate = current + character;
-    if (context.measureText(candidate).width > maxWidth && current) {
-      lines.push(current);
-      current = character;
-    } else {
-      current = candidate;
-    }
-  });
-  if (current) lines.push(current);
+  const lines = Array.from({ length: Math.ceil(characters.length / 12) }, (_, index) =>
+    characters.slice(index * 12, index * 12 + 12).join(""),
+  );
 
   context.textAlign = align;
   lines.slice(0, 2).forEach((line, index) => {
-    context.fillText(line, x, y + index * lineHeight, maxWidth);
+    const lineY = y + index * lineHeight;
+    if (Array.from(line).length !== 12) {
+      context.fillText(line, x, lineY, maxWidth);
+      return;
+    }
+    const left = align === "right" ? x - maxWidth : align === "center" ? x - maxWidth / 2 : x;
+    const glyphs = Array.from(line).map((character) => ({ character, metrics: context.measureText(character) }));
+    const widths = glyphs.map(({ metrics }) =>
+      (metrics.actualBoundingBoxLeft || 0) + (metrics.actualBoundingBoxRight || metrics.width),
+    );
+    const gap = Math.max(0, (maxWidth - widths.reduce((sum, width) => sum + width, 0)) / 11);
+    let cursor = left;
+    context.textAlign = "left";
+    glyphs.forEach(({ character, metrics }, glyphIndex) => {
+      context.fillText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
+      cursor += widths[glyphIndex] + gap;
+    });
+    context.textAlign = align;
   });
 }
 
-function countWrappedLines(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
+function countWrappedLines(_context: CanvasRenderingContext2D, text: string, _maxWidth: number) {
   if (!text.trim()) return 0;
-  let lines = 1;
-  let current = "";
-  Array.from(text).forEach((character) => {
-    const candidate = current + character;
-    if (context.measureText(candidate).width > maxWidth && current) {
-      lines += 1;
-      current = character;
-    } else current = candidate;
-  });
-  return Math.min(lines, 2);
+  return Math.min(Math.ceil(Array.from(text).length / 12), 2);
 }
 
 function Slider({
