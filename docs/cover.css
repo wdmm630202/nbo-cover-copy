@@ -124,6 +124,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .export-row .original { border: 1px solid rgba(255,45,70,.72); background: transparent; color: #ff5368; }
 .export-row .primary { border: 1px solid var(--red); background: var(--red); color: #fff; }
 .export-row button:disabled { opacity: .56; cursor: wait; }
+.preview-tools { margin-top: 12px; display: grid; grid-template-columns: 1fr; gap: 10px; }
 .save-preview { position: fixed; inset: 0; z-index: 9999; padding: 18px; background: rgba(0,0,0,.82); overflow: auto; }
 .save-preview-card { width: min(560px,100%); margin: 0 auto; padding: 16px; border-radius: 18px; background: #fff; text-align: center; }
 .save-preview-card strong { font-size: 18px; }
@@ -151,6 +152,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .retouch-panel > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .retouch-panel > div b { color: #28231f; font-size: 10px; }
 .retouch-panel > div span { color: #9b9188; font-size: 8px; }
+.retouch-panel label > span { margin-bottom: 4px; display: flex; justify-content: space-between; color: #6e6761; font-size: 9px; }
+.retouch-panel input[type="range"] { width: 100%; accent-color: var(--red); }
 .retouch-panel > button, .retouch-panel section button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
 .retouch-panel > button.active { border-color: var(--red); background: var(--red); color: #fff; }
 .retouch-panel section { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -176,9 +179,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .cover-page { padding-bottom: 8px; }
   .studio-header { min-height: 58px; }
   .brand-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
-  .studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 310px minmax(430px, 1fr) 390px; gap: 12px; align-items: stretch; }
+  .studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 300px minmax(620px, 1fr) 320px; gap: 12px; align-items: stretch; }
   .panel, .preview-panel { height: 100%; min-height: 0; border-radius: 18px; }
   .panel { padding: 13px; overflow: hidden; }
+  .controls { display: flex; flex-direction: column; }
   .panel-heading { margin-bottom: 8px; }
   .panel-heading > b { width: 30px; height: 30px; }
   .status { width: 100%; min-width: 0; margin-bottom: 8px; padding: 8px 10px; border-radius: 10px; font-size: 9px; }
@@ -200,29 +204,30 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .platforms button { min-height: 44px; }
   .preview-panel { padding: 13px; display: flex; flex-direction: column; }
   .preview-toolbar { min-height: 32px; margin-bottom: 8px; }
-  .canvas-shell { width: auto; height: calc(100% - 84px); max-width: 100%; }
+  .canvas-shell { width: auto; height: calc(100% - 326px); max-width: 100%; }
+  .preview-tools { height: 210px; margin-top: 8px; grid-template-columns: minmax(0, 1fr) 210px; gap: 8px; }
   .export-row { margin-top: 8px; gap: 6px; }
   .export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
   .design .panel-heading { margin-bottom: 7px; }
-  .templates { gap: 5px; }
-  .template { min-height: 58px; padding: 7px; border-radius: 9px; }
-  .template::after { width: 42px; height: 68px; }
+  .templates { width: 210px; height: 210px; gap: 5px; }
+  .template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
+  .template::after { width: 36px; height: 58px; }
   .template b { font-size: 8px; }
   .template span { font-size: 6px; }
-  .sliders { margin-top: 8px; grid-template-columns: 1fr 1fr; gap: 5px 10px; }
-  .sliders label > span { margin-bottom: 1px; font-size: 8px; }
-  .sliders input[type="range"] { height: 12px; }
-  .retouch-panel { grid-column: 1 / -1; padding: 7px; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .sliders { margin-top: 8px; grid-template-columns: 1fr; gap: 8px; }
+  .sliders label > span { margin-bottom: 3px; font-size: 9px; }
+  .sliders input[type="range"] { height: 15px; }
+  .retouch-panel { height: 210px; padding: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px 8px; }
   .retouch-panel > div:first-child, .retouch-panel > button { grid-column: 1 / -1; }
   .retouch-panel > button, .retouch-panel section button { min-height: 25px; }
   .retouch-panel .retouch-compare, .retouch-panel > small, .retouch-panel > section:last-child { grid-column: 1 / -1; }
   .retouch-panel > small { align-self: center; line-height: 1.35; }
   .watermark-align > span { margin-bottom: 3px; font-size: 8px; }
   .watermark-align button { min-height: 28px; }
-  .memory-panel { margin-top: 8px; padding-top: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-  .memory-panel .reset-settings { grid-column: 1 / -1; min-height: 28px; }
-  .memory-panel > div { padding: 5px; grid-template-columns: 1fr 1fr; gap: 4px; }
-  .memory-panel > div b { grid-column: 1 / -1; }
+  .memory-panel { margin-top: auto; padding-top: 8px; grid-template-columns: 1fr; gap: 5px; }
+  .memory-panel .reset-settings { min-height: 28px; }
+  .memory-panel > div { padding: 5px; grid-template-columns: 1fr auto auto auto; gap: 4px; }
+  .memory-panel > div > button:last-child, .memory-panel > div b { grid-column: auto; }
   .memory-panel button { min-height: 23px; padding: 0 4px; }
   .standard { min-height: 82px; margin-top: 8px; padding: 10px 16px; grid-template-columns: 170px 1fr; gap: 6px 18px; border-radius: 18px; }
   .standard h2 { margin-top: 3px; font-size: 17px; }
@@ -233,7 +238,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 1180px) {
   .studio-grid { grid-template-columns: 300px 1fr; }
   .design { grid-column: 1/-1; }
-  .templates { grid-template-columns: repeat(9, 1fr); }
+  .templates { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 780px) {
   .studio-header, .studio { width: min(100% - 20px, 1480px); }

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#202020" />
     <meta name="robots" content="noindex,nofollow" />
     <title>NBO南铂封面制作台</title>
-    <link rel="stylesheet" href="./cover.css?v=20260802-single-screen-layout" />
+    <link rel="stylesheet" href="./cover.css?v=20260802-practical-workflow-layout" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -84,6 +84,12 @@
               <button type="button" data-platform="shipinhao"><strong>视频号</strong><span>3:4</span></button>
             </div>
             <p class="preset-note" id="presetNote">1080×1920 · 竖屏封面，带居中 3:4 主页安全区</p>
+            <div class="memory-panel">
+              <button id="resetSettings" class="reset-settings" type="button">恢复默认</button>
+              <div><b data-memory-name>记忆 1</b><button type="button" data-rename-memory="1">重命名</button><button type="button" data-save-memory="1">保存</button><button type="button" data-load-memory="1">应用</button></div>
+              <div><b data-memory-name>记忆 2</b><button type="button" data-rename-memory="2">重命名</button><button type="button" data-save-memory="2">保存</button><button type="button" data-load-memory="2">应用</button></div>
+              <div><b data-memory-name>记忆 3</b><button type="button" data-rename-memory="3">重命名</button><button type="button" data-save-memory="3">保存</button><button type="button" data-load-memory="3">应用</button></div>
+            </div>
           </aside>
 
           <section class="preview-panel">
@@ -94,6 +100,29 @@
             <div class="canvas-shell ratio-9-16" id="canvasShell">
               <canvas id="coverCanvas" aria-label="封面实时预览，可拖动照片、滚轮缩放、双击旋转"></canvas>
               <span class="brush-cursor" id="brushCursor" aria-hidden="true"></span>
+            </div>
+            <div class="preview-tools">
+              <div class="retouch-panel">
+                <div><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
+                <button id="retouchToggle" type="button">开启涂抹</button>
+                <label><span>画笔大小 <b id="brushSizeValue">120</b></span><input id="brushSize" type="range" min="20" max="400" value="120" /></label>
+                <label><span>羽化 <b id="brushFeatherValue">70%</b></span><input id="brushFeather" type="range" min="0" max="100" value="70" /></label>
+                <label><span>涂抹强度 <b id="brushStrengthValue">100%</b></span><input id="brushStrength" type="range" min="0" max="100" value="100" /></label>
+                <section class="retouch-compare"><button id="compareBefore" type="button" disabled>涂抹前</button><button id="compareAfter" class="active" type="button">涂抹后</button></section>
+                <small>仅切换预览，导出始终保留涂抹效果</small>
+                <section><button id="undoRetouch" type="button" disabled>撤销一步</button><button id="clearRetouch" type="button" disabled>全部清除</button></section>
+              </div>
+              <div class="templates" id="templates">
+                <button type="button" class="template" data-template="top-left"><i>01</i><b>上方左题</b><span>上方区域，左侧对齐</span></button>
+                <button type="button" class="template center" data-template="top-center"><i>02</i><b>上方居中</b><span>上方区域，中轴对齐</span></button>
+                <button type="button" class="template right" data-template="top-right"><i>03</i><b>上方右题</b><span>上方区域，右侧对齐</span></button>
+                <button type="button" class="template active" data-template="middle-left"><i>04</i><b>居中左题</b><span>居中区域，左侧对齐</span></button>
+                <button type="button" class="template center" data-template="middle-center"><i>05</i><b>居中</b><span>居中区域，中轴对齐</span></button>
+                <button type="button" class="template right" data-template="middle-right"><i>06</i><b>居中右题</b><span>居中区域，右侧对齐</span></button>
+                <button type="button" class="template bottom" data-template="bottom-left"><i>07</i><b>下方左题</b><span>下方区域，左侧对齐</span></button>
+                <button type="button" class="template center bottom" data-template="bottom-center"><i>08</i><b>下方居中</b><span>下方区域，中轴对齐</span></button>
+                <button type="button" class="template right bottom" data-template="bottom-right"><i>09</i><b>下方右题</b><span>下方区域，右侧对齐</span></button>
+              </div>
             </div>
             <div class="export-row">
               <span><strong>导出前检查</strong><small>头顶、脸、手势和主标题均在安全区内</small></span>
@@ -106,17 +135,6 @@
 
           <aside class="panel design">
             <div class="panel-heading"><b>02</b><span><strong>版式与构图</strong><small>参考南铂暗调杂志封面体系</small></span></div>
-            <div class="templates" id="templates">
-              <button type="button" class="template" data-template="top-left"><i>01</i><b>上方左题</b><span>上方区域，左侧对齐</span></button>
-              <button type="button" class="template center" data-template="top-center"><i>02</i><b>上方居中</b><span>上方区域，中轴对齐</span></button>
-              <button type="button" class="template right" data-template="top-right"><i>03</i><b>上方右题</b><span>上方区域，右侧对齐</span></button>
-              <button type="button" class="template active" data-template="middle-left"><i>04</i><b>居中左题</b><span>居中区域，左侧对齐</span></button>
-              <button type="button" class="template center" data-template="middle-center"><i>05</i><b>居中</b><span>居中区域，中轴对齐</span></button>
-              <button type="button" class="template right" data-template="middle-right"><i>06</i><b>居中右题</b><span>居中区域，右侧对齐</span></button>
-              <button type="button" class="template bottom" data-template="bottom-left"><i>07</i><b>下方左题</b><span>下方区域，左侧对齐</span></button>
-              <button type="button" class="template center bottom" data-template="bottom-center"><i>08</i><b>下方居中</b><span>下方区域，中轴对齐</span></button>
-              <button type="button" class="template right bottom" data-template="bottom-right"><i>09</i><b>下方右题</b><span>下方区域，右侧对齐</span></button>
-            </div>
             <div class="sliders">
               <label><span>照片缩放 <b id="zoomValue">100%</b></span><input id="zoom" type="range" min="0" max="400" value="100" /></label>
               <label><span>左右位置 <b id="offsetXValue">0</b></span><input id="offsetX" type="range" min="-200" max="200" value="0" /></label>
@@ -128,24 +146,8 @@
               <label><span>亮度 <b id="brightnessValue">100%</b></span><input id="brightness" type="range" min="0" max="200" value="100" /></label>
               <label><span>压暗强度 <b id="shadeValue">0%</b></span><input id="shade" type="range" min="0" max="100" value="0" /></label>
               <label><span>底部向上压暗 <b id="bottomShadeValue">100%</b></span><input id="bottomShade" type="range" min="0" max="100" value="100" /></label>
-              <div class="retouch-panel">
-                <div><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
-                <button id="retouchToggle" type="button">开启涂抹</button>
-                <label><span>画笔大小 <b id="brushSizeValue">120</b></span><input id="brushSize" type="range" min="20" max="400" value="120" /></label>
-                <label><span>羽化 <b id="brushFeatherValue">70%</b></span><input id="brushFeather" type="range" min="0" max="100" value="70" /></label>
-                <label><span>涂抹强度 <b id="brushStrengthValue">100%</b></span><input id="brushStrength" type="range" min="0" max="100" value="100" /></label>
-                <section class="retouch-compare"><button id="compareBefore" type="button" disabled>涂抹前</button><button id="compareAfter" class="active" type="button">涂抹后</button></section>
-                <small>仅切换预览，导出始终保留涂抹效果</small>
-                <section><button id="undoRetouch" type="button" disabled>撤销一步</button><button id="clearRetouch" type="button" disabled>全部清除</button></section>
-              </div>
               <div class="watermark-align"><span>水印位置</span><div><button type="button" data-watermark-align="left">左侧对齐</button><button type="button" class="active" data-watermark-align="center">居中</button><button type="button" data-watermark-align="right">右侧对齐</button></div></div>
               <label><span>水印透明度 <b id="watermarkOpacityValue">50%</b></span><input id="watermarkOpacity" type="range" min="0" max="100" value="50" /></label>
-            </div>
-            <div class="memory-panel">
-              <button id="resetSettings" class="reset-settings" type="button">恢复默认</button>
-              <div><b data-memory-name>记忆 1</b><button type="button" data-rename-memory="1">重命名</button><button type="button" data-save-memory="1">保存</button><button type="button" data-load-memory="1">应用</button></div>
-              <div><b data-memory-name>记忆 2</b><button type="button" data-rename-memory="2">重命名</button><button type="button" data-save-memory="2">保存</button><button type="button" data-load-memory="2">应用</button></div>
-              <div><b data-memory-name>记忆 3</b><button type="button" data-rename-memory="3">重命名</button><button type="button" data-save-memory="3">保存</button><button type="button" data-load-memory="3">应用</button></div>
             </div>
           </aside>
         </div>
@@ -172,6 +174,6 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./cover.js?v=20260802-single-screen-layout"></script>
+    <script src="./cover.js?v=20260802-practical-workflow-layout"></script>
   </body>
 </html>

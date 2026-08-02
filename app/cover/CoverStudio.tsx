@@ -1393,6 +1393,12 @@ export default function CoverStudio() {
           <p className="studio-preset-note">
             {preset.width}×{preset.height} · {preset.note}
           </p>
+          <div className="studio-memory">
+            <button type="button" className="studio-reset" onClick={resetSettings}>恢复默认</button>
+            {[1, 2, 3].map((slot) => (
+              <div key={slot}><b>{memoryNames[slot - 1]}</b><button type="button" onClick={() => renameMemory(slot)}>重命名</button><button type="button" onClick={() => saveMemory(slot)}>保存</button><button type="button" onClick={() => loadMemory(slot)}>应用</button></div>
+            ))}
+          </div>
         </aside>
 
         <section className="studio-preview-panel">
@@ -1419,6 +1425,50 @@ export default function CoverStudio() {
               aria-hidden="true"
             />
           </div>
+          <div className="studio-preview-tools">
+            <div className="studio-retouch">
+              <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
+              <button
+                type="button"
+                className={brushMode ? "is-active" : ""}
+                onClick={() => {
+                  setBrushMode((current) => !current);
+                  setRotationMode(false);
+                  setNotice(brushMode ? "已退出涂抹，可继续移动照片" : "已开启涂抹，请在照片上按住绘制");
+                }}
+              >{brushMode ? "退出涂抹" : "开启涂抹"}</button>
+              <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} />
+              <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} />
+              <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} />
+              <div className="studio-retouch-compare">
+                <button type="button" disabled={!retouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
+                <button type="button" className={!showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(false)}>涂抹后</button>
+              </div>
+              <small className="studio-retouch-note">仅切换预览，导出始终保留涂抹效果</small>
+              <div className="studio-retouch-actions">
+                <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes((current) => current.slice(0, -1)); }}>撤销一步</button>
+                <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes([]); }}>全部清除</button>
+              </div>
+            </div>
+            <div className="studio-template-grid">
+              {COVER_TEMPLATES.map((template) => (
+                <button
+                  type="button"
+                  key={template.id}
+                  className={`studio-template template-${template.id} ${settings.templateId === template.id ? "is-active" : ""}`}
+                  onClick={() => setSettings((current) => ({
+                    ...current,
+                    templateId: template.id,
+                    watermarkAlign: template.id.endsWith("-left") ? "left" : template.id.endsWith("-right") ? "right" : "center",
+                  }))}
+                >
+                  <i>{template.number}</i>
+                  <b>{template.name}</b>
+                  <span>{template.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="studio-export-row">
             <div>
               <strong>导出前检查</strong>
@@ -1442,25 +1492,6 @@ export default function CoverStudio() {
               <strong>版式与构图</strong>
               <small>参考南铂暗调杂志封面体系</small>
             </div>
-          </div>
-
-          <div className="studio-template-grid">
-            {COVER_TEMPLATES.map((template) => (
-              <button
-                type="button"
-                key={template.id}
-                className={`studio-template template-${template.id} ${settings.templateId === template.id ? "is-active" : ""}`}
-                onClick={() => setSettings((current) => ({
-                  ...current,
-                  templateId: template.id,
-                  watermarkAlign: template.id.endsWith("-left") ? "left" : template.id.endsWith("-right") ? "right" : "center",
-                }))}
-              >
-                <i>{template.number}</i>
-                <b>{template.name}</b>
-                <span>{template.hint}</span>
-              </button>
-            ))}
           </div>
 
           <div className="studio-adjustments">
@@ -1544,30 +1575,6 @@ export default function CoverStudio() {
               suffix="%"
               onChange={(value) => updateSetting("bottomShade", value)}
             />
-            <div className="studio-retouch">
-              <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
-              <button
-                type="button"
-                className={brushMode ? "is-active" : ""}
-                onClick={() => {
-                  setBrushMode((current) => !current);
-                  setRotationMode(false);
-                  setNotice(brushMode ? "已退出涂抹，可继续移动照片" : "已开启涂抹，请在照片上按住绘制");
-                }}
-              >{brushMode ? "退出涂抹" : "开启涂抹"}</button>
-              <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} />
-              <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} />
-              <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} />
-              <div className="studio-retouch-compare">
-                <button type="button" disabled={!retouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
-                <button type="button" className={!showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(false)}>涂抹后</button>
-              </div>
-              <small className="studio-retouch-note">仅切换预览，导出始终保留涂抹效果</small>
-              <div className="studio-retouch-actions">
-                <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes((current) => current.slice(0, -1)); }}>撤销一步</button>
-                <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes([]); }}>全部清除</button>
-              </div>
-            </div>
             <div className="studio-watermark-align">
               <span>水印位置</span>
               <div>
@@ -1591,12 +1598,6 @@ export default function CoverStudio() {
               suffix="%"
               onChange={(value) => updateSetting("watermarkOpacity", value)}
             />
-          </div>
-          <div className="studio-memory">
-            <button type="button" className="studio-reset" onClick={resetSettings}>恢复默认</button>
-            {[1, 2, 3].map((slot) => (
-              <div key={slot}><b>{memoryNames[slot - 1]}</b><button type="button" onClick={() => renameMemory(slot)}>重命名</button><button type="button" onClick={() => saveMemory(slot)}>保存</button><button type="button" onClick={() => loadMemory(slot)}>应用</button></div>
-            ))}
           </div>
         </aside>
       </div>

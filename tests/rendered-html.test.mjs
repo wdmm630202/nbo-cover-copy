@@ -91,6 +91,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /字体描边/);
   assert.match(coverStudio, /字体阴影/);
   assert.match(coverStudio, /局部涂抹提亮/);
+  assert.match(coverStudio, /studio-preview-tools/);
   assert.match(coverStudio, /画笔大小/);
   assert.match(coverStudio, /羽化/);
   assert.match(coverStudio, /涂抹强度/);
@@ -144,7 +145,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /南铂封面制作台/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /single-screen-layout/);
+  assert.match(publicCover, /practical-workflow-layout/);
+  assert.match(publicCover, /class="preview-tools"/);
   assert.match(publicCover, /访问密码/);
   assert.match(publicCover, /id="copyWorkspaceSwitch"/);
   assert.match(publicCover, /切换到文案页/);
