@@ -14,7 +14,7 @@ const PRESETS = {
 };
 const state = {
   platform: "douyin",
-  template: "top-left",
+  template: "middle-left",
   topText: "男人的",
   bottomText: "高级感",
   subtitle: "不被定义的自己",
@@ -31,6 +31,7 @@ const state = {
   textScale: 100,
   titleScaleVersion: 2,
   shade: 0,
+  bottomShade: 0,
   safe: true,
   watermarkScale: 100,
   watermarkAlign: "left",
@@ -303,7 +304,7 @@ function updateUi() {
   $("#subtitleScale").value = state.subtitleScale;
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   $("#safeToggle").checked = state.safe;
-  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "shade", "watermarkOpacity"].forEach((id) => {
+  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
   $("#zoomValue").textContent = `${state.zoom}%`;
@@ -312,6 +313,7 @@ function updateUi() {
   $("#rotationValue").textContent = `${state.rotation}°`;
   $("#textScaleValue").textContent = `${state.textScale}%`;
   $("#shadeValue").textContent = `${state.shade}%`;
+  $("#bottomShadeValue").textContent = `${state.bottomShade}%`;
   $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
   document.querySelectorAll("[data-platform]").forEach((button) => button.classList.toggle("active", button.dataset.platform === state.platform));
   document.querySelectorAll("[data-template]").forEach((button) => button.classList.toggle("active", button.dataset.template === state.template));
@@ -378,7 +380,7 @@ $("#subtitleScale").addEventListener("input", (event) => {
   saveSettings(); draw();
 });
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
-["zoom", "offsetX", "offsetY", "rotation", "textScale", "shade", "watermarkOpacity"].forEach((id) => {
+["zoom", "offsetX", "offsetY", "rotation", "textScale", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = Number(event.target.value);
     updateUi();
@@ -434,10 +436,10 @@ $("#removeWatermark").addEventListener("click", () => {
 });
 $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, {
-    platform: "douyin", template: "top-left", topText: "男人的", bottomText: "高级感",
+    platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
-    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, titleScaleVersion: 2, shade: 0,
+    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, titleScaleVersion: 2, shade: 0, bottomShade: 0,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
@@ -560,6 +562,19 @@ function drawShade(ctx, width, height) {
   }
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
+  if (state.bottomShade > 0) {
+    const bottomAlpha = Math.max(0, Math.min(.9, state.bottomShade / 100));
+    const bottomGradient = ctx.createLinearGradient(0, height * .35, 0, height);
+    bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
+    bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
+    ctx.fillStyle = bottomGradient;
+    ctx.fillRect(0, 0, width, height);
+  }
+}
+
+function colorWithAlpha(color, alpha) {
+  const value = Number.parseInt(color.replace("#", ""), 16);
+  return `rgba(${value >> 16},${(value >> 8) & 255},${value & 255},${alpha})`;
 }
 
 function drawText(ctx, width, height) {
@@ -640,7 +655,12 @@ function drawText(ctx, width, height) {
     const dividerWidth = activeHeadlineFontSize;
     const dividerX = right ? x - dividerWidth : center ? x - dividerWidth / 2 : x;
     ctx.shadowBlur = 8;
-    ctx.fillStyle = state.dividerColor;
+    const dividerGradient = ctx.createLinearGradient(dividerX, 0, dividerX + dividerWidth, 0);
+    dividerGradient.addColorStop(0, colorWithAlpha(state.dividerColor, 0));
+    dividerGradient.addColorStop(.18, colorWithAlpha(state.dividerColor, 1));
+    dividerGradient.addColorStop(.82, colorWithAlpha(state.dividerColor, 1));
+    dividerGradient.addColorStop(1, colorWithAlpha(state.dividerColor, 0));
+    ctx.fillStyle = dividerGradient;
     ctx.fillRect(Math.round(dividerX), dividerY, Math.round(dividerWidth), dividerThickness);
   }
   if (state.subtitle.trim()) {

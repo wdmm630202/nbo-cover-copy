@@ -47,6 +47,7 @@ type StudioSettings = {
   textScale: number;
   titleScaleVersion: number;
   shade: number;
+  bottomShade: number;
   showSafeArea: boolean;
   watermarkScale: number;
   watermarkAlign: "left" | "center" | "right";
@@ -66,7 +67,7 @@ const getWatermarkVisibleHeight = (width: number) => Math.round(width * 0.03);
 
 const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
-  templateId: "top-left",
+  templateId: "middle-left",
   topText: "男人的",
   bottomText: "高级感",
   subtitle: "不被定义的自己",
@@ -83,6 +84,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   textScale: 100,
   titleScaleVersion: 2,
   shade: 0,
+  bottomShade: 0,
   showSafeArea: true,
   watermarkScale: 100,
   watermarkAlign: "left",
@@ -151,7 +153,7 @@ function drawCover(
     context.fillText("上传照片后在这里预览", width / 2, height / 2);
   }
 
-  drawTemplateShade(context, settings.templateId, width, height, settings.shade);
+  drawTemplateShade(context, settings.templateId, width, height, settings.shade, settings.bottomShade);
   drawTemplateText(context, settings, width, height, watermark);
 
   if (watermark) drawWatermark(context, watermark, settings, width, height);
@@ -192,6 +194,7 @@ function drawTemplateShade(
   width: number,
   height: number,
   shade: number,
+  bottomShade: number,
 ) {
   const alpha = Math.max(0, Math.min(0.9, shade / 100));
   let gradient: CanvasGradient;
@@ -218,6 +221,19 @@ function drawTemplateShade(
 
   context.fillStyle = gradient;
   context.fillRect(0, 0, width, height);
+  if (bottomShade > 0) {
+    const bottomAlpha = Math.max(0, Math.min(0.9, bottomShade / 100));
+    const bottomGradient = context.createLinearGradient(0, height * 0.35, 0, height);
+    bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
+    bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
+    context.fillStyle = bottomGradient;
+    context.fillRect(0, 0, width, height);
+  }
+}
+
+function colorWithAlpha(color: string, alpha: number) {
+  const value = Number.parseInt(color.replace("#", ""), 16);
+  return `rgba(${value >> 16},${(value >> 8) & 255},${value & 255},${alpha})`;
 }
 
 function drawTemplateText(
@@ -308,7 +324,12 @@ function drawTemplateText(
     const dividerWidth = activeHeadlineFontSize;
     const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
     context.shadowBlur = 8;
-    context.fillStyle = settings.dividerColor;
+    const dividerGradient = context.createLinearGradient(dividerX, 0, dividerX + dividerWidth, 0);
+    dividerGradient.addColorStop(0, colorWithAlpha(settings.dividerColor, 0));
+    dividerGradient.addColorStop(0.18, colorWithAlpha(settings.dividerColor, 1));
+    dividerGradient.addColorStop(0.82, colorWithAlpha(settings.dividerColor, 1));
+    dividerGradient.addColorStop(1, colorWithAlpha(settings.dividerColor, 0));
+    context.fillStyle = dividerGradient;
     context.fillRect(Math.round(dividerX), dividerY, Math.round(dividerWidth), dividerThickness);
   }
 
@@ -1195,6 +1216,14 @@ export default function CoverStudio() {
               max={100}
               suffix="%"
               onChange={(value) => updateSetting("shade", value)}
+            />
+            <Slider
+              label="底部向上压暗"
+              value={settings.bottomShade}
+              min={0}
+              max={100}
+              suffix="%"
+              onChange={(value) => updateSetting("bottomShade", value)}
             />
             <div className="studio-watermark-align">
               <span>水印位置</span>
