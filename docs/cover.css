@@ -172,6 +172,64 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .standard li { color: #6e6761; font-size: 11px; line-height: 1.6; }
 .standard li b { margin-right: 5px; color: #24211f; }
 .standard > p { grid-column: 2; margin: 0; color: #99928b; font-size: 9px; line-height: 1.7; }
+@media (min-width: 1181px) and (min-height: 800px) {
+  .cover-page { padding-bottom: 8px; }
+  .studio-header { min-height: 58px; }
+  .brand-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
+  .studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 310px minmax(430px, 1fr) 390px; gap: 12px; align-items: stretch; }
+  .panel, .preview-panel { height: 100%; min-height: 0; border-radius: 18px; }
+  .panel { padding: 13px; overflow: hidden; }
+  .panel-heading { margin-bottom: 8px; }
+  .panel-heading > b { width: 30px; height: 30px; }
+  .status { width: 100%; min-width: 0; margin-bottom: 8px; padding: 8px 10px; border-radius: 10px; font-size: 9px; }
+  .copy-sync { margin-bottom: 8px; padding-top: 8px; padding-bottom: 8px; }
+  .upload { min-height: 58px; padding: 8px; }
+  .field { margin-top: 8px; }
+  .field > span, .field-title { margin-bottom: 4px; }
+  .field input { height: 36px; }
+  .field textarea { min-height: 52px; padding-top: 8px; }
+  .field-control button { top: 4px; }
+  .color-row { margin-top: 7px; }
+  .color-row label { padding: 5px 7px; }
+  .color-row input { width: 24px; height: 24px; }
+  .brand-toggle { margin-top: 8px; padding-top: 8px; }
+  .subtitle-tools label { min-height: 38px; padding: 5px 8px; }
+  .watermark-upload { margin-top: 8px; padding: 6px; }
+  .watermark-actions button { min-height: 25px; }
+  .platforms { margin-top: 8px; }
+  .platforms button { min-height: 44px; }
+  .preview-panel { padding: 13px; display: flex; flex-direction: column; }
+  .preview-toolbar { min-height: 32px; margin-bottom: 8px; }
+  .canvas-shell { width: auto; height: calc(100% - 84px); max-width: 100%; }
+  .export-row { margin-top: 8px; gap: 6px; }
+  .export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
+  .design .panel-heading { margin-bottom: 7px; }
+  .templates { gap: 5px; }
+  .template { min-height: 58px; padding: 7px; border-radius: 9px; }
+  .template::after { width: 42px; height: 68px; }
+  .template b { font-size: 8px; }
+  .template span { font-size: 6px; }
+  .sliders { margin-top: 8px; grid-template-columns: 1fr 1fr; gap: 5px 10px; }
+  .sliders label > span { margin-bottom: 1px; font-size: 8px; }
+  .sliders input[type="range"] { height: 12px; }
+  .retouch-panel { grid-column: 1 / -1; padding: 7px; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .retouch-panel > div:first-child, .retouch-panel > button { grid-column: 1 / -1; }
+  .retouch-panel > button, .retouch-panel section button { min-height: 25px; }
+  .retouch-panel .retouch-compare, .retouch-panel > small, .retouch-panel > section:last-child { grid-column: 1 / -1; }
+  .retouch-panel > small { align-self: center; line-height: 1.35; }
+  .watermark-align > span { margin-bottom: 3px; font-size: 8px; }
+  .watermark-align button { min-height: 28px; }
+  .memory-panel { margin-top: 8px; padding-top: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .memory-panel .reset-settings { grid-column: 1 / -1; min-height: 28px; }
+  .memory-panel > div { padding: 5px; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .memory-panel > div b { grid-column: 1 / -1; }
+  .memory-panel button { min-height: 23px; padding: 0 4px; }
+  .standard { min-height: 82px; margin-top: 8px; padding: 10px 16px; grid-template-columns: 170px 1fr; gap: 6px 18px; border-radius: 18px; }
+  .standard h2 { margin-top: 3px; font-size: 17px; }
+  .standard ul { grid-template-columns: repeat(3, 1fr); gap: 4px 14px; }
+  .standard li { font-size: 8px; line-height: 1.35; }
+  .standard > p { font-size: 7px; line-height: 1.35; }
+}
 @media (max-width: 1180px) {
   .studio-grid { grid-template-columns: 300px 1fr; }
   .design { grid-column: 1/-1; }

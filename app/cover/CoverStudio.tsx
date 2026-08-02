@@ -1238,18 +1238,6 @@ export default function CoverStudio() {
           </div>
         </div>
       )}
-      <div className="cover-studio-intro">
-        <div>
-          <span>配套服务 02</span>
-          <h1>南铂封面制作台</h1>
-          <p>以大画面、少文字和统一黑金视觉制作封面。不自动添加品牌字样，只使用你上传的透明 PNG 水印。</p>
-        </div>
-        <div className="studio-status">
-          <i />
-          {notice}
-        </div>
-      </div>
-
       <div className="cover-studio-grid">
         <aside className="studio-panel studio-controls">
           <div className="studio-panel-heading">
@@ -1258,6 +1246,11 @@ export default function CoverStudio() {
               <strong>照片与文字</strong>
               <small>先放原片，再放两行主文案</small>
             </div>
+          </div>
+
+          <div className="studio-status">
+            <i />
+            {notice}
           </div>
 
           <div className={`studio-copy-sync ${syncedCopy || syncedImage ? "is-ready" : ""}`}>

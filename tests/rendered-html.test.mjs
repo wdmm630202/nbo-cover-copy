@@ -77,6 +77,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(layout, /NBO 自媒体工作台｜智能文案与封面制作/);
   assert.match(layout, /og-workbench\.png/);
   assert.match(coverPage, /南铂封面制作台|CoverStudio/);
+  assert.match(coverPage, /NBO南铂封面制作台/);
   assert.match(coverPage, /CopyWorkspaceSwitch/);
   assert.doesNotMatch(coverPage, /返回智能文案/);
   assert.match(copyWorkspaceSwitch, /切换到文案页/);
@@ -84,6 +85,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(copyWorkspaceSwitch, /window\.opener\.focus\(\)/);
   assert.match(copyWorkspaceSwitch, /window\.open\("\/", "nbo-copy-studio"\)/);
   assert.match(coverStudio, /导出原图 JPG/);
+  assert.doesNotMatch(coverStudio, /cover-studio-intro/);
   assert.match(coverStudio, /导出设计 JPG/);
   assert.match(coverStudio, /photoOnly/);
   assert.match(coverStudio, /字体描边/);
@@ -140,6 +142,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverConfig, /cropBottom: 1680/);
   assert.match(coverConfig, /bottom-right/);
   assert.match(publicCover, /南铂封面制作台/);
+  assert.match(publicCover, /NBO南铂封面制作台/);
+  assert.doesNotMatch(publicCover, /class="intro"/);
+  assert.match(publicCover, /single-screen-layout/);
   assert.match(publicCover, /访问密码/);
   assert.match(publicCover, /id="copyWorkspaceSwitch"/);
   assert.match(publicCover, /切换到文案页/);

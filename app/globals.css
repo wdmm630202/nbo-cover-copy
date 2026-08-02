@@ -1087,6 +1087,65 @@ body {
   line-height: 1.7;
 }
 
+@media (min-width: 1181px) and (min-height: 800px) {
+  .cover-page { padding-bottom: 8px; }
+  .cover-studio-header { min-height: 58px; }
+  .cover-studio-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
+  .cover-studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 310px minmax(430px, 1fr) 390px; gap: 12px; align-items: stretch; }
+  .studio-panel, .studio-preview-panel { height: 100%; min-height: 0; border-radius: 18px; }
+  .studio-panel { padding: 13px; overflow: hidden; }
+  .studio-panel-heading { margin-bottom: 8px; }
+  .studio-panel-heading > span { width: 30px; height: 30px; }
+  .studio-status { width: 100%; min-width: 0; margin-bottom: 8px; padding: 8px 10px; border-radius: 10px; font-size: 9px; }
+  .studio-copy-sync { margin-bottom: 8px; padding-top: 8px; padding-bottom: 8px; }
+  .studio-upload-main { min-height: 58px; padding: 8px; }
+  .studio-field { margin-top: 8px; }
+  .studio-field > span, .studio-field-heading { margin-bottom: 4px; }
+  .studio-field input { height: 36px; }
+  .studio-field textarea { min-height: 52px; padding-top: 8px; }
+  .studio-field-control button { top: 4px; }
+  .studio-color-row { margin-top: 7px; }
+  .studio-color-row label { padding: 5px 7px; }
+  .studio-color-row input[type="color"] { width: 24px; height: 24px; }
+  .studio-check { margin-top: 8px; padding-top: 8px; }
+  .studio-subtitle-tools label { min-height: 38px; padding: 5px 8px; }
+  .studio-watermark-box { margin-top: 8px; padding: 6px; }
+  .studio-watermark-actions button { min-height: 25px; }
+  .studio-platforms { margin-top: 8px; }
+  .studio-platforms button { min-height: 44px; }
+  .studio-preview-panel { padding: 13px; display: flex; flex-direction: column; }
+  .studio-preview-toolbar { min-height: 32px; margin-bottom: 8px; }
+  .studio-canvas-shell { width: auto; height: calc(100% - 84px); max-width: 100%; }
+  .studio-export-row { margin-top: 8px; gap: 6px; }
+  .studio-export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
+  .studio-design .studio-panel-heading { margin-bottom: 7px; }
+  .studio-template-grid { gap: 5px; }
+  .studio-template { min-height: 58px; padding: 7px; border-radius: 9px; }
+  .studio-template::after { width: 42px; height: 68px; }
+  .studio-template b { font-size: 8px; }
+  .studio-template span { font-size: 6px; }
+  .studio-adjustments { margin-top: 8px; grid-template-columns: 1fr 1fr; gap: 5px 10px; }
+  .studio-slider > span { margin-bottom: 1px; font-size: 8px; }
+  .studio-slider input { height: 12px; }
+  .studio-retouch { grid-column: 1 / -1; padding: 7px; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .studio-retouch-heading, .studio-retouch > button { grid-column: 1 / -1; }
+  .studio-retouch > button, .studio-retouch-actions button, .studio-retouch-compare button { min-height: 25px; }
+  .studio-retouch-compare, .studio-retouch-note, .studio-retouch-actions { grid-column: 1 / -1; }
+  .studio-retouch-note { align-self: center; line-height: 1.35; }
+  .studio-watermark-align > span { margin-bottom: 3px; font-size: 8px; }
+  .studio-watermark-align button { min-height: 28px; }
+  .studio-memory { margin-top: 8px; padding-top: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .studio-memory .studio-reset { grid-column: 1 / -1; min-height: 28px; }
+  .studio-memory > div { padding: 5px; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .studio-memory > div b { grid-column: 1 / -1; }
+  .studio-memory button { min-height: 23px; padding: 0 4px; }
+  .cover-standard-card { min-height: 82px; margin-top: 8px; padding: 10px 16px; grid-template-columns: 170px 1fr; gap: 6px 18px; border-radius: 18px; }
+  .cover-standard-card h2 { margin-top: 3px; font-size: 17px; }
+  .cover-standard-card ul { grid-template-columns: repeat(3, 1fr); gap: 4px 14px; }
+  .cover-standard-card li { font-size: 8px; line-height: 1.35; }
+  .cover-standard-card > p { font-size: 7px; line-height: 1.35; }
+}
+
 @media (max-width: 1180px) {
   .cover-studio-grid {
     grid-template-columns: 300px 1fr;

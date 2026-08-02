@@ -8,7 +8,7 @@ export default function CoverPage() {
         <div className="cover-studio-brand">
           <span className="cover-studio-mark">N</span>
           <span>
-            <strong>NBO 自媒体工作台</strong>
+            <strong>NBO南铂封面制作台</strong>
             <small>封面制作服务</small>
           </span>
         </div>
