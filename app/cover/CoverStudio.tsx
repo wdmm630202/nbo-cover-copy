@@ -161,7 +161,7 @@ function drawCover(
     const safeTop = (height - safeHeight) / 2;
     context.save();
     context.setLineDash([18, 14]);
-    context.lineWidth = 4;
+    context.lineWidth = 2;
     context.strokeStyle = "rgba(254,232,0,.92)";
     context.strokeRect(18, safeTop, width - 36, safeHeight);
     context.setLineDash([]);
@@ -1007,9 +1007,16 @@ export default function CoverStudio() {
             </div>
           </div>
           <div className="studio-color-row">
-            <label><span>上行颜色</span><input type="color" value={settings.topColor} onChange={(event) => updateSetting("topColor", event.target.value.toUpperCase())} /></label>
-            <label><span>下行颜色</span><input type="color" value={settings.bottomColor} onChange={(event) => updateSetting("bottomColor", event.target.value.toUpperCase())} /></label>
-            <label><span>横线颜色</span><input type="color" value={settings.dividerColor} onChange={(event) => updateSetting("dividerColor", event.target.value.toUpperCase())} /></label>
+            <label><span>上行颜色</span><input type="color" list="artist-colors" value={settings.topColor} onChange={(event) => updateSetting("topColor", event.target.value.toUpperCase())} /></label>
+            <label><span>下行颜色</span><input type="color" list="artist-colors" value={settings.bottomColor} onChange={(event) => updateSetting("bottomColor", event.target.value.toUpperCase())} /></label>
+            <label><span>横线颜色</span><input type="color" list="artist-colors" value={settings.dividerColor} onChange={(event) => updateSetting("dividerColor", event.target.value.toUpperCase())} /></label>
+            <datalist id="artist-colors">
+              <option value="#FFFFFF" label="钛白" /><option value="#1A1A1A" label="象牙黑" />
+              <option value="#D9D2C5" label="暖灰" /><option value="#C9A77A" label="金棕" />
+              <option value="#C92A2A" label="镉红" /><option value="#D97706" label="土黄" />
+              <option value="#8B5E3C" label="熟褐" /><option value="#1F4E79" label="群青" />
+              <option value="#2F6B4F" label="翠绿" />
+            </datalist>
           </div>
           <label className="studio-check studio-divider-toggle">
             <input type="checkbox" checked={settings.showDivider} onChange={(event) => updateSetting("showDivider", event.target.checked)} />
@@ -1041,7 +1048,7 @@ export default function CoverStudio() {
             />
           </label>
           <div className="studio-subtitle-tools">
-            <label><span>小字颜色</span><input type="color" value={settings.subtitleColor} onChange={(event) => updateSetting("subtitleColor", event.target.value.toUpperCase())} /></label>
+            <label><span>小字颜色</span><input type="color" list="artist-colors" value={settings.subtitleColor} onChange={(event) => updateSetting("subtitleColor", event.target.value.toUpperCase())} /></label>
             <label><span>小字大小 <b>{settings.subtitleScale}%</b></span><input type="range" min={60} max={160} value={settings.subtitleScale} onChange={(event) => updateSetting("subtitleScale", Number(event.target.value))} /></label>
           </div>
 

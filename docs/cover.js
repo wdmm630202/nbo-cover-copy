@@ -772,7 +772,7 @@ function drawGuide(ctx, width, height) {
   const top = (height - safeHeight) / 2;
   ctx.save();
   ctx.setLineDash([18, 14]);
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 2;
   ctx.strokeStyle = "rgba(254,232,0,.92)";
   ctx.strokeRect(18, top, width - 36, safeHeight);
   ctx.setLineDash([]);

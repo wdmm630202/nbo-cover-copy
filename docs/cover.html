@@ -66,14 +66,21 @@
               <div class="field-control"><input id="bottomText" aria-label="下行主标题" maxlength="18" value="高级感" /><button id="syncBottomCopy" type="button" disabled>同步文案</button></div>
             </div>
             <div class="color-row">
-              <label><span>上行颜色</span><input id="topColor" type="color" value="#FFFFFF" /></label>
-              <label><span>下行颜色</span><input id="bottomColor" type="color" value="#FFFFFF" /></label>
-              <label><span>横线颜色</span><input id="dividerColor" type="color" value="#C9A77A" /></label>
+              <label><span>上行颜色</span><input id="topColor" type="color" list="artist-colors" value="#FFFFFF" /></label>
+              <label><span>下行颜色</span><input id="bottomColor" type="color" list="artist-colors" value="#FFFFFF" /></label>
+              <label><span>横线颜色</span><input id="dividerColor" type="color" list="artist-colors" value="#C9A77A" /></label>
+              <datalist id="artist-colors">
+                <option value="#FFFFFF" label="钛白"></option><option value="#1A1A1A" label="象牙黑"></option>
+                <option value="#D9D2C5" label="暖灰"></option><option value="#C9A77A" label="金棕"></option>
+                <option value="#C92A2A" label="镉红"></option><option value="#D97706" label="土黄"></option>
+                <option value="#8B5E3C" label="熟褐"></option><option value="#1F4E79" label="群青"></option>
+                <option value="#2F6B4F" label="翠绿"></option>
+              </datalist>
             </div>
             <label class="brand-toggle divider-toggle"><input id="dividerToggle" type="checkbox" checked /><i></i>显示一字长标题横线（下行留空时自动收紧）</label>
             <label class="field"><span>补充小字 <b>可不填</b></span><textarea id="subtitle" maxlength="38">不被定义的自己</textarea></label>
             <div class="subtitle-tools">
-              <label><span>小字颜色</span><input id="subtitleColor" type="color" value="#FFFFFF" /></label>
+              <label><span>小字颜色</span><input id="subtitleColor" type="color" list="artist-colors" value="#FFFFFF" /></label>
               <label><span>小字大小 <b id="subtitleScaleValue">100%</b></span><input id="subtitleScale" type="range" min="60" max="160" value="100" /></label>
             </div>
             <div class="watermark-upload">
@@ -163,6 +170,6 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./cover.js?v=20260802-watermark-height-gap"></script>
+    <script src="./cover.js?v=20260802-artist-palette"></script>
   </body>
 </html>
