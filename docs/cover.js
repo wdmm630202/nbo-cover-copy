@@ -27,7 +27,8 @@ const state = {
   offsetX: 0,
   offsetY: 0,
   rotation: 0,
-  textScale: 160,
+  textScale: 100,
+  titleScaleVersion: 2,
   shade: 0,
   safe: true,
   watermarkScale: 100,
@@ -250,7 +251,10 @@ try {
     if (saved.bottomColor === "#FEE800") saved.bottomColor = "#FFFFFF";
     if (Number(saved.watermarkOpacity) === 92) saved.watermarkOpacity = 50;
     if (Number(saved.shade) === 62) saved.shade = 0;
-    if (Number(saved.textScale) === 100) saved.textScale = 160;
+    if (saved.titleScaleVersion !== 2) {
+      saved.textScale = Math.round(Number(saved.textScale || 100) / 1.8);
+      saved.titleScaleVersion = 2;
+    }
     saved.template = normalizeTemplate(saved.template);
     Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
   }
@@ -431,7 +435,7 @@ $("#resetSettings").addEventListener("click", () => {
     platform: "douyin", template: "top-left", topText: "男人的高级感", bottomText: "藏在自然状态里",
     subtitle: "不被定义的自己，才是最有张力的表达", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
-    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 160, shade: 0,
+    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, titleScaleVersion: 2, shade: 0,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
@@ -452,7 +456,10 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
     if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
     if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
     if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
-    if (Number(parsed.textScale) === 100) parsed.textScale = 160;
+    if (parsed.titleScaleVersion !== 2) {
+      parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
+      parsed.titleScaleVersion = 2;
+    }
     parsed.template = normalizeTemplate(parsed.template);
     Object.assign(state, parsed);
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
@@ -560,7 +567,7 @@ function drawText(ctx, width, height) {
   const horizontalInset = DOUYIN_HOME_SAFE.horizontalInset * geometryScale;
   const x = right ? width - horizontalInset : center ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
-  const baseFont = Math.round(width * .074 * state.textScale / 100);
+  const baseFont = Math.max(1, Math.round(width * .074 * 1.8 * state.textScale / 100));
   const lineGap = Math.round(baseFont * 1.32);
   ctx.save();
   ctx.textAlign = align;

@@ -45,6 +45,7 @@ type StudioSettings = {
   offsetY: number;
   rotation: number;
   textScale: number;
+  titleScaleVersion: number;
   shade: number;
   showSafeArea: boolean;
   watermarkScale: number;
@@ -78,7 +79,8 @@ const DEFAULT_SETTINGS: StudioSettings = {
   offsetX: 0,
   offsetY: 0,
   rotation: 0,
-  textScale: 160,
+  textScale: 100,
+  titleScaleVersion: 2,
   shade: 0,
   showSafeArea: true,
   watermarkScale: 100,
@@ -231,7 +233,7 @@ function drawTemplateText(
   const horizontalInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * geometryScale;
   const x = isRight ? width - horizontalInset : isCenter ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
-  const baseFont = Math.round(width * 0.074 * (settings.textScale / 100));
+  const baseFont = Math.max(1, Math.round(width * 0.074 * 1.8 * (settings.textScale / 100)));
   const lineGap = Math.round(baseFont * 1.32);
 
   context.save();
@@ -538,7 +540,10 @@ export default function CoverStudio() {
           if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
           if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
           if (Number(parsed.shade) === 62) parsed.shade = 0;
-          if (Number(parsed.textScale) === 100) parsed.textScale = 160;
+          if (parsed.titleScaleVersion !== 2) {
+            parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
+            parsed.titleScaleVersion = 2;
+          }
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
         }
@@ -703,7 +708,10 @@ export default function CoverStudio() {
       if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
       if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
       if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
-      if (Number(parsed.textScale) === 100) parsed.textScale = 160;
+      if (parsed.titleScaleVersion !== 2) {
+        parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
+        parsed.titleScaleVersion = 2;
+      }
       parsed.templateId = normalizeTemplateId(parsed.templateId);
       setSettings({ ...DEFAULT_SETTINGS, ...parsed });
       setNotice(`已应用记忆点 ${slot}`);
@@ -1174,8 +1182,8 @@ export default function CoverStudio() {
             <Slider
               label="标题大小"
               value={settings.textScale}
-              min={76}
-              max={180}
+              min={0}
+              max={200}
               suffix="%"
               onChange={(value) => updateSetting("textScale", value)}
             />
