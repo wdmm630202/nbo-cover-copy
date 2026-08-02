@@ -86,6 +86,44 @@ function getCoverScratch(canvas: HTMLCanvasElement, width: number, height: numbe
   return scratch;
 }
 
+function releaseCoverCanvas(canvas: HTMLCanvasElement) {
+  const scratch = coverScratch.get(canvas);
+  if (scratch) {
+    scratch.shade.width = scratch.shade.height = 1;
+    scratch.stroke.width = scratch.stroke.height = 1;
+    coverScratch.delete(canvas);
+  }
+  canvas.width = canvas.height = 1;
+}
+
+function constrainExportSize(
+  size: { width: number; height: number },
+  maxPixels: number,
+  maxSide: number,
+) {
+  const scale = Math.min(
+    1,
+    Math.sqrt(maxPixels / (size.width * size.height)),
+    maxSide / size.width,
+    maxSide / size.height,
+  );
+  return {
+    width: Math.max(1, Math.round(size.width * scale)),
+    height: Math.max(1, Math.round(size.height * scale)),
+  };
+}
+
+function exportSizeCandidates(size: { width: number; height: number }) {
+  const mobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+  const limits = mobile
+    ? [[8_000_000, 4096], [6_000_000, 4096], [4_000_000, 4096], [2_100_000, 4096]]
+    : [[Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY], [24_000_000, 8192], [16_000_000, 8192], [10_000_000, 6144], [6_000_000, 4096]];
+  const candidates = limits.map(([maxPixels, maxSide]) => constrainExportSize(size, maxPixels, maxSide));
+  return candidates.filter((candidate, index) =>
+    index === candidates.findIndex((item) => item.width === candidate.width && item.height === candidate.height));
+}
+
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 const MEMORY_NAMES_KEY = "nbo-cover-studio-memory-names";
@@ -197,14 +235,18 @@ function drawCover(
   }
 
   if (!photoOnly) {
-    const scratch = getCoverScratch(canvas, width, height);
-    const shadeCanvas = scratch.shade;
-    const shadeContext = shadeCanvas.getContext("2d");
-    if (shadeContext) {
-      shadeContext.clearRect(0, 0, width, height);
-      drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
-      eraseShadeWithBrush(shadeContext, scratch.stroke, width, height, retouchStrokes);
-      context.drawImage(shadeCanvas, 0, 0);
+    if (retouchStrokes.length) {
+      const scratch = getCoverScratch(canvas, width, height);
+      const shadeCanvas = scratch.shade;
+      const shadeContext = shadeCanvas.getContext("2d");
+      if (shadeContext) {
+        shadeContext.clearRect(0, 0, width, height);
+        drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
+        eraseShadeWithBrush(shadeContext, scratch.stroke, width, height, retouchStrokes);
+        context.drawImage(shadeCanvas, 0, 0);
+      }
+    } else {
+      drawTemplateShade(context, settings.templateId, width, height, settings.shade, settings.bottomShade);
     }
     drawTemplateText(context, settings, width, height, watermark);
     if (watermark) drawWatermark(context, watermark, settings, width, height);
@@ -1192,29 +1234,49 @@ export default function CoverStudio() {
     if (!image) return null;
     const sourceRatio = image.naturalWidth / image.naturalHeight;
     const targetRatio = preset.width / preset.height;
-    let outputSize = sourceRatio >= targetRatio
+    const originalOutputSize = sourceRatio >= targetRatio
       ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
       : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
     const exportCanvas = document.createElement("canvas");
-    const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => exportCanvas.toBlob(resolve, `image/${format}`, quality));
+    const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => {
+      try {
+        exportCanvas.toBlob(resolve, `image/${format}`, quality);
+      } catch {
+        resolve(null);
+      }
+    });
     const maxBytes = 19.9 * 1024 * 1024;
-    let quality = format === "jpeg" ? 0.98 : undefined;
-    drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize, photoOnly, retouchStrokes);
-    let blob = await toBlob(quality);
-    while (blob && blob.size > maxBytes && format === "jpeg" && (quality ?? 0) > 0.56) {
-      quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
-      blob = await toBlob(quality);
+    let outputSize = originalOutputSize;
+    let blob: Blob | null = null;
+    for (const candidate of exportSizeCandidates(originalOutputSize)) {
+      let quality = format === "jpeg" ? 0.98 : undefined;
+      try {
+        drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, candidate, photoOnly, retouchStrokes);
+        blob = await toBlob(quality);
+        while (blob && blob.size > maxBytes && format === "jpeg" && (quality ?? 0) > 0.56) {
+          quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
+          blob = await toBlob(quality);
+        }
+      } catch {
+        blob = null;
+      }
+      if (blob && blob.size <= maxBytes) {
+        outputSize = candidate;
+        break;
+      }
+      blob = null;
+      releaseCoverCanvas(exportCanvas);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     }
-    while (blob && blob.size > maxBytes && outputSize.width > 320) {
-      const ratio = Math.min(0.94, Math.sqrt(maxBytes / blob.size) * 0.98);
-      outputSize = { width: Math.max(320, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
-      drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize, photoOnly, retouchStrokes);
-      blob = await toBlob(quality);
+    if (!blob) {
+      releaseCoverCanvas(exportCanvas);
+      return null;
     }
-    if (!blob) return null;
     const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
     const exportName = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-    return { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
+    const asset = { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
+    releaseCoverCanvas(exportCanvas);
+    return asset;
   }, [fileName, image, preset, retouchStrokes, settings, watermark]);
 
   useEffect(() => {
@@ -1429,7 +1491,7 @@ export default function CoverStudio() {
       } catch {
         asset = null;
       }
-      if (!asset) return setNotice("原图生成没有完成，请重新上传照片后再试");
+      if (!asset) return setNotice("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
     } else if (!asset) {
       setExportReady((current) => ({ ...current, [format]: false }));
       setNotice(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
@@ -1441,7 +1503,7 @@ export default function CoverStudio() {
       }
       exportCacheRef.current[format] = prepared;
       setExportReady((current) => ({ ...current, [format]: true }));
-      if (!prepared) return setNotice("这次生成没有完成，请重新上传照片后再试");
+      if (!prepared) return setNotice("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
       asset = prepared;
     }
     const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";

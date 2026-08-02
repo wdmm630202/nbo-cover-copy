@@ -15,6 +15,20 @@ const formatExportTimestamp = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, "0");
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 };
+const constrainExportSize = (size, maxPixels, maxSide) => {
+  const scale = Math.min(1, Math.sqrt(maxPixels / (size.width * size.height)), maxSide / size.width, maxSide / size.height);
+  return { width: Math.max(1, Math.round(size.width * scale)), height: Math.max(1, Math.round(size.height * scale)) };
+};
+const exportSizeCandidates = (size) => {
+  const mobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+  const limits = mobile
+    ? [[8_000_000, 4096], [6_000_000, 4096], [4_000_000, 4096], [2_100_000, 4096]]
+    : [[Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY], [24_000_000, 8192], [16_000_000, 8192], [10_000_000, 6144], [6_000_000, 4096]];
+  const candidates = limits.map(([maxPixels, maxSide]) => constrainExportSize(size, maxPixels, maxSide));
+  return candidates.filter((candidate, index) =>
+    index === candidates.findIndex((item) => item.width === candidate.width && item.height === candidate.height));
+};
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -970,19 +984,23 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
   }
 
   if (!photoOnly) {
-    const shadeCanvas = targetCanvas === canvas ? previewScratch.shade : document.createElement("canvas");
-    const strokeCanvas = targetCanvas === canvas ? previewScratch.stroke : document.createElement("canvas");
-    if (shadeCanvas.width !== width) shadeCanvas.width = width;
-    if (shadeCanvas.height !== height) shadeCanvas.height = height;
-    if (strokeCanvas.width !== width) strokeCanvas.width = width;
-    if (strokeCanvas.height !== height) strokeCanvas.height = height;
-    const shadeContext = shadeCanvas.getContext("2d");
-    if (shadeContext) {
-      shadeContext.clearRect(0, 0, width, height);
-      drawShade(shadeContext, width, height);
-      const visibleStrokes = targetCanvas === canvas && retouch.compareBefore ? [] : retouch.strokes;
-      eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, visibleStrokes);
-      targetContext.drawImage(shadeCanvas, 0, 0);
+    const visibleStrokes = targetCanvas === canvas && retouch.compareBefore ? [] : retouch.strokes;
+    if (visibleStrokes.length) {
+      const shadeCanvas = targetCanvas === canvas ? previewScratch.shade : document.createElement("canvas");
+      const strokeCanvas = targetCanvas === canvas ? previewScratch.stroke : document.createElement("canvas");
+      if (shadeCanvas.width !== width) shadeCanvas.width = width;
+      if (shadeCanvas.height !== height) shadeCanvas.height = height;
+      if (strokeCanvas.width !== width) strokeCanvas.width = width;
+      if (strokeCanvas.height !== height) strokeCanvas.height = height;
+      const shadeContext = shadeCanvas.getContext("2d");
+      if (shadeContext) {
+        shadeContext.clearRect(0, 0, width, height);
+        drawShade(shadeContext, width, height);
+        eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, visibleStrokes);
+        targetContext.drawImage(shadeCanvas, 0, 0);
+      }
+    } else {
+      drawShade(targetContext, width, height);
     }
     drawText(targetContext, width, height);
     if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
@@ -1351,28 +1369,48 @@ async function buildExportAsset(format, photoOnly = false) {
   const current = preset();
   const sourceRatio = state.image.naturalWidth / state.image.naturalHeight;
   const targetRatio = current.width / current.height;
-  let outputSize = sourceRatio >= targetRatio
+  const originalOutputSize = sourceRatio >= targetRatio
     ? { width: Math.round(state.image.naturalHeight * targetRatio), height: state.image.naturalHeight }
     : { width: state.image.naturalWidth, height: Math.round(state.image.naturalWidth / targetRatio) };
-  draw(false, output, outputSize, photoOnly);
-  const toBlob = (quality) => new Promise((resolve) => output.toBlob(resolve, mimeType, quality));
+  const toBlob = (quality) => new Promise((resolve) => {
+    try {
+      output.toBlob(resolve, mimeType, quality);
+    } catch {
+      resolve(null);
+    }
+  });
   const maxBytes = 19.9 * 1024 * 1024;
-  let quality = format === "jpeg" ? .98 : undefined;
-  let blob = await toBlob(quality);
-  while (blob && blob.size > maxBytes && format === "jpeg" && quality > .56) {
-    quality = Math.max(.56, quality - .07);
-    blob = await toBlob(quality);
+  let outputSize = originalOutputSize;
+  let blob = null;
+  for (const candidate of exportSizeCandidates(originalOutputSize)) {
+    let quality = format === "jpeg" ? .98 : undefined;
+    try {
+      draw(false, output, candidate, photoOnly);
+      blob = await toBlob(quality);
+      while (blob && blob.size > maxBytes && format === "jpeg" && quality > .56) {
+        quality = Math.max(.56, quality - .07);
+        blob = await toBlob(quality);
+      }
+    } catch {
+      blob = null;
+    }
+    if (blob && blob.size <= maxBytes) {
+      outputSize = candidate;
+      break;
+    }
+    blob = null;
+    output.width = output.height = 1;
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
-  while (blob && blob.size > maxBytes && outputSize.width > 320) {
-    const ratio = Math.min(.94, Math.sqrt(maxBytes / blob.size) * .98);
-    outputSize = { width: Math.max(320, Math.round(outputSize.width * ratio)), height: Math.max(1, Math.round(outputSize.height * ratio)) };
-    draw(false, output, outputSize, photoOnly);
-    blob = await toBlob(quality);
+  if (!blob) {
+    output.width = output.height = 1;
+    return null;
   }
-  if (!blob) return null;
   const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
   const exportName = `${name}_${current.label}_${current.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-  return { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
+  const asset = { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
+  output.width = output.height = 1;
+  return asset;
 }
 
 async function exportCover(format, photoOnly = false) {
@@ -1385,7 +1423,7 @@ async function exportCover(format, photoOnly = false) {
     } catch {
       asset = null;
     }
-    if (!asset) return setStatus("原图生成没有完成，请重新上传照片后再试");
+    if (!asset) return setStatus("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
   } else if (!asset) {
     setExportReady(format, false);
     setStatus(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
@@ -1396,7 +1434,7 @@ async function exportCover(format, photoOnly = false) {
     }
     exportCache[format] = asset;
     setExportReady(format, true);
-    if (!asset) return setStatus("这次生成没有完成，请重新上传照片后再试");
+    if (!asset) return setStatus("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
   }
   const current = preset();
   const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
