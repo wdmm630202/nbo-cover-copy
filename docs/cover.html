@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#202020" />
     <meta name="robots" content="noindex,nofollow" />
     <title>NBO南铂封面制作台</title>
-    <link rel="stylesheet" href="./cover.css?v=20260802-template-export-layout" />
+    <link rel="stylesheet" href="./cover.css?v=20260802-auxiliary-inside-guides" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -104,7 +104,7 @@
               <canvas id="coverCanvas" aria-label="封面实时预览，可拖动照片、滚轮缩放、双击旋转"></canvas>
               <span class="brush-cursor" id="brushCursor" aria-hidden="true"></span>
             </div>
-            <div class="preview-tools">
+            <div class="preview-tools" id="previewTools">
               <div class="templates" id="templates">
                 <button type="button" class="template" data-template="top-left"><i>01</i><b>上方左题</b><span>上方区域，左侧对齐</span></button>
                 <button type="button" class="template center" data-template="top-center"><i>02</i><b>上方居中</b><span>上方区域，中轴对齐</span></button>
@@ -116,12 +116,12 @@
                 <button type="button" class="template center bottom" data-template="bottom-center"><i>08</i><b>下方居中</b><span>下方区域，中轴对齐</span></button>
                 <button type="button" class="template right bottom" data-template="bottom-right"><i>09</i><b>下方右题</b><span>下方区域，右侧对齐</span></button>
               </div>
-            </div>
-            <div class="export-row">
-              <button type="button" class="original" id="exportOriginalPng">导出原图 PNG</button>
-              <button type="button" class="original" id="exportOriginalJpg">导出原图 JPG</button>
-              <button type="button" class="secondary" id="exportPng">导出设计 PNG</button>
-              <button type="button" class="primary" id="exportJpg">导出设计 JPG</button>
+              <div class="export-row">
+                <button type="button" class="original" id="exportOriginalPng">导出原图 PNG</button>
+                <button type="button" class="original" id="exportOriginalJpg">导出原图 JPG</button>
+                <button type="button" class="secondary" id="exportPng">导出设计 PNG</button>
+                <button type="button" class="primary" id="exportJpg">导出设计 JPG</button>
+              </div>
             </div>
           </section>
 
@@ -175,6 +175,6 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./cover.js?v=20260802-template-export-layout"></script>
+    <script src="./cover.js?v=20260802-auxiliary-inside-guides"></script>
   </body>
 </html>

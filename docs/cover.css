@@ -209,14 +209,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .platforms button { min-height: 44px; }
   .preview-panel { padding: 13px; display: flex; flex-direction: column; }
   .preview-toolbar { min-height: 32px; margin-bottom: 8px; }
-  .canvas-shell { width: auto; height: calc(100% - 366px); max-width: 100%; }
-  .preview-tools { height: 250px; margin-top: 8px; grid-template-columns: 250px; justify-content: start; gap: 8px; }
-  .export-row { width: min(100%, 460px); margin: 8px 0 0 auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .canvas-shell { width: auto; height: calc(100% - 326px); max-width: 100%; }
+  .preview-tools { height: auto; max-width: 100%; margin: 8px auto 0; grid-template-columns: minmax(0, 2fr) minmax(90px, 1fr); align-items: stretch; gap: 8px; }
+  .preview-tools .export-row { width: auto; height: auto; margin: 0; grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(0, 1fr)); align-items: stretch; gap: 8px; }
+  .preview-tools .export-row button { height: auto; min-height: 0; padding: 0 6px; }
   .export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
   .design { display: flex; flex-direction: column; }
   .design .panel-heading { margin-bottom: 7px; }
   .design > .reset-settings { min-height: 52px; margin-bottom: 10px; border-radius: 10px; }
-  .templates { width: 250px; height: 250px; gap: 6px; }
+  .templates { width: 100%; height: auto; aspect-ratio: 1; gap: 6px; }
   .template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
   .template::after { width: 36px; height: 58px; }
   .template b { font-size: 8px; }

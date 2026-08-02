@@ -628,6 +628,8 @@ function Slider({
 
 export default function CoverStudio() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasShellRef = useRef<HTMLDivElement>(null);
+  const previewToolsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
   const defaultWatermarkRef = useRef<HTMLImageElement | null>(null);
@@ -713,6 +715,17 @@ export default function CoverStudio() {
   useEffect(() => {
     rotationModeRef.current = rotationMode;
   }, [rotationMode]);
+
+  useEffect(() => {
+    const shell = canvasShellRef.current;
+    const tools = previewToolsRef.current;
+    if (!shell || !tools) return;
+    const syncWidth = () => { tools.style.width = `${shell.getBoundingClientRect().width}px`; };
+    const observer = new ResizeObserver(syncWidth);
+    observer.observe(shell);
+    syncWidth();
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     brushModeRef.current = brushMode;
@@ -1441,7 +1454,7 @@ export default function CoverStudio() {
               安全区
             </label>
           </div>
-          <div className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""} ${brushMode ? "is-brushing" : ""}`}>
+          <div ref={canvasShellRef} className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""} ${brushMode ? "is-brushing" : ""}`}>
             <canvas ref={canvasRef} aria-label="封面实时预览，可拖动照片；开启涂抹后可局部擦开压暗层" />
             <span
               className={`studio-brush-cursor ${brushCursor.visible && brushMode ? "is-visible" : ""}`}
@@ -1449,7 +1462,7 @@ export default function CoverStudio() {
               aria-hidden="true"
             />
           </div>
-          <div className="studio-preview-tools">
+          <div ref={previewToolsRef} className="studio-preview-tools">
             <div className="studio-template-grid">
               {COVER_TEMPLATES.map((template) => (
                 <button
@@ -1468,16 +1481,16 @@ export default function CoverStudio() {
                 </button>
               ))}
             </div>
-          </div>
-          <div className="studio-export-row">
-            <button type="button" className="export-original" onClick={() => exportCover("png", true)}>导出原图 PNG</button>
-            <button type="button" className="export-original" onClick={() => exportCover("jpeg", true)}>导出原图 JPG</button>
-            <button type="button" className="export-secondary" disabled={Boolean(image) && !exportReady.png} onClick={() => exportCover("png")}>
-              {image && !exportReady.png ? "准备中…" : "导出设计 PNG"}
-            </button>
-            <button type="button" className="export-primary" disabled={Boolean(image) && !exportReady.jpeg} onClick={() => exportCover("jpeg")}>
-              {image && !exportReady.jpeg ? "准备中…" : "导出设计 JPG"}
-            </button>
+            <div className="studio-export-row">
+              <button type="button" className="export-original" onClick={() => exportCover("png", true)}>导出原图 PNG</button>
+              <button type="button" className="export-original" onClick={() => exportCover("jpeg", true)}>导出原图 JPG</button>
+              <button type="button" className="export-secondary" disabled={Boolean(image) && !exportReady.png} onClick={() => exportCover("png")}>
+                {image && !exportReady.png ? "准备中…" : "导出设计 PNG"}
+              </button>
+              <button type="button" className="export-primary" disabled={Boolean(image) && !exportReady.jpeg} onClick={() => exportCover("jpeg")}>
+                {image && !exportReady.jpeg ? "准备中…" : "导出设计 JPG"}
+              </button>
+            </div>
           </div>
         </section>
 

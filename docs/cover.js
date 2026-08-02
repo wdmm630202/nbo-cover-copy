@@ -72,6 +72,8 @@ const DOUYIN_HOME_SAFE = {
 
 const $ = (selector) => document.querySelector(selector);
 const canvas = $("#coverCanvas");
+const canvasShell = $("#canvasShell");
+const previewTools = $("#previewTools");
 const accessGate = $("#accessGate");
 const coverPage = $("#coverPage");
 let syncedCopy = null;
@@ -87,6 +89,15 @@ const syncChannel = "BroadcastChannel" in window
   : null;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const syncPreviewToolsWidth = () => {
+  if (canvasShell && previewTools) previewTools.style.width = `${canvasShell.getBoundingClientRect().width}px`;
+};
+if (canvasShell && previewTools) {
+  if ("ResizeObserver" in window) new ResizeObserver(syncPreviewToolsWidth).observe(canvasShell);
+  window.addEventListener("resize", syncPreviewToolsWidth);
+  window.requestAnimationFrame(syncPreviewToolsWidth);
+}
 
 canvas.addEventListener("pointerdown", (event) => {
   if (!state.image || event.button !== 0) return;
