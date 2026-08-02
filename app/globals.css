@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@font-face { font-family: "Source Han Sans CN"; src: url("/fonts/source-han-sans-cn-heavy.woff2") format("woff2"); font-weight: 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Source Han Sans CN"; src: url("/fonts/source-han-sans-cn-regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+
 :root {
   --paper: #fffdfb;
   --ink: #202020;
@@ -480,11 +483,6 @@ body {
 .studio-subtitle-tools label:last-child span { display: flex; justify-content: space-between; }
 .studio-subtitle-tools input[type="color"] { width: 27px; height: 27px; padding: 2px; border: 0; border-radius: 7px; background: #f3efeb; cursor: pointer; }
 .studio-subtitle-tools input[type="range"] { width: 100%; accent-color: #ff2442; }
-.studio-artist-palette { margin-top: 8px; padding: 8px; display: grid; gap: 7px; border: 1px solid #e5ded7; border-radius: 10px; }
-.studio-artist-palette > div { display: flex; gap: 5px; }
-.studio-artist-palette > div:first-child button { flex: 1; min-height: 24px; border: 1px solid #ddd5cd; border-radius: 7px; background: #fff; color: #625b55; font-size: 8px; }
-.studio-artist-palette > div:first-child button.is-active { background: #202020; color: #fff; }
-.studio-artist-palette > div:last-child button { width: 23px; height: 23px; padding: 0; border: 1px solid #aaa29a; border-radius: 5px; }
 
 .studio-upload {
   position: relative;

@@ -63,10 +63,6 @@ type ExportAsset = {
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 const getWatermarkVisibleHeight = (width: number) => Math.round(width * 0.03);
-const COLOR_TARGETS = [
-  ["topColor", "上行"], ["bottomColor", "下行"], ["dividerColor", "横线"], ["subtitleColor", "小字"],
-] as const;
-const ARTIST_COLORS = ["#FFFFFF", "#1A1A1A", "#D9D2C5", "#C9A77A", "#C92A2A", "#D97706", "#8B5E3C", "#1F4E79", "#2F6B4F"];
 
 const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
@@ -253,11 +249,11 @@ function drawTemplateText(
   const bottomFontSize = headlineFontSize;
   const subtitleFontSize = Math.round(width * 0.061 * (settings.subtitleScale / 100));
   const activeHeadlineFontSize = headlineFontSize;
-  context.font = `900 ${topFontSize}px sans-serif`;
+  context.font = `900 ${topFontSize}px "Source Han Sans CN", sans-serif`;
   const topHeadlineInk = measureInkBounds(context, settings.topText || "国");
-  context.font = `900 ${activeHeadlineFontSize}px sans-serif`;
+  context.font = `900 ${activeHeadlineFontSize}px "Source Han Sans CN", sans-serif`;
   const activeHeadlineInk = measureInkBounds(context, settings.bottomText || settings.topText || "国");
-  context.font = `500 ${subtitleFontSize}px sans-serif`;
+  context.font = `400 ${subtitleFontSize}px "Source Han Sans CN", sans-serif`;
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
   const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
@@ -299,12 +295,12 @@ function drawTemplateText(
   const subtitleBaseline = y + relativeSubtitleBaseline;
 
   context.fillStyle = settings.topColor;
-  context.font = `900 ${topFontSize}px sans-serif`;
+  context.font = `900 ${topFontSize}px "Source Han Sans CN", sans-serif`;
   context.fillText(settings.topText || "上行标题", x, y, maxWidth);
 
   if (settings.bottomText.trim()) {
     context.fillStyle = settings.bottomColor;
-    context.font = `900 ${bottomFontSize}px sans-serif`;
+    context.font = `900 ${bottomFontSize}px "Source Han Sans CN", sans-serif`;
     context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
   }
 
@@ -319,7 +315,7 @@ function drawTemplateText(
   if (settings.subtitle.trim()) {
     context.shadowBlur = 10;
     context.fillStyle = settings.subtitleColor;
-    context.font = `500 ${subtitleFontSize}px sans-serif`;
+    context.font = `400 ${subtitleFontSize}px "Source Han Sans CN", sans-serif`;
     drawWrappedText(
       context,
       settings.subtitle,
@@ -409,7 +405,7 @@ function fitText(
   let size = startingSize;
   const safeText = text || "标题";
   while (size > startingSize * 0.58) {
-    context.font = `900 ${size}px sans-serif`;
+    context.font = `900 ${size}px "Source Han Sans CN", sans-serif`;
     if (context.measureText(safeText).width <= maxWidth) break;
     size -= 2;
   }
@@ -528,7 +524,7 @@ export default function CoverStudio() {
   const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
-  const [paletteTarget, setPaletteTarget] = useState<(typeof COLOR_TARGETS)[number][0]>("topColor");
+  const [fontsReady, setFontsReady] = useState(false);
 
   const preset = useMemo(
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
@@ -558,6 +554,10 @@ export default function CoverStudio() {
       }
     }, 0);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    document.fonts.ready.then(() => setFontsReady(true));
   }, []);
 
   useEffect(() => {
@@ -632,7 +632,7 @@ export default function CoverStudio() {
     if (canvasRef.current) {
       drawCover(canvasRef.current, image, settings.watermarkEnabled ? watermark : null, settings, preset, true);
     }
-  }, [image, preset, settings, watermark]);
+  }, [fontsReady, image, preset, settings, watermark]);
 
   const buildExportAsset = useCallback(async (format: "jpeg" | "png"): Promise<ExportAsset | null> => {
     if (!image) return null;
@@ -1049,11 +1049,6 @@ export default function CoverStudio() {
             <label><span>小字颜色</span><input type="color" value={settings.subtitleColor} onChange={(event) => updateSetting("subtitleColor", event.target.value.toUpperCase())} /></label>
             <label><span>小字大小 <b>{settings.subtitleScale}%</b></span><input type="range" min={60} max={160} value={settings.subtitleScale} onChange={(event) => updateSetting("subtitleScale", Number(event.target.value))} /></label>
           </div>
-          <div className="studio-artist-palette">
-            <div>{COLOR_TARGETS.map(([key, label]) => <button type="button" className={paletteTarget === key ? "is-active" : ""} onClick={() => setPaletteTarget(key)} key={key}>{label}</button>)}</div>
-            <div>{ARTIST_COLORS.map((color) => <button type="button" aria-label={`选择 ${color}`} style={{ background: color }} onClick={() => updateSetting(paletteTarget, color)} key={color} />)}</div>
-          </div>
-
           <div className="studio-watermark-box">
             <input
               ref={watermarkInputRef}

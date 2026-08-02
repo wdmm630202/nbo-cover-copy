@@ -7,7 +7,6 @@ const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
 const getWatermarkVisibleHeight = (width) => Math.round(width * .03);
-let paletteTarget = "topColor";
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -373,15 +372,6 @@ function loadFile(file) {
     draw();
   });
 });
-document.querySelectorAll("[data-color-target]").forEach((button) => button.addEventListener("click", () => {
-  paletteTarget = button.dataset.colorTarget;
-  document.querySelectorAll("[data-color-target]").forEach((item) => item.classList.toggle("active", item === button));
-}));
-document.querySelectorAll("[data-artist-color]").forEach((button) => button.addEventListener("click", () => {
-  state[paletteTarget] = button.dataset.artistColor;
-  $(`#${paletteTarget}`).value = state[paletteTarget];
-  saveSettings(); draw();
-}));
 $("#subtitleScale").addEventListener("input", (event) => {
   state.subtitleScale = Number(event.target.value);
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
@@ -593,11 +583,11 @@ function drawText(ctx, width, height) {
   const bottomFontSize = headlineFontSize;
   const subtitleFontSize = Math.round(width * .061 * state.subtitleScale / 100);
   const activeHeadlineFontSize = headlineFontSize;
-  ctx.font = `900 ${topFontSize}px sans-serif`;
+  ctx.font = `900 ${topFontSize}px "Source Han Sans CN", sans-serif`;
   const topHeadlineInk = measureInkBounds(ctx, state.topText || "国");
-  ctx.font = `900 ${activeHeadlineFontSize}px sans-serif`;
+  ctx.font = `900 ${activeHeadlineFontSize}px "Source Han Sans CN", sans-serif`;
   const activeHeadlineInk = measureInkBounds(ctx, state.bottomText || state.topText || "国");
-  ctx.font = `500 ${subtitleFontSize}px sans-serif`;
+  ctx.font = `400 ${subtitleFontSize}px "Source Han Sans CN", sans-serif`;
   const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
   const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
@@ -639,11 +629,11 @@ function drawText(ctx, width, height) {
   const dividerY = y + relativeDividerY;
   const subtitleBaseline = y + relativeSubtitleBaseline;
   ctx.fillStyle = state.topColor;
-  ctx.font = `900 ${topFontSize}px sans-serif`;
+  ctx.font = `900 ${topFontSize}px "Source Han Sans CN", sans-serif`;
   ctx.fillText(state.topText || "上行标题", x, y, maxWidth);
   if (state.bottomText.trim()) {
     ctx.fillStyle = state.bottomColor;
-    ctx.font = `900 ${bottomFontSize}px sans-serif`;
+    ctx.font = `900 ${bottomFontSize}px "Source Han Sans CN", sans-serif`;
     ctx.fillText(state.bottomText, x, secondBaseline, maxWidth);
   }
   if (state.divider) {
@@ -655,7 +645,7 @@ function drawText(ctx, width, height) {
   }
   if (state.subtitle.trim()) {
     ctx.fillStyle = state.subtitleColor;
-    ctx.font = `500 ${subtitleFontSize}px sans-serif`;
+    ctx.font = `400 ${subtitleFontSize}px "Source Han Sans CN", sans-serif`;
     const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
     drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleLineHeight, align);
   }
@@ -665,7 +655,7 @@ function drawText(ctx, width, height) {
 function fitText(ctx, text, start, maxWidth) {
   let size = start;
   while (size > start * .58) {
-    ctx.font = `900 ${size}px sans-serif`;
+    ctx.font = `900 ${size}px "Source Han Sans CN", sans-serif`;
     if (ctx.measureText(text || "标题").width <= maxWidth) break;
     size -= 2;
   }
@@ -951,3 +941,4 @@ function downloadExportAsset(asset, format) {
 }
 
 draw();
+document.fonts.ready.then(draw);

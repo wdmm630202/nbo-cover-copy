@@ -87,7 +87,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /#FEE800/);
   assert.match(coverStudio, /主页 3:4 安全区/);
   assert.match(coverStudio, /图片不上传、不保存/);
-  assert.match(coverStudio, /subtitleFontSize \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);
+  assert.match(coverStudio, /getWatermarkVisibleHeight\(width\) \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);
+  assert.match(coverStudio, /Source Han Sans CN/);
   assert.match(coverStudio, /settings\.watermarkAlign === "left"/);
   assert.match(coverStudio, /settings\.watermarkAlign === "right"/);
   assert.match(coverStudio, /startsWith\("top-"\)/);
@@ -144,7 +145,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /主页 3:4 安全区/);
   assert.match(publicCoverScript, /播放量避让区 144px/);
   assert.match(publicCoverScript, /requestedY/);
-  assert.match(publicCoverScript, /subtitleFontSize \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);
+  assert.match(publicCoverScript, /getWatermarkVisibleHeight\(width\) \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);
+  assert.match(publicCoverScript, /Source Han Sans CN/);
   assert.match(publicCoverScript, /state\.watermarkAlign === "left"/);
   assert.match(publicCoverScript, /state\.watermarkAlign === "right"/);
   assert.match(publicCover, /data-template="top-left"/);
