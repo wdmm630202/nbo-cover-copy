@@ -276,11 +276,11 @@ function drawTemplateText(
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
   const watermarkBounds = watermark ? getWatermarkVisibleBounds(watermark) : null;
-  const matchedWatermarkScale = watermarkBounds ? subtitleFontSize / Math.max(1, watermarkBounds.bottom - watermarkBounds.top) : 0;
+  const fixedWatermarkScale = watermarkBounds ? (width * 0.03) / Math.max(1, watermarkBounds.bottom - watermarkBounds.top) : 0;
   const watermarkEdgeGap = (DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset - 18) * geometryScale;
   const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
   const watermarkTop = watermark
-    ? watermarkBottom - ((watermarkBounds?.bottom ?? 0) - (watermarkBounds?.top ?? 0)) * matchedWatermarkScale
+    ? watermarkBottom - ((watermarkBounds?.bottom ?? 0) - (watermarkBounds?.top ?? 0)) * fixedWatermarkScale
     : Number.POSITIVE_INFINITY;
   const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
   const requestedY = settings.templateId.startsWith("top-")
@@ -340,8 +340,7 @@ function drawWatermark(
   // The transparent PNG canvas is the positioning contract. Fit that complete
   // canvas to the cover instead of sizing from the visible logo pixels.
   const bounds = getWatermarkVisibleBounds(watermark);
-  const subtitleFontSize = width * 0.03 * (settings.subtitleScale / 100);
-  const scale = subtitleFontSize / Math.max(1, bounds.bottom - bounds.top);
+  const scale = (width * 0.03) / Math.max(1, bounds.bottom - bounds.top);
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
   const safeInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * (width / 1080);
@@ -548,6 +547,10 @@ export default function CoverStudio() {
             parsed.titleScaleVersion = 2;
           }
           if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
+          if (parsed.topText === "男人的" && parsed.bottomText === "高级感") {
+            parsed.topText = "男人的高级感";
+            parsed.bottomText = "藏在自然状态";
+          }
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
         }
@@ -717,6 +720,10 @@ export default function CoverStudio() {
         parsed.titleScaleVersion = 2;
       }
       if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
+      if (parsed.topText === "男人的" && parsed.bottomText === "高级感") {
+        parsed.topText = "男人的高级感";
+        parsed.bottomText = "藏在自然状态";
+      }
       parsed.templateId = normalizeTemplateId(parsed.templateId);
       setSettings({ ...DEFAULT_SETTINGS, ...parsed });
       setNotice(`已应用记忆点 ${slot}`);

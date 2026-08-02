@@ -256,6 +256,10 @@ try {
       saved.titleScaleVersion = 2;
     }
     if (saved.bottomText === "藏在自然状态里") saved.bottomText = "藏在自然状态";
+    if (saved.topText === "男人的" && saved.bottomText === "高级感") {
+      saved.topText = "男人的高级感";
+      saved.bottomText = "藏在自然状态";
+    }
     saved.template = normalizeTemplate(saved.template);
     Object.assign(state, saved, { image: null, watermark: null, fileName: "", watermarkName: "" });
   }
@@ -462,6 +466,10 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
       parsed.titleScaleVersion = 2;
     }
     if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
+    if (parsed.topText === "男人的" && parsed.bottomText === "高级感") {
+      parsed.topText = "男人的高级感";
+      parsed.bottomText = "藏在自然状态";
+    }
     parsed.template = normalizeTemplate(parsed.template);
     Object.assign(state, parsed);
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
@@ -609,7 +617,7 @@ function drawText(ctx, width, height) {
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_SAFE.verticalInset * geometryScale;
   const watermarkScale = state.watermark && state.watermarkEnabled
-    ? subtitleFontSize / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
+    ? (width * .03) / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
     : 0;
   const watermarkEdgeGap = (DOUYIN_HOME_SAFE.horizontalInset - 18) * geometryScale;
   const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
@@ -709,8 +717,7 @@ function countWrappedLines(ctx, text, maxWidth) {
 function drawWatermark(ctx, width, height) {
   // 保留透明 PNG 的完整原始画布，画布本身就是水印的定位基准。
   const bounds = getWatermarkVisibleBounds(state.watermark);
-  const subtitleFontSize = width * .03 * state.subtitleScale / 100;
-  const scale = subtitleFontSize / Math.max(1, bounds.bottom - bounds.top);
+  const scale = (width * .03) / Math.max(1, bounds.bottom - bounds.top);
   const drawWidth = state.watermark.naturalWidth * scale;
   const drawHeight = state.watermark.naturalHeight * scale;
   const safeInset = DOUYIN_HOME_SAFE.horizontalInset * (width / 1080);
