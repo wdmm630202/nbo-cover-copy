@@ -86,7 +86,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /导出原图 JPG/);
   assert.match(coverStudio, /导出设计 JPG/);
   assert.match(coverStudio, /photoOnly/);
-  assert.match(coverStudio, /字体描边＋阴影/);
+  assert.match(coverStudio, /字体描边/);
+  assert.match(coverStudio, /字体阴影/);
   assert.match(coverStudio, /strokeText/);
   assert.match(coverStudio, /#FEE800/);
   assert.match(coverStudio, /主页 3:4 安全区/);

@@ -45,7 +45,8 @@ type StudioSettings = {
   offsetY: number;
   rotation: number;
   textScale: number;
-  textEffect: number;
+  textStroke: number;
+  textShadow: number;
   titleScaleVersion: number;
   shade: number;
   bottomShade: number;
@@ -89,7 +90,8 @@ const DEFAULT_SETTINGS: StudioSettings = {
   offsetY: 0,
   rotation: 0,
   textScale: 100,
-  textEffect: 0,
+  textStroke: 0,
+  textShadow: 30,
   titleScaleVersion: 2,
   shade: 0,
   bottomShade: 100,
@@ -264,14 +266,15 @@ function drawTemplateText(
   context.save();
   context.textAlign = textAlign;
   context.textBaseline = "alphabetic";
-  const textEffect = Math.max(0, Math.min(1, settings.textEffect / 100));
+  const textStroke = Math.max(0, Math.min(1, settings.textStroke / 100));
+  const textShadow = Math.max(0, Math.min(1, settings.textShadow / 100));
   context.lineJoin = "round";
-  context.strokeStyle = `rgba(0,0,0,${0.92 * textEffect})`;
-  context.lineWidth = width * 0.012 * textEffect;
-  context.shadowColor = `rgba(0,0,0,${0.78 * textEffect})`;
-  context.shadowBlur = width * 0.024 * textEffect;
-  context.shadowOffsetX = width * 0.004 * textEffect;
-  context.shadowOffsetY = width * 0.006 * textEffect;
+  context.strokeStyle = `rgba(0,0,0,${0.92 * textStroke})`;
+  context.lineWidth = width * 0.012 * textStroke;
+  context.shadowColor = `rgba(0,0,0,${0.78 * textShadow})`;
+  context.shadowBlur = width * 0.024 * textShadow;
+  context.shadowOffsetX = width * 0.004 * textShadow;
+  context.shadowOffsetY = width * 0.006 * textShadow;
 
   const hasBottomText = Boolean(settings.bottomText.trim());
   const topFit = fitText(context, settings.topText, baseFont, maxWidth);
@@ -328,13 +331,13 @@ function drawTemplateText(
 
   context.fillStyle = settings.topColor;
   context.font = `900 ${topFontSize}px sans-serif`;
-  if (textEffect > 0) context.strokeText(settings.topText || "上行标题", x, y, maxWidth);
+  if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, y, maxWidth);
   context.fillText(settings.topText || "上行标题", x, y, maxWidth);
 
   if (settings.bottomText.trim()) {
     context.fillStyle = settings.bottomColor;
     context.font = `900 ${bottomFontSize}px sans-serif`;
-    if (textEffect > 0) context.strokeText(settings.bottomText, x, secondBaseline, maxWidth);
+    if (textStroke > 0) context.strokeText(settings.bottomText, x, secondBaseline, maxWidth);
     context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
   }
 
@@ -355,10 +358,10 @@ function drawTemplateText(
   }
 
   if (settings.subtitle.trim()) {
-    context.shadowColor = `rgba(0,0,0,${0.78 * textEffect})`;
-    context.shadowBlur = width * 0.024 * textEffect;
-    context.shadowOffsetX = width * 0.004 * textEffect;
-    context.shadowOffsetY = width * 0.006 * textEffect;
+    context.shadowColor = `rgba(0,0,0,${0.78 * textShadow})`;
+    context.shadowBlur = width * 0.024 * textShadow;
+    context.shadowOffsetX = width * 0.004 * textShadow;
+    context.shadowOffsetY = width * 0.006 * textShadow;
     context.fillStyle = settings.subtitleColor;
     context.font = `400 ${subtitleFontSize}px sans-serif`;
     drawWrappedText(
@@ -1344,12 +1347,20 @@ export default function CoverStudio() {
               onChange={(value) => updateSetting("textScale", value)}
             />
             <Slider
-              label="字体描边＋阴影"
-              value={settings.textEffect}
+              label="字体描边"
+              value={settings.textStroke}
               min={0}
               max={100}
               suffix="%"
-              onChange={(value) => updateSetting("textEffect", value)}
+              onChange={(value) => updateSetting("textStroke", value)}
+            />
+            <Slider
+              label="字体阴影"
+              value={settings.textShadow}
+              min={0}
+              max={100}
+              suffix="%"
+              onChange={(value) => updateSetting("textShadow", value)}
             />
             <Slider
               label="压暗强度"
