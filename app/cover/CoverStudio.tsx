@@ -1426,30 +1426,6 @@ export default function CoverStudio() {
             />
           </div>
           <div className="studio-preview-tools">
-            <div className="studio-retouch">
-              <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
-              <button
-                type="button"
-                className={brushMode ? "is-active" : ""}
-                onClick={() => {
-                  setBrushMode((current) => !current);
-                  setRotationMode(false);
-                  setNotice(brushMode ? "已退出涂抹，可继续移动照片" : "已开启涂抹，请在照片上按住绘制");
-                }}
-              >{brushMode ? "退出涂抹" : "开启涂抹"}</button>
-              <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} />
-              <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} />
-              <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} />
-              <div className="studio-retouch-compare">
-                <button type="button" disabled={!retouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
-                <button type="button" className={!showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(false)}>涂抹后</button>
-              </div>
-              <small className="studio-retouch-note">仅切换预览，导出始终保留涂抹效果</small>
-              <div className="studio-retouch-actions">
-                <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes((current) => current.slice(0, -1)); }}>撤销一步</button>
-                <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes([]); }}>全部清除</button>
-              </div>
-            </div>
             <div className="studio-template-grid">
               {COVER_TEMPLATES.map((template) => (
                 <button
@@ -1491,6 +1467,31 @@ export default function CoverStudio() {
             <div>
               <strong>版式与构图</strong>
               <small>参考南铂暗调杂志封面体系</small>
+            </div>
+          </div>
+
+          <div className="studio-retouch">
+            <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
+            <button
+              type="button"
+              className={brushMode ? "is-active" : ""}
+              onClick={() => {
+                setBrushMode((current) => !current);
+                setRotationMode(false);
+                setNotice(brushMode ? "已退出涂抹，可继续移动照片" : "已开启涂抹，请在照片上按住绘制");
+              }}
+            >{brushMode ? "退出涂抹" : "开启涂抹"}</button>
+            <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} />
+            <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} />
+            <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} />
+            <div className="studio-retouch-compare">
+              <button type="button" disabled={!retouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
+              <button type="button" className={!showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(false)}>涂抹后</button>
+            </div>
+            <small className="studio-retouch-note">仅切换预览，导出始终保留涂抹效果</small>
+            <div className="studio-retouch-actions">
+              <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes((current) => current.slice(0, -1)); }}>撤销一步</button>
+              <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes([]); }}>全部清除</button>
             </div>
           </div>
 

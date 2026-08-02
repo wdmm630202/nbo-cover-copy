@@ -1092,7 +1092,7 @@ body {
   .cover-page { padding-bottom: 8px; }
   .cover-studio-header { min-height: 58px; }
   .cover-studio-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
-  .cover-studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 300px minmax(620px, 1fr) 320px; gap: 12px; align-items: stretch; }
+  .cover-studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 300px minmax(580px, 1fr) 390px; gap: 12px; align-items: stretch; }
   .studio-panel, .studio-preview-panel { height: 100%; min-height: 0; border-radius: 18px; }
   .studio-panel { padding: 13px; overflow: hidden; }
   .studio-controls { display: flex; flex-direction: column; }
@@ -1118,16 +1118,17 @@ body {
   .studio-preview-panel { padding: 13px; display: flex; flex-direction: column; }
   .studio-preview-toolbar { min-height: 32px; margin-bottom: 8px; }
   .studio-canvas-shell { width: auto; height: calc(100% - 326px); max-width: 100%; }
-  .studio-preview-tools { height: 210px; margin-top: 8px; grid-template-columns: minmax(0, 1fr) 210px; gap: 8px; }
+  .studio-preview-tools { height: 210px; margin-top: 8px; grid-template-columns: 210px; justify-content: end; gap: 8px; }
   .studio-export-row { margin-top: 8px; gap: 6px; }
   .studio-export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
+  .studio-design { display: flex; flex-direction: column; }
   .studio-design .studio-panel-heading { margin-bottom: 7px; }
   .studio-template-grid { width: 210px; height: 210px; gap: 5px; }
   .studio-template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
   .studio-template::after { width: 36px; height: 58px; }
   .studio-template b { font-size: 8px; }
   .studio-template span { font-size: 6px; }
-  .studio-adjustments { margin-top: 8px; grid-template-columns: 1fr; gap: 8px; }
+  .studio-adjustments { min-height: 0; margin-top: 8px; flex: 1; grid-template-columns: 1fr; align-content: space-between; gap: 6px; }
   .studio-slider > span { margin-bottom: 3px; font-size: 9px; }
   .studio-slider input { height: 15px; }
   .studio-retouch { height: 210px; padding: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px 8px; }
@@ -1137,9 +1138,9 @@ body {
   .studio-retouch-note { align-self: center; line-height: 1.35; }
   .studio-watermark-align > span { margin-bottom: 3px; font-size: 8px; }
   .studio-watermark-align button { min-height: 28px; }
-  .studio-memory { margin-top: auto; padding-top: 8px; grid-template-columns: 1fr; gap: 5px; }
-  .studio-memory .studio-reset { min-height: 28px; }
-  .studio-memory > div { padding: 5px; grid-template-columns: 1fr auto auto auto; gap: 4px; }
+  .studio-memory { min-height: 0; margin-top: 8px; padding-top: 8px; flex: 1; grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .studio-memory .studio-reset { min-height: 28px; height: 100%; }
+  .studio-memory > div { height: 100%; padding: 5px; grid-template-columns: 1fr auto auto auto; gap: 4px; }
   .studio-memory > div > button:last-child, .studio-memory > div b { grid-column: auto; }
   .studio-memory button { min-height: 23px; padding: 0 4px; }
   .cover-standard-card { min-height: 82px; margin-top: 8px; padding: 10px 16px; grid-template-columns: 170px 1fr; gap: 6px 18px; border-radius: 18px; }
