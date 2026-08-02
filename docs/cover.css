@@ -70,9 +70,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .memory-panel > div > button:last-child { grid-column: 1 / -1; }
 .memory-panel b { color: #625b55; font-size: 9px; }
 .memory-panel button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
-.factory-reset, .reset-settings { width: 100%; min-height: 34px; border-radius: 8px; font-size: 7px; font-weight: 700; cursor: pointer; }
+.factory-reset, .reset-settings { width: 100%; min-height: 34px; border-radius: 8px; font-size: 17px; line-height: 1; font-weight: 700; cursor: pointer; }
 .factory-reset { margin-bottom: 8px; border: 1px solid var(--red); background: var(--red); color: #fff; }
-.reset-settings { border: 1px solid #202020; background: #202020; color: #fff; font-size: 22px; line-height: 1; }
+.reset-settings { border: 1px solid #202020; background: #202020; color: #fff; }
 .left-watermark-controls { margin-top: 8px; padding: 8px; display: grid; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; background: #faf9f7; }
 .left-watermark-controls label > span { margin-bottom: 4px; display: flex; justify-content: space-between; color: #6e6761; font-size: 9px; }
 .left-watermark-controls input[type="range"] { width: 100%; accent-color: var(--red); }
@@ -227,7 +227,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .design { display: flex; flex-direction: column; }
   .design .panel-heading { margin-bottom: 7px; }
   .design > .factory-reset, .design > .reset-settings { min-height: 52px; border-radius: 10px; }
-  .design > .reset-settings { font-size: 34px; }
+  .design > .factory-reset, .design > .reset-settings { font-size: 26px; }
   .design > .reset-settings { margin-bottom: 10px; }
   .templates { width: 100%; height: auto; aspect-ratio: 1; gap: 6px; }
   .template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
