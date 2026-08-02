@@ -62,6 +62,7 @@ type ExportAsset = {
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
+const getWatermarkVisibleHeight = (width: number) => Math.round(width * 0.03);
 
 const DEFAULT_SETTINGS: StudioSettings = {
   platformId: "douyin",
@@ -254,7 +255,7 @@ function drawTemplateText(
   const activeHeadlineInk = measureInkBounds(context, settings.bottomText || settings.topText || "国");
   context.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
-  const fixedVerticalGap = Math.round(width * 0.03);
+  const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
   const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * 0.055));
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
@@ -275,7 +276,7 @@ function drawTemplateText(
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
   const watermarkBounds = watermark ? getWatermarkVisibleBounds(watermark) : null;
-  const fixedWatermarkScale = watermarkBounds ? (width * 0.03) / Math.max(1, watermarkBounds.bottom - watermarkBounds.top) : 0;
+  const fixedWatermarkScale = watermarkBounds ? getWatermarkVisibleHeight(width) / Math.max(1, watermarkBounds.bottom - watermarkBounds.top) : 0;
   const watermarkEdgeGap = (DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset - 18) * geometryScale;
   const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
   const watermarkTop = watermark
@@ -339,7 +340,7 @@ function drawWatermark(
   // The transparent PNG canvas is the positioning contract. Fit that complete
   // canvas to the cover instead of sizing from the visible logo pixels.
   const bounds = getWatermarkVisibleBounds(watermark);
-  const scale = (width * 0.03) / Math.max(1, bounds.bottom - bounds.top);
+  const scale = getWatermarkVisibleHeight(width) / Math.max(1, bounds.bottom - bounds.top);
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
   const safeInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * (width / 1080);

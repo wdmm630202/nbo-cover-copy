@@ -6,6 +6,7 @@ const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
+const getWatermarkVisibleHeight = (width) => Math.round(width * .03);
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -588,7 +589,7 @@ function drawText(ctx, width, height) {
   const activeHeadlineInk = measureInkBounds(ctx, state.bottomText || state.topText || "国");
   ctx.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
-  const fixedVerticalGap = Math.round(width * .03);
+  const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
   const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * .055));
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
@@ -609,7 +610,7 @@ function drawText(ctx, width, height) {
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * geometryScale : 0;
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_SAFE.verticalInset * geometryScale;
   const watermarkScale = state.watermark && state.watermarkEnabled
-    ? (width * .03) / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
+    ? getWatermarkVisibleHeight(width) / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
     : 0;
   const watermarkEdgeGap = (DOUYIN_HOME_SAFE.horizontalInset - 18) * geometryScale;
   const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
@@ -710,7 +711,7 @@ function countWrappedLines(ctx, text, maxWidth) {
 function drawWatermark(ctx, width, height) {
   // 保留透明 PNG 的完整原始画布，画布本身就是水印的定位基准。
   const bounds = getWatermarkVisibleBounds(state.watermark);
-  const scale = (width * .03) / Math.max(1, bounds.bottom - bounds.top);
+  const scale = getWatermarkVisibleHeight(width) / Math.max(1, bounds.bottom - bounds.top);
   const drawWidth = state.watermark.naturalWidth * scale;
   const drawHeight = state.watermark.naturalHeight * scale;
   const safeInset = DOUYIN_HOME_SAFE.horizontalInset * (width / 1080);
