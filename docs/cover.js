@@ -33,8 +33,8 @@ const state = {
   subtitleColor: "#FFFFFF",
   subtitleScale: 100,
   zoom: 100,
-  offsetX: 100,
-  offsetXRangeVersion: 1,
+  offsetX: 0,
+  offsetXRangeVersion: 2,
   offsetY: 0,
   rotation: 0,
   textScale: 100,
@@ -106,8 +106,8 @@ canvas.addEventListener("pointermove", (event) => {
   if (imageInteraction.rotationMode) {
     state.rotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
   } else {
-    state.offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), 0, 200);
-    state.offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -40, 40);
+    state.offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -200, 200);
+    state.offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -200, 200);
   }
   updateUi(); saveSettings(); draw();
 });
@@ -327,9 +327,10 @@ try {
       saved.textShadow = 50;
       saved.textShadowDefaultVersion = 1;
     }
-    if (saved.offsetXRangeVersion !== 1) {
-      saved.offsetX = Math.max(0, Math.min(200, Number(saved.offsetX || 0) + 100));
-      saved.offsetXRangeVersion = 1;
+    if (saved.offsetXRangeVersion !== 2) {
+      const previousOffsetX = Number(saved.offsetX ?? (saved.offsetXRangeVersion === 1 ? 100 : 0));
+      saved.offsetX = Math.max(-200, Math.min(200, saved.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
+      saved.offsetXRangeVersion = 2;
     }
     if (saved.bottomText === "藏在自然状态里") saved.bottomText = "藏在自然状态";
     saved.template = normalizeTemplate(saved.template);
@@ -517,7 +518,7 @@ $("#resetSettings").addEventListener("click", () => {
     platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
-    zoom: 100, offsetX: 100, offsetXRangeVersion: 1, offsetY: 0, rotation: 0, textScale: 100, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 2, shade: 0, bottomShade: 100,
+    zoom: 100, offsetX: 0, offsetXRangeVersion: 2, offsetY: 0, rotation: 0, textScale: 100, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 2, shade: 0, bottomShade: 100,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
@@ -565,9 +566,10 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
       parsed.textShadow = 50;
       parsed.textShadowDefaultVersion = 1;
     }
-    if (parsed.offsetXRangeVersion !== 1) {
-      parsed.offsetX = Math.max(0, Math.min(200, Number(parsed.offsetX || 0) + 100));
-      parsed.offsetXRangeVersion = 1;
+    if (parsed.offsetXRangeVersion !== 2) {
+      const previousOffsetX = Number(parsed.offsetX ?? (parsed.offsetXRangeVersion === 1 ? 100 : 0));
+      parsed.offsetX = Math.max(-200, Math.min(200, parsed.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
+      parsed.offsetXRangeVersion = 2;
     }
     if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
     parsed.template = normalizeTemplate(parsed.template);
@@ -621,7 +623,7 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, pho
     const imageWidth = state.image.naturalWidth * scale;
     const imageHeight = state.image.naturalHeight * scale;
     targetContext.save();
-    targetContext.translate(width / 2 + (state.offsetX - 100) / 100 * width, height / 2 + state.offsetY / 100 * height);
+    targetContext.translate(width / 2 + state.offsetX / 100 * width, height / 2 + state.offsetY / 100 * height);
     targetContext.rotate(radians);
     targetContext.drawImage(state.image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
     targetContext.restore();

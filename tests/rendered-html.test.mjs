@@ -96,8 +96,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32/);
   assert.match(coverStudio, /WATERMARK_BOTTOM_GAP_AT_1080 = 36/);
   assert.match(coverStudio, /getWatermarkBottomGap\(width\)/);
-  assert.match(coverStudio, /label="左右位置"[\s\S]*?min=\{0\}[\s\S]*?max=\{200\}/);
-  assert.match(coverStudio, /offsetX - 100/);
+  assert.match(coverStudio, /label="照片缩放"[\s\S]*?min=\{0\}[\s\S]*?max=\{400\}/);
+  assert.match(coverStudio, /label="左右位置"[\s\S]*?min=\{-200\}[\s\S]*?max=\{200\}/);
+  assert.match(coverStudio, /label="上下位置"[\s\S]*?min=\{-200\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /settings\.watermarkAlign === "left"/);
   assert.match(coverStudio, /settings\.watermarkAlign === "right"/);
   assert.match(coverStudio, /startsWith\("top-"\)/);
@@ -158,8 +159,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32/);
   assert.match(publicCoverScript, /WATERMARK_BOTTOM_GAP_AT_1080 = 36/);
   assert.match(publicCoverScript, /getWatermarkBottomGap\(width\)/);
-  assert.match(publicCoverScript, /state\.offsetX - 100/);
-  assert.match(publicCover, /id="offsetX" type="range" min="0" max="200" value="100"/);
+  assert.match(publicCover, /id="zoom" type="range" min="0" max="400" value="100"/);
+  assert.match(publicCover, /id="offsetX" type="range" min="-200" max="200" value="0"/);
+  assert.match(publicCover, /id="offsetY" type="range" min="-200" max="200" value="0"/);
   assert.match(publicCoverScript, /state\.watermarkAlign === "left"/);
   assert.match(publicCoverScript, /state\.watermarkAlign === "right"/);
   assert.match(publicCover, /data-template="top-left"/);
