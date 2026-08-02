@@ -234,6 +234,8 @@ function drawTemplateText(
   const x = isRight ? width - horizontalInset : isCenter ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
   const baseFont = Math.max(1, Math.round(width * 0.074 * 2.1 * (settings.textScale / 100)));
+  const lineGap = Math.round(baseFont * 1.32);
+
   context.save();
   context.textAlign = textAlign;
   context.textBaseline = "alphabetic";
@@ -255,7 +257,6 @@ function drawTemplateText(
   context.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
   const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
-  const lineGap = Math.round(topHeadlineInk.descent + opticalGap + activeHeadlineInk.ascent);
   const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * 0.055));
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
   const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + opticalGap);
@@ -276,7 +277,8 @@ function drawTemplateText(
   const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_GRID_SAFE_AREA.verticalInset * geometryScale;
   const watermarkBounds = watermark ? getWatermarkVisibleBounds(watermark) : null;
   const fixedWatermarkScale = watermarkBounds ? (width * 0.03) / Math.max(1, watermarkBounds.bottom - watermarkBounds.top) : 0;
-  const watermarkBottom = cropBottom - playCountReserve - opticalGap;
+  const watermarkEdgeGap = (DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset - 18) * geometryScale;
+  const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
   const watermarkTop = watermark
     ? watermarkBottom - ((watermarkBounds?.bottom ?? 0) - (watermarkBounds?.top ?? 0)) * fixedWatermarkScale
     : Number.POSITIVE_INFINITY;
@@ -342,6 +344,7 @@ function drawWatermark(
   const drawWidth = watermark.naturalWidth * scale;
   const drawHeight = watermark.naturalHeight * scale;
   const safeInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * (width / 1080);
+  const watermarkEdgeGap = (DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset - 18) * (width / 1080);
   const x = settings.watermarkAlign === "left"
     ? safeInset - bounds.left * scale
     : settings.watermarkAlign === "right"
@@ -350,12 +353,7 @@ function drawWatermark(
   const isDouyinCanvas = height / width > 1.5;
   const cropBottom = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.cropBottom * (width / 1080) : height;
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_GRID_SAFE_AREA.playCountReserve * (width / 1080) : 0;
-  context.save();
-  context.font = `500 ${Math.round(width * 0.061 * (settings.subtitleScale / 100))}px sans-serif`;
-  const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
-  const watermarkGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
-  context.restore();
-  const y = cropBottom - playCountReserve - watermarkGap - bounds.bottom * scale;
+  const y = cropBottom - playCountReserve - watermarkEdgeGap - bounds.bottom * scale;
   context.save();
   context.globalAlpha = settings.watermarkOpacity / 100;
   context.drawImage(watermark, x, y, drawWidth, drawHeight);

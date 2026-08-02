@@ -578,6 +578,7 @@ function drawText(ctx, width, height) {
   const x = right ? width - horizontalInset : center ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
   const baseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.textScale / 100));
+  const lineGap = Math.round(baseFont * 1.32);
   ctx.save();
   ctx.textAlign = align;
   ctx.shadowColor = "rgba(0,0,0,.42)";
@@ -597,7 +598,6 @@ function drawText(ctx, width, height) {
   ctx.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
   const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
-  const lineGap = Math.round(topHeadlineInk.descent + opticalGap + activeHeadlineInk.ascent);
   const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * .055));
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
   const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + opticalGap);
@@ -619,7 +619,8 @@ function drawText(ctx, width, height) {
   const watermarkScale = state.watermark && state.watermarkEnabled
     ? (width * .03) / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
     : 0;
-  const watermarkBottom = cropBottom - playCountReserve - opticalGap;
+  const watermarkEdgeGap = (DOUYIN_HOME_SAFE.horizontalInset - 18) * geometryScale;
+  const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
   const watermarkTop = state.watermark && state.watermarkEnabled
     ? watermarkBottom - (getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top) * watermarkScale
     : Number.POSITIVE_INFINITY;
@@ -721,6 +722,7 @@ function drawWatermark(ctx, width, height) {
   const drawWidth = state.watermark.naturalWidth * scale;
   const drawHeight = state.watermark.naturalHeight * scale;
   const safeInset = DOUYIN_HOME_SAFE.horizontalInset * (width / 1080);
+  const watermarkEdgeGap = (DOUYIN_HOME_SAFE.horizontalInset - 18) * (width / 1080);
   const x = state.watermarkAlign === "left"
     ? safeInset - bounds.left * scale
     : state.watermarkAlign === "right"
@@ -729,12 +731,7 @@ function drawWatermark(ctx, width, height) {
   const isDouyinCanvas = height / width > 1.5;
   const cropBottom = isDouyinCanvas ? DOUYIN_HOME_SAFE.cropBottom * (width / 1080) : height;
   const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * (width / 1080) : 0;
-  ctx.save();
-  ctx.font = `500 ${Math.round(width * .061 * state.subtitleScale / 100)}px sans-serif`;
-  const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
-  const watermarkGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
-  ctx.restore();
-  const y = cropBottom - playCountReserve - watermarkGap - bounds.bottom * scale;
+  const y = cropBottom - playCountReserve - watermarkEdgeGap - bounds.bottom * scale;
   ctx.save();
   ctx.globalAlpha = state.watermarkOpacity / 100;
   ctx.drawImage(state.watermark, x, y, drawWidth, drawHeight);
