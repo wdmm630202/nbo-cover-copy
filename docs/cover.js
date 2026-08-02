@@ -570,7 +570,6 @@ function drawText(ctx, width, height) {
   const x = right ? width - horizontalInset : center ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
   const baseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.textScale / 100));
-  const lineGap = Math.round(baseFont * 1.32);
   ctx.save();
   ctx.textAlign = align;
   ctx.shadowColor = "rgba(0,0,0,.42)";
@@ -589,11 +588,12 @@ function drawText(ctx, width, height) {
   const activeHeadlineInk = measureInkBounds(ctx, state.bottomText || state.topText || "国");
   ctx.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
-  const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
+  const fixedVerticalGap = Math.round(width * .03);
+  const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
   const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * .055));
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
-  const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + opticalGap);
-  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + opticalGap + subtitleInk.ascent);
+  const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
+  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
   const subtitleLineHeight = Math.round(subtitleFontSize * 1.45);
   const subtitleLines = countWrappedLines(ctx, state.subtitle, maxWidth);
   const blockTop = -topHeadlineInk.ascent;
@@ -616,7 +616,7 @@ function drawText(ctx, width, height) {
   const watermarkTop = state.watermark && state.watermarkEnabled
     ? watermarkBottom - (getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top) * watermarkScale
     : Number.POSITIVE_INFINITY;
-  const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
+  const bottomTextLimit = Math.min(usableBottom, watermarkTop - fixedVerticalGap);
   const requestedY = state.template.startsWith("top-")
     ? usableTop - blockTop
     : state.template.startsWith("bottom-")
@@ -645,7 +645,7 @@ function drawText(ctx, width, height) {
   if (state.subtitle.trim()) {
     ctx.fillStyle = state.subtitleColor;
     ctx.font = `500 ${subtitleFontSize}px sans-serif`;
-    const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap + subtitleInk.ascent;
+    const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
     drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleLineHeight, align);
   }
   ctx.restore();

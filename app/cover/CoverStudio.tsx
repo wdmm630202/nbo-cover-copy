@@ -234,8 +234,6 @@ function drawTemplateText(
   const x = isRight ? width - horizontalInset : isCenter ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
   const baseFont = Math.max(1, Math.round(width * 0.074 * 2.1 * (settings.textScale / 100)));
-  const lineGap = Math.round(baseFont * 1.32);
-
   context.save();
   context.textAlign = textAlign;
   context.textBaseline = "alphabetic";
@@ -256,11 +254,12 @@ function drawTemplateText(
   const activeHeadlineInk = measureInkBounds(context, settings.bottomText || settings.topText || "国");
   context.font = `500 ${subtitleFontSize}px sans-serif`;
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
-  const opticalGap = Math.ceil(subtitleInk.ascent + subtitleInk.descent);
+  const fixedVerticalGap = Math.round(width * 0.03);
+  const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
   const dividerThickness = Math.max(4, Math.round(activeHeadlineFontSize * 0.055));
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
-  const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + opticalGap);
-  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + opticalGap + subtitleInk.ascent);
+  const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
+  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
   const subtitleLineHeight = Math.round(subtitleFontSize * 1.45);
   const subtitleLines = countWrappedLines(context, settings.subtitle, maxWidth);
   const blockTop = -topHeadlineInk.ascent;
@@ -282,7 +281,7 @@ function drawTemplateText(
   const watermarkTop = watermark
     ? watermarkBottom - ((watermarkBounds?.bottom ?? 0) - (watermarkBounds?.top ?? 0)) * fixedWatermarkScale
     : Number.POSITIVE_INFINITY;
-  const bottomTextLimit = Math.min(usableBottom, watermarkTop - opticalGap);
+  const bottomTextLimit = Math.min(usableBottom, watermarkTop - fixedVerticalGap);
   const requestedY = settings.templateId.startsWith("top-")
     ? usableTop - blockTop
     : settings.templateId.startsWith("bottom-")
@@ -320,7 +319,7 @@ function drawTemplateText(
       context,
       settings.subtitle,
       x,
-      settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + opticalGap + subtitleInk.ascent,
+      settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent,
       maxWidth,
       subtitleLineHeight,
       textAlign,
