@@ -474,7 +474,7 @@ body {
 .studio-memory > div > button:last-child { grid-column: 1 / -1; }
 .studio-memory b { color: #625b55; font-size: 9px; }
 .studio-memory button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
-.studio-reset { width: 100%; min-height: 34px; border: 1px solid #202020; border-radius: 8px; background: #202020; color: #fff; font-size: 8px; font-weight: 750; cursor: pointer; }
+.studio-reset { width: 100%; min-height: 34px; border: 1px solid #202020; border-radius: 8px; background: #202020; color: #fff; font-size: 7px; font-weight: 500; cursor: pointer; }
 .studio-left-watermark-controls { margin-top: 8px; padding: 8px; display: grid; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; background: #faf9f7; }
 .studio-subtitle-tools { margin-top: 8px; display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
 .studio-subtitle-tools label { min-height: 45px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; color: #6e6761; font-size: 8px; }
@@ -913,7 +913,10 @@ body {
 }
 
 .studio-template b {
+  width: 100%;
+  max-width: 100%;
   font-size: 10px;
+  text-align: center;
 }
 
 .studio-template span {

@@ -68,7 +68,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .memory-panel > div > button:last-child { grid-column: 1 / -1; }
 .memory-panel b { color: #625b55; font-size: 9px; }
 .memory-panel button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
-.reset-settings { width: 100%; min-height: 34px; border: 1px solid #202020; border-radius: 8px; background: #202020; color: #fff; font-size: 8px; font-weight: 750; cursor: pointer; }
+.reset-settings { width: 100%; min-height: 34px; border: 1px solid #202020; border-radius: 8px; background: #202020; color: #fff; font-size: 7px; font-weight: 500; cursor: pointer; }
 .left-watermark-controls { margin-top: 8px; padding: 8px; display: grid; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; background: #faf9f7; }
 .left-watermark-controls label > span { margin-bottom: 4px; display: flex; justify-content: space-between; color: #6e6761; font-size: 9px; }
 .left-watermark-controls input[type="range"] { width: 100%; accent-color: var(--red); }
@@ -140,7 +140,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .template::after { content: ""; width: 58px; height: 100px; position: absolute; right: 4px; bottom: -20px; border-radius: 50% 50% 8px 8px; background: linear-gradient(#5f5953, #191817); opacity: .75; }
 .template i { position: absolute; z-index: 1; left: 9px; top: 8px; color: #d7b98e; font-size: 9px; font-style: normal; }
 .template b, .template span { max-width: 76%; position: relative; z-index: 1; }
-.template b { font-size: 10px; }
+.template b { width: 100%; max-width: 100%; font-size: 10px; text-align: center; }
 .template span { margin-top: 3px; color: rgba(255,255,255,.58); font-size: 7px; }
 .template.active { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,36,66,.12); }
 .template.center { align-items: center; text-align: center; }
