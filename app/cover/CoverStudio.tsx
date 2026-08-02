@@ -78,7 +78,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   offsetX: 0,
   offsetY: 0,
   rotation: 0,
-  textScale: 100,
+  textScale: 160,
   shade: 0,
   showSafeArea: true,
   watermarkScale: 100,
@@ -538,6 +538,7 @@ export default function CoverStudio() {
           if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
           if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
           if (Number(parsed.shade) === 62) parsed.shade = 0;
+          if (Number(parsed.textScale) === 100) parsed.textScale = 160;
           parsed.templateId = normalizeTemplateId(parsed.templateId);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
         }
@@ -702,6 +703,7 @@ export default function CoverStudio() {
       if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
       if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
       if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
+      if (Number(parsed.textScale) === 100) parsed.textScale = 160;
       parsed.templateId = normalizeTemplateId(parsed.templateId);
       setSettings({ ...DEFAULT_SETTINGS, ...parsed });
       setNotice(`已应用记忆点 ${slot}`);
@@ -1173,7 +1175,7 @@ export default function CoverStudio() {
               label="标题大小"
               value={settings.textScale}
               min={76}
-              max={132}
+              max={180}
               suffix="%"
               onChange={(value) => updateSetting("textScale", value)}
             />
