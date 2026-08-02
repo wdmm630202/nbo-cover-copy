@@ -84,7 +84,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   textScale: 100,
   titleScaleVersion: 2,
   shade: 0,
-  bottomShade: 0,
+  bottomShade: 100,
   showSafeArea: true,
   watermarkScale: 100,
   watermarkAlign: "left",

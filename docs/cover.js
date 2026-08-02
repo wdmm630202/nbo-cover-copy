@@ -31,7 +31,7 @@ const state = {
   textScale: 100,
   titleScaleVersion: 2,
   shade: 0,
-  bottomShade: 0,
+  bottomShade: 100,
   safe: true,
   watermarkScale: 100,
   watermarkAlign: "left",
@@ -439,7 +439,7 @@ $("#resetSettings").addEventListener("click", () => {
     platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100,
-    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, titleScaleVersion: 2, shade: 0, bottomShade: 0,
+    zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, textScale: 100, titleScaleVersion: 2, shade: 0, bottomShade: 100,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: true,
   });
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
