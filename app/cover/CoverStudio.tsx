@@ -641,7 +641,6 @@ export default function CoverStudio() {
   const [watermarkKind, setWatermarkKind] = useState<"default" | "custom">("default");
   const [exportReady, setExportReady] = useState({ jpeg: false, png: false });
   const exportCacheRef = useRef<{ jpeg: ExportAsset | null; png: ExportAsset | null }>({ jpeg: null, png: null });
-  const exportGenerationRef = useRef(0);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
@@ -952,26 +951,8 @@ export default function CoverStudio() {
   }, [fileName, image, preset, retouchStrokes, settings, watermark]);
 
   useEffect(() => {
-    const generation = ++exportGenerationRef.current;
     exportCacheRef.current = { jpeg: null, png: null };
-    const isIPhoneOrIPad = /iP(?:hone|ad|od)/.test(navigator.userAgent);
-    setExportReady({ jpeg: false, png: isIPhoneOrIPad });
-    if (!image) return;
-    const timer = window.setTimeout(async () => {
-      const formats = isIPhoneOrIPad ? ["jpeg"] as const : ["jpeg", "png"] as const;
-      for (const format of formats) {
-        let asset: ExportAsset | null = null;
-        try {
-          asset = await buildExportAsset(format);
-        } catch {
-          setNotice("手机生成失败，请更换照片后重试");
-        }
-        if (generation !== exportGenerationRef.current) return;
-        exportCacheRef.current[format] = asset;
-        setExportReady((current) => ({ ...current, [format]: true }));
-      }
-    }, 120);
-    return () => window.clearTimeout(timer);
+    setExportReady({ jpeg: true, png: true });
   }, [buildExportAsset, image]);
 
   const updateSetting = useCallback(
@@ -1172,7 +1153,7 @@ export default function CoverStudio() {
       if (!asset) return setNotice("原图生成没有完成，请重新上传照片后再试");
     } else if (!asset) {
       setExportReady((current) => ({ ...current, [format]: false }));
-      setNotice(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}，完成后请再点一次`);
+      setNotice(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
       let prepared: ExportAsset | null = null;
       try {
         prepared = await buildExportAsset(format);
@@ -1181,7 +1162,8 @@ export default function CoverStudio() {
       }
       exportCacheRef.current[format] = prepared;
       setExportReady((current) => ({ ...current, [format]: true }));
-      return setNotice(prepared ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
+      if (!prepared) return setNotice("这次生成没有完成，请重新上传照片后再试");
+      asset = prepared;
     }
     const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
     const exportName = `${safeName}_${photoOnly ? "原图" : "设计"}_${preset.label}_${preset.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;

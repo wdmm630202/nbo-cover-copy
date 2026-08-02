@@ -80,8 +80,6 @@ let syncedCopy = null;
 let syncedImage = null;
 let defaultWatermark = null;
 let exportCache = { jpeg: null, png: null };
-let exportRevision = 0;
-let exportPrepareTimer = 0;
 let imageInteraction = { rotationMode: false, drag: null };
 const retouch = { active: false, size: 120, feather: 70, strength: 100, strokes: [], pointerId: null, compareBefore: false };
 const syncChannel = "BroadcastChannel" in window
@@ -1104,27 +1102,9 @@ function setExportReady(format, ready) {
 }
 
 function scheduleExportPreparation() {
-  window.clearTimeout(exportPrepareTimer);
-  const revision = ++exportRevision;
   exportCache = { jpeg: null, png: null };
-  const isIPhoneOrIPad = /iP(?:hone|ad|od)/.test(navigator.userAgent);
-  setExportReady("jpeg", false);
-  setExportReady("png", isIPhoneOrIPad);
-  if (!state.image) return;
-  exportPrepareTimer = window.setTimeout(async () => {
-    const formats = isIPhoneOrIPad ? ["jpeg"] : ["jpeg", "png"];
-    for (const format of formats) {
-      let asset = null;
-      try {
-        asset = await buildExportAsset(format);
-      } catch {
-        setStatus("手机生成失败，请更换照片后重试");
-      }
-      if (revision !== exportRevision) return;
-      exportCache[format] = asset;
-      setExportReady(format, true);
-    }
-  }, 120);
+  setExportReady("jpeg", true);
+  setExportReady("png", true);
 }
 
 async function buildExportAsset(format, photoOnly = false) {
@@ -1171,7 +1151,7 @@ async function exportCover(format, photoOnly = false) {
     if (!asset) return setStatus("原图生成没有完成，请重新上传照片后再试");
   } else if (!asset) {
     setExportReady(format, false);
-    setStatus(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}，完成后请再点一次`);
+    setStatus(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
     try {
       asset = await buildExportAsset(format);
     } catch {
@@ -1179,7 +1159,7 @@ async function exportCover(format, photoOnly = false) {
     }
     exportCache[format] = asset;
     setExportReady(format, true);
-    return setStatus(asset ? "原图尺寸文件已准备完成，请再次点击导出" : "这次生成没有完成，请重新上传照片后再试");
+    if (!asset) return setStatus("这次生成没有完成，请重新上传照片后再试");
   }
   const current = preset();
   const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";

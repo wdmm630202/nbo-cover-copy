@@ -172,7 +172,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /存储图像/);
   assert.match(publicCoverScript, /scheduleExportPreparation/);
   assert.match(publicCoverScript, /这次生成没有完成/);
-  assert.match(publicCoverScript, /原图尺寸文件已准备完成/);
+  assert.match(publicCoverScript, /正在生成原图尺寸/);
+  assert.doesNotMatch(publicCoverScript, /请再次点击导出/);
   assert.match(publicCoverScript, /eraseShadeWithBrush/);
   assert.match(publicCoverScript, /quadraticCurveTo/);
   assert.match(publicCoverScript, /filter = `blur\(/);
