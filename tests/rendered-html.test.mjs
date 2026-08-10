@@ -125,6 +125,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /startsWith\("bottom-"\)/);
   assert.match(coverStudio, /全部同步/);
   assert.match(coverStudio, /彻底重置/);
+  assert.match(coverStudio, /studio-slider-number/);
+  assert.match(coverStudio, /准确数值/);
+  assert.match(coverStudio, /恢复默认/);
   assert.match(coverStudio, /window\.caches\?\.keys/);
   assert.match(coverStudio, /COVER_COPY_SYNC_KEY/);
   assert.match(coverStudio, /同步文案/);
@@ -165,6 +168,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /id="syncCoverImage"/);
   assert.match(publicCover, /id="factoryReset"/);
   assert.match(publicCover, /彻底重置/);
+  assert.match(publicCover, /data-value-control="zoom"/);
+  assert.match(publicCover, /data-reset-control="zoom"/);
+  assert.match(publicCoverScript, /已应用准确数值/);
   assert.match(publicCover, /同步文案/);
   assert.doesNotMatch(publicCover, /返回智能文案/);
   assert.match(publicCoverScript, /0817/);

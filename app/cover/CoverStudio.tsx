@@ -689,15 +689,51 @@ function Slider({
   onReset?: () => void;
   disabled?: boolean;
 }) {
+  const commitExactValue = (input: HTMLInputElement) => {
+    if (!input.value.trim()) {
+      input.value = String(value);
+      return;
+    }
+    const parsed = Number(input.value);
+    if (!Number.isFinite(parsed)) {
+      input.value = String(value);
+      return;
+    }
+    onChange(Math.max(min, Math.min(max, Math.round(parsed))));
+  };
+
   return (
     <label className="studio-slider">
       <span>
         {label}
-        {onReset ? (
-          <button type="button" className="studio-slider-reset" title="恢复这一项默认值" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onReset(); }}>
-            {value}{suffix}
-          </button>
-        ) : <b>{value}{suffix}</b>}
+        <span className="studio-slider-value-control">
+          <span className="studio-slider-number-wrap">
+            <input
+              key={`${label}-${value}`}
+              className="studio-slider-number"
+              type="number"
+              inputMode="decimal"
+              min={min}
+              max={max}
+              step={1}
+              defaultValue={value}
+              disabled={disabled}
+              aria-label={`${label}准确数值`}
+              onFocus={(event) => event.currentTarget.select()}
+              onClick={(event) => event.stopPropagation()}
+              onBlur={(event) => commitExactValue(event.currentTarget)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+              }}
+            />
+            {suffix ? <i>{suffix}</i> : null}
+          </span>
+          {onReset ? (
+            <button type="button" className="studio-slider-reset" title="恢复这一项默认值" aria-label={`${label}恢复默认`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onReset(); }}>
+              复位
+            </button>
+          ) : null}
+        </span>
       </span>
       <input
         type="range"

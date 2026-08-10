@@ -150,10 +150,10 @@ function mobileGestureBaseline() {
 
 function syncMobileTransformControls() {
   [["zoom", state.zoom], ["offsetX", state.offsetX], ["offsetY", state.offsetY], ["rotation", state.rotation]].forEach(([id, value]) => { $(`#${id}`).value = value; });
-  $("#zoomValue").textContent = `${state.zoom}%`;
-  $("#offsetXValue").textContent = state.offsetX;
-  $("#offsetYValue").textContent = state.offsetY;
-  $("#rotationValue").textContent = `${state.rotation}°`;
+  $("#zoomValue").value = state.zoom;
+  $("#offsetXValue").value = state.offsetX;
+  $("#offsetYValue").value = state.offsetY;
+  $("#rotationValue").value = state.rotation;
 }
 
 const syncPreviewToolsWidth = () => {
@@ -215,15 +215,15 @@ canvas.addEventListener("pointermove", (event) => {
     const snapped = snapRotation(clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180));
     state.rotation = snapped.value;
     $("#rotation").value = state.rotation;
-    $("#rotationValue").textContent = `${state.rotation}°`;
+    $("#rotationValue").value = state.rotation;
     showTransformHint(`${state.rotation}°`, snapped.guide);
   } else {
     state.offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -200, 200);
     state.offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -200, 200);
     $("#offsetX").value = state.offsetX;
-    $("#offsetXValue").textContent = state.offsetX;
+    $("#offsetXValue").value = state.offsetX;
     $("#offsetY").value = state.offsetY;
-    $("#offsetYValue").textContent = state.offsetY;
+    $("#offsetYValue").value = state.offsetY;
   }
   saveSettings(); draw();
 });
@@ -661,21 +661,22 @@ function updateUi() {
   ["zoom", "offsetX", "offsetY", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
-  $("#zoomValue").textContent = `${state.zoom}%`;
-  $("#offsetXValue").textContent = state.offsetX;
-  $("#offsetYValue").textContent = state.offsetY;
-  $("#rotationValue").textContent = `${state.rotation}°`;
-  $("#textScaleValue").textContent = `${state.textScale}%`;
-  $("#bottomTextScaleValue").textContent = `${state.bottomTextScale}%`;
+  $("#zoomValue").value = state.zoom;
+  $("#offsetXValue").value = state.offsetX;
+  $("#offsetYValue").value = state.offsetY;
+  $("#rotationValue").value = state.rotation;
+  $("#textScaleValue").value = state.textScale;
+  $("#bottomTextScaleValue").value = state.bottomTextScale;
+  $("#bottomTextScaleValue").disabled = state.textScaleLinked;
   $("#bottomTextScale").disabled = state.textScaleLinked;
   $("#textScaleLink").classList.toggle("active", state.textScaleLinked);
   $("#textScaleLink").setAttribute("aria-pressed", String(state.textScaleLinked));
   $("#textScaleLink").textContent = state.textScaleLinked ? "上下行大小联动" : "下行独立调整";
-  $("#textStrokeValue").textContent = `${state.textStroke}%`;
-  $("#textShadowValue").textContent = `${state.textShadow}%`;
-  $("#brightnessValue").textContent = `${state.brightness}%`;
-  $("#shadeValue").textContent = `${state.shade}%`;
-  $("#bottomShadeValue").textContent = `${state.bottomShade}%`;
+  $("#textStrokeValue").value = state.textStroke;
+  $("#textShadowValue").value = state.textShadow;
+  $("#brightnessValue").value = state.brightness;
+  $("#shadeValue").value = state.shade;
+  $("#bottomShadeValue").value = state.bottomShade;
   $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
   document.querySelectorAll("[data-platform]").forEach((button) => button.classList.toggle("active", button.dataset.platform === state.platform));
   document.querySelectorAll("[data-template]").forEach((button) => button.classList.toggle("active", button.dataset.template === state.template));
@@ -692,9 +693,9 @@ function updateUi() {
   $("#mobileTouchZone").classList.toggle("active", Boolean(state.image) && state.platform === "douyin" && !retouch.active);
   $("#retouchToggle").classList.toggle("active", retouch.active);
   $("#retouchToggle").textContent = retouch.active ? "退出涂抹" : "开启涂抹";
-  $("#brushSizeValue").textContent = retouch.size;
-  $("#brushFeatherValue").textContent = `${retouch.feather}%`;
-  $("#brushStrengthValue").textContent = `${retouch.strength}%`;
+  $("#brushSizeValue").value = retouch.size;
+  $("#brushFeatherValue").value = retouch.feather;
+  $("#brushStrengthValue").value = retouch.strength;
   $("#undoRetouch").disabled = !retouch.strokes.length;
   $("#clearRetouch").disabled = !retouch.strokes.length;
   $("#compareBefore").disabled = !retouch.strokes.length;
@@ -814,6 +815,30 @@ const resetDefaults = {
   bottomShade: 100,
 };
 const brushResetKeys = { brushSize: "size", brushFeather: "feather", brushStrength: "strength" };
+document.querySelectorAll("[data-value-control]").forEach((input) => {
+  input.addEventListener("focus", () => input.select());
+  const commitExactValue = () => {
+    const id = input.dataset.valueControl;
+    if (!input.value.trim()) return updateUi();
+    const value = Math.round(Number(input.value));
+    if (!Number.isFinite(value)) return updateUi();
+    const next = Math.max(Number(input.min), Math.min(Number(input.max), value));
+    if (brushResetKeys[id]) {
+      retouch[brushResetKeys[id]] = next;
+    } else {
+      state[id] = next;
+      if (id === "textScale" && state.textScaleLinked) state.bottomTextScale = next;
+    }
+    updateUi();
+    saveSettings();
+    draw();
+    setStatus("已应用准确数值");
+  };
+  input.addEventListener("change", commitExactValue);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") input.blur();
+  });
+});
 document.querySelectorAll("[data-reset-control]").forEach((button) => button.addEventListener("click", (event) => {
   event.preventDefault();
   event.stopPropagation();
