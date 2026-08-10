@@ -136,24 +136,26 @@
             <div class="retouch-panel">
               <div><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
               <button id="retouchToggle" type="button">开启涂抹</button>
-              <label><span>画笔大小 <b id="brushSizeValue">120</b></span><input id="brushSize" type="range" min="20" max="400" value="120" /></label>
-              <label><span>羽化 <b id="brushFeatherValue">70%</b></span><input id="brushFeather" type="range" min="0" max="100" value="70" /></label>
-              <label><span>涂抹强度 <b id="brushStrengthValue">100%</b></span><input id="brushStrength" type="range" min="0" max="100" value="100" /></label>
+              <label><span>画笔大小 <button type="button" class="slider-reset" data-reset-control="brushSize" id="brushSizeValue">120</button></span><input id="brushSize" type="range" min="20" max="400" value="120" /></label>
+              <label><span>羽化 <button type="button" class="slider-reset" data-reset-control="brushFeather" id="brushFeatherValue">70%</button></span><input id="brushFeather" type="range" min="0" max="100" value="70" /></label>
+              <label><span>涂抹强度 <button type="button" class="slider-reset" data-reset-control="brushStrength" id="brushStrengthValue">100%</button></span><input id="brushStrength" type="range" min="0" max="100" value="100" /></label>
               <section class="retouch-compare"><button id="compareBefore" type="button" disabled>涂抹前</button><button id="compareAfter" class="active" type="button">涂抹后</button></section>
               <small>仅切换预览，导出始终保留涂抹效果</small>
               <section><button id="undoRetouch" type="button" disabled>撤销一步</button><button id="clearRetouch" type="button" disabled>全部清除</button></section>
             </div>
             <div class="sliders">
-              <label><span>照片缩放 <b id="zoomValue">100%</b></span><input id="zoom" type="range" min="0" max="400" value="100" /></label>
-              <label><span>左右位置 <b id="offsetXValue">0</b></span><input id="offsetX" type="range" min="-200" max="200" value="0" /></label>
-              <label><span>上下位置 <b id="offsetYValue">0</b></span><input id="offsetY" type="range" min="-200" max="200" value="0" /></label>
-              <label><span>自由旋转 <b id="rotationValue">0°</b></span><input id="rotation" type="range" min="-180" max="180" value="0" /></label>
-              <label><span>标题大小 <b id="textScaleValue">100%</b></span><input id="textScale" type="range" min="0" max="200" value="100" /></label>
-              <label><span>字体描边 <b id="textStrokeValue">0%</b></span><input id="textStroke" type="range" min="0" max="100" value="0" /></label>
-              <label><span>字体阴影 <b id="textShadowValue">50%</b></span><input id="textShadow" type="range" min="0" max="100" value="50" /></label>
-              <label><span>亮度 <b id="brightnessValue">100%</b></span><input id="brightness" type="range" min="0" max="200" value="100" /></label>
-              <label><span>压暗强度 <b id="shadeValue">0%</b></span><input id="shade" type="range" min="0" max="100" value="0" /></label>
-              <label><span>底部向上压暗 <b id="bottomShadeValue">100%</b></span><input id="bottomShade" type="range" min="0" max="100" value="100" /></label>
+              <label><span>照片缩放 <button type="button" class="slider-reset" data-reset-control="zoom" id="zoomValue">100%</button></span><input id="zoom" type="range" min="0" max="400" value="100" /></label>
+              <label><span>左右位置 <button type="button" class="slider-reset" data-reset-control="offsetX" id="offsetXValue">0</button></span><input id="offsetX" type="range" min="-200" max="200" value="0" /></label>
+              <label><span>上下位置 <button type="button" class="slider-reset" data-reset-control="offsetY" id="offsetYValue">0</button></span><input id="offsetY" type="range" min="-200" max="200" value="0" /></label>
+              <label><span>自由旋转 <button type="button" class="slider-reset" data-reset-control="rotation" id="rotationValue">0°</button></span><input id="rotation" type="range" min="-180" max="180" value="0" /></label>
+              <label><span>上行标题大小 <button type="button" class="slider-reset" data-reset-control="textScale" id="textScaleValue">100%</button></span><input id="textScale" type="range" min="0" max="200" value="100" /></label>
+              <button id="textScaleLink" class="title-scale-link active" type="button" aria-pressed="true">上下行大小联动</button>
+              <label><span>下行标题大小 <button type="button" class="slider-reset" data-reset-control="bottomTextScale" id="bottomTextScaleValue">100%</button></span><input id="bottomTextScale" type="range" min="0" max="200" value="100" disabled /></label>
+              <label><span>字体描边 <button type="button" class="slider-reset" data-reset-control="textStroke" id="textStrokeValue">0%</button></span><input id="textStroke" type="range" min="0" max="100" value="0" /></label>
+              <label><span>字体阴影 <button type="button" class="slider-reset" data-reset-control="textShadow" id="textShadowValue">50%</button></span><input id="textShadow" type="range" min="0" max="100" value="50" /></label>
+              <label><span>亮度 <button type="button" class="slider-reset" data-reset-control="brightness" id="brightnessValue">100%</button></span><input id="brightness" type="range" min="0" max="200" value="100" /></label>
+              <label><span>压暗强度 <button type="button" class="slider-reset" data-reset-control="shade" id="shadeValue">0%</button></span><input id="shade" type="range" min="0" max="100" value="0" /></label>
+              <label><span>底部向上压暗 <button type="button" class="slider-reset" data-reset-control="bottomShade" id="bottomShadeValue">100%</button></span><input id="bottomShade" type="range" min="0" max="100" value="100" /></label>
             </div>
           </aside>
         </div>

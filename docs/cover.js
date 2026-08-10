@@ -53,10 +53,12 @@ const state = {
   offsetY: 0,
   rotation: 0,
   textScale: 100,
+  bottomTextScale: 100,
+  textScaleLinked: true,
   textStroke: 0,
   textShadow: 50,
   textShadowDefaultVersion: 1,
-  titleScaleVersion: 2,
+  titleScaleVersion: 3,
   shade: 0,
   bottomShade: 100,
   safe: true,
@@ -582,9 +584,13 @@ try {
       saved.watermarkEnabled = false;
       saved.watermarkDefaultVersion = 1;
     }
-    if (saved.titleScaleVersion !== 2) {
+    if (Number(saved.titleScaleVersion ?? 0) < 2) {
       saved.textScale = Math.round(Number(saved.textScale || 100) / 1.8);
-      saved.titleScaleVersion = 2;
+    }
+    if (Number(saved.titleScaleVersion ?? 0) < 3) {
+      saved.bottomTextScale = Number(saved.textScale || 100);
+      saved.textScaleLinked = true;
+      saved.titleScaleVersion = 3;
     }
     if (saved.textShadowDefaultVersion !== 1) {
       saved.textShadow = 50;
@@ -652,7 +658,7 @@ function updateUi() {
   $("#subtitleScale").value = state.subtitleScale;
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   $("#safeToggle").checked = state.safe;
-  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
+  ["zoom", "offsetX", "offsetY", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
   $("#zoomValue").textContent = `${state.zoom}%`;
@@ -660,6 +666,11 @@ function updateUi() {
   $("#offsetYValue").textContent = state.offsetY;
   $("#rotationValue").textContent = `${state.rotation}°`;
   $("#textScaleValue").textContent = `${state.textScale}%`;
+  $("#bottomTextScaleValue").textContent = `${state.bottomTextScale}%`;
+  $("#bottomTextScale").disabled = state.textScaleLinked;
+  $("#textScaleLink").classList.toggle("active", state.textScaleLinked);
+  $("#textScaleLink").setAttribute("aria-pressed", String(state.textScaleLinked));
+  $("#textScaleLink").textContent = state.textScaleLinked ? "上下行大小联动" : "下行独立调整";
   $("#textStrokeValue").textContent = `${state.textStroke}%`;
   $("#textShadowValue").textContent = `${state.textShadow}%`;
   $("#brightnessValue").textContent = `${state.brightness}%`;
@@ -749,7 +760,7 @@ $("#subtitleScale").addEventListener("input", (event) => {
   saveSettings(); draw();
 });
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
-["zoom", "offsetX", "offsetY", "rotation", "textScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
+["zoom", "offsetX", "offsetY", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     const rawValue = Number(event.target.value);
     if (id === "rotation") {
@@ -758,12 +769,21 @@ $("#dividerToggle").addEventListener("change", (event) => { state.divider = even
       showTransformHint(`${state.rotation}°`, snapped.guide);
     } else {
       state[id] = rawValue;
+      if (id === "textScale" && state.textScaleLinked) state.bottomTextScale = rawValue;
       if (id === "zoom") showTransformHint(`${state.zoom}%`);
     }
     updateUi();
     saveSettings();
     draw();
   });
+});
+$("#textScaleLink").addEventListener("click", () => {
+  state.textScaleLinked = !state.textScaleLinked;
+  if (state.textScaleLinked) state.bottomTextScale = state.textScale;
+  updateUi();
+  saveSettings();
+  draw();
+  setStatus(state.textScaleLinked ? "上下行标题大小已联动" : "下行标题大小可独立调整");
 });
 $("#retouchToggle").addEventListener("click", () => {
   retouch.active = !retouch.active;
@@ -777,6 +797,42 @@ $("#retouchToggle").addEventListener("click", () => {
     updateUi();
   });
 });
+const resetDefaults = {
+  brushSize: 120,
+  brushFeather: 70,
+  brushStrength: 100,
+  zoom: 100,
+  offsetX: 0,
+  offsetY: 0,
+  rotation: 0,
+  textScale: 100,
+  bottomTextScale: 100,
+  textStroke: 0,
+  textShadow: 50,
+  brightness: 100,
+  shade: 0,
+  bottomShade: 100,
+};
+const brushResetKeys = { brushSize: "size", brushFeather: "feather", brushStrength: "strength" };
+document.querySelectorAll("[data-reset-control]").forEach((button) => button.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  const id = button.dataset.resetControl;
+  if (!(id in resetDefaults)) return;
+  if (brushResetKeys[id]) {
+    retouch[brushResetKeys[id]] = resetDefaults[id];
+  } else if (id === "bottomTextScale" && state.textScaleLinked) {
+    state.textScale = resetDefaults.textScale;
+    state.bottomTextScale = resetDefaults.bottomTextScale;
+  } else {
+    state[id] = resetDefaults[id];
+    if (id === "textScale" && state.textScaleLinked) state.bottomTextScale = resetDefaults.bottomTextScale;
+  }
+  updateUi();
+  saveSettings();
+  draw();
+  setStatus("这一项已恢复默认");
+}));
 $("#compareBefore").addEventListener("click", () => { if (!retouch.strokes.length) return; retouch.compareBefore = true; updateUi(); draw(); });
 $("#compareAfter").addEventListener("click", () => { retouch.compareBefore = false; updateUi(); draw(); });
 $("#undoRetouch").addEventListener("click", () => { retouch.compareBefore = false; retouch.strokes.pop(); updateUi(); draw(); });
@@ -842,7 +898,7 @@ $("#resetSettings").addEventListener("click", () => {
     platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100, brightness: 100,
-    zoom: 100, offsetX: 0, offsetXRangeVersion: 2, offsetY: 0, rotation: 0, textScale: 100, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 2, shade: 0, bottomShade: 100,
+    zoom: 100, offsetX: 0, offsetXRangeVersion: 2, offsetY: 0, rotation: 0, textScale: 100, bottomTextScale: 100, textScaleLinked: true, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 3, shade: 0, bottomShade: 100,
     safe: true, watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: false, watermarkDefaultVersion: 1,
   });
   retouch.active = false;
@@ -885,9 +941,13 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
     if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
     if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
     if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
-    if (parsed.titleScaleVersion !== 2) {
+    if (Number(parsed.titleScaleVersion ?? 0) < 2) {
       parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
-      parsed.titleScaleVersion = 2;
+    }
+    if (Number(parsed.titleScaleVersion ?? 0) < 3) {
+      parsed.bottomTextScale = Number(parsed.textScale || 100);
+      parsed.textScaleLinked = true;
+      parsed.titleScaleVersion = 3;
     }
     if (parsed.textShadowDefaultVersion !== 1) {
       parsed.textShadow = 50;
@@ -1097,7 +1157,8 @@ function drawText(ctx, width, height) {
   const horizontalInset = DOUYIN_HOME_SAFE.horizontalInset * geometryScale;
   const x = right ? width - horizontalInset : center ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
-  const baseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.textScale / 100));
+  const topBaseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.textScale / 100));
+  const bottomBaseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.bottomTextScale / 100));
   ctx.save();
   ctx.textAlign = align;
   const textStroke = Math.max(0, Math.min(1, state.textStroke / 100));
@@ -1110,13 +1171,13 @@ function drawText(ctx, width, height) {
   ctx.shadowOffsetX = width * .004 * textShadow;
   ctx.shadowOffsetY = width * .006 * textShadow;
   const hasBottomText = Boolean(state.bottomText.trim());
-  const topFit = fitText(ctx, state.topText, baseFont, maxWidth);
-  const bottomFit = hasBottomText ? fitText(ctx, state.bottomText, baseFont, maxWidth) : topFit;
-  const headlineFontSize = Math.min(topFit, bottomFit);
-  const topFontSize = headlineFontSize;
-  const bottomFontSize = headlineFontSize;
+  const topFit = fitText(ctx, state.topText, topBaseFont, maxWidth);
+  const bottomFit = hasBottomText ? fitText(ctx, state.bottomText, state.textScaleLinked ? topBaseFont : bottomBaseFont, maxWidth) : topFit;
+  const linkedFontSize = Math.min(topFit, bottomFit);
+  const topFontSize = state.textScaleLinked ? linkedFontSize : topFit;
+  const bottomFontSize = state.textScaleLinked ? linkedFontSize : bottomFit;
   const subtitleFontSize = Math.round(width * .061 * state.subtitleScale / 100);
-  const activeHeadlineFontSize = headlineFontSize;
+  const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
   ctx.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(ctx, state.topText || "国");
   ctx.font = `900 ${activeHeadlineFontSize}px sans-serif`;

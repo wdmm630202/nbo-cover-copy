@@ -47,6 +47,8 @@ type StudioSettings = {
   offsetY: number;
   rotation: number;
   textScale: number;
+  bottomTextScale: number;
+  textScaleLinked: boolean;
   textStroke: number;
   textShadow: number;
   textShadowDefaultVersion: number;
@@ -156,10 +158,12 @@ const DEFAULT_SETTINGS: StudioSettings = {
   offsetY: 0,
   rotation: 0,
   textScale: 100,
+  bottomTextScale: 100,
+  textScaleLinked: true,
   textStroke: 0,
   textShadow: 50,
   textShadowDefaultVersion: 1,
-  titleScaleVersion: 2,
+  titleScaleVersion: 3,
   shade: 0,
   bottomShade: 100,
   showSafeArea: true,
@@ -393,7 +397,8 @@ function drawTemplateText(
   const horizontalInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * geometryScale;
   const x = isRight ? width - horizontalInset : isCenter ? width / 2 : horizontalInset;
   const maxWidth = width - horizontalInset * 2;
-  const baseFont = Math.max(1, Math.round(width * 0.074 * 2.1 * (settings.textScale / 100)));
+  const topBaseFont = Math.max(1, Math.round(width * 0.074 * 2.1 * (settings.textScale / 100)));
+  const bottomBaseFont = Math.max(1, Math.round(width * 0.074 * 2.1 * (settings.bottomTextScale / 100)));
   context.save();
   context.textAlign = textAlign;
   context.textBaseline = "alphabetic";
@@ -408,13 +413,13 @@ function drawTemplateText(
   context.shadowOffsetY = width * 0.006 * textShadow;
 
   const hasBottomText = Boolean(settings.bottomText.trim());
-  const topFit = fitText(context, settings.topText, baseFont, maxWidth);
-  const bottomFit = hasBottomText ? fitText(context, settings.bottomText, baseFont, maxWidth) : topFit;
-  const headlineFontSize = Math.min(topFit, bottomFit);
-  const topFontSize = headlineFontSize;
-  const bottomFontSize = headlineFontSize;
+  const topFit = fitText(context, settings.topText, topBaseFont, maxWidth);
+  const bottomFit = hasBottomText ? fitText(context, settings.bottomText, settings.textScaleLinked ? topBaseFont : bottomBaseFont, maxWidth) : topFit;
+  const linkedFontSize = Math.min(topFit, bottomFit);
+  const topFontSize = settings.textScaleLinked ? linkedFontSize : topFit;
+  const bottomFontSize = settings.textScaleLinked ? linkedFontSize : bottomFit;
   const subtitleFontSize = Math.round(width * 0.061 * (settings.subtitleScale / 100));
-  const activeHeadlineFontSize = headlineFontSize;
+  const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
   context.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(context, settings.topText || "国");
   context.font = `900 ${activeHeadlineFontSize}px sans-serif`;
@@ -672,6 +677,8 @@ function Slider({
   max,
   suffix,
   onChange,
+  onReset,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -679,21 +686,25 @@ function Slider({
   max: number;
   suffix: string;
   onChange: (value: number) => void;
+  onReset?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <label className="studio-slider">
       <span>
         {label}
-        <b>
-          {value}
-          {suffix}
-        </b>
+        {onReset ? (
+          <button type="button" className="studio-slider-reset" title="恢复这一项默认值" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onReset(); }}>
+            {value}{suffix}
+          </button>
+        ) : <b>{value}{suffix}</b>}
       </span>
       <input
         type="range"
         min={min}
         max={max}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
       />
     </label>
@@ -796,9 +807,13 @@ export default function CoverStudio() {
             parsed.watermarkEnabled = false;
             parsed.watermarkDefaultVersion = 1;
           }
-          if (parsed.titleScaleVersion !== 2) {
+          if (Number(parsed.titleScaleVersion ?? 0) < 2) {
             parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
-            parsed.titleScaleVersion = 2;
+          }
+          if (Number(parsed.titleScaleVersion ?? 0) < 3) {
+            parsed.bottomTextScale = Number(parsed.textScale || 100);
+            parsed.textScaleLinked = true;
+            parsed.titleScaleVersion = 3;
           }
           if (parsed.textShadowDefaultVersion !== 1) {
             parsed.textShadow = 50;
@@ -1291,6 +1306,21 @@ export default function CoverStudio() {
     [],
   );
 
+  const updateTopTextScale = useCallback((value: number) => {
+    setSettings((current) => ({
+      ...current,
+      textScale: value,
+      bottomTextScale: current.textScaleLinked ? value : current.bottomTextScale,
+    }));
+  }, []);
+
+  const toggleTextScaleLink = useCallback(() => {
+    setSettings((current) => {
+      const linked = !current.textScaleLinked;
+      return { ...current, textScaleLinked: linked, bottomTextScale: linked ? current.textScale : current.bottomTextScale };
+    });
+  }, []);
+
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_SETTINGS);
     setRetouchStrokes([]);
@@ -1327,9 +1357,13 @@ export default function CoverStudio() {
       if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
       if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
       if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
-      if (parsed.titleScaleVersion !== 2) {
+      if (Number(parsed.titleScaleVersion ?? 0) < 2) {
         parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
-        parsed.titleScaleVersion = 2;
+      }
+      if (Number(parsed.titleScaleVersion ?? 0) < 3) {
+        parsed.bottomTextScale = Number(parsed.textScale || 100);
+        parsed.textScaleLinked = true;
+        parsed.titleScaleVersion = 3;
       }
       if (parsed.textShadowDefaultVersion !== 1) {
         parsed.textShadow = 50;
@@ -1843,9 +1877,9 @@ export default function CoverStudio() {
                 setNotice(brushMode ? "已退出涂抹，可继续移动照片" : "已开启涂抹，请在照片上按住绘制");
               }}
             >{brushMode ? "退出涂抹" : "开启涂抹"}</button>
-            <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} />
-            <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} />
-            <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} />
+            <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} onReset={() => setBrushSize(120)} />
+            <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} onReset={() => setBrushFeather(70)} />
+            <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} onReset={() => setBrushStrength(100)} />
             <div className="studio-retouch-compare">
               <button type="button" disabled={!retouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
               <button type="button" className={!showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(false)}>涂抹后</button>
@@ -1864,6 +1898,7 @@ export default function CoverStudio() {
               min={0}
               max={400}
               suffix="%"
+              onReset={() => updateSetting("zoom", 100)}
               onChange={(value) => { updateSetting("zoom", value); showTransformHint(`${value}%`); }}
             />
             <Slider
@@ -1872,6 +1907,7 @@ export default function CoverStudio() {
               min={-200}
               max={200}
               suffix=""
+              onReset={() => updateSetting("offsetX", 0)}
               onChange={(value) => updateSetting("offsetX", value)}
             />
             <Slider
@@ -1880,6 +1916,7 @@ export default function CoverStudio() {
               min={-200}
               max={200}
               suffix=""
+              onReset={() => updateSetting("offsetY", 0)}
               onChange={(value) => updateSetting("offsetY", value)}
             />
             <Slider
@@ -1888,6 +1925,7 @@ export default function CoverStudio() {
               min={-180}
               max={180}
               suffix="°"
+              onReset={() => updateSetting("rotation", 0)}
               onChange={(value) => {
                 const snapped = snapRotation(value);
                 updateSetting("rotation", snapped.value);
@@ -1895,12 +1933,29 @@ export default function CoverStudio() {
               }}
             />
             <Slider
-              label="标题大小"
+              label="上行标题大小"
               value={settings.textScale}
               min={0}
               max={200}
               suffix="%"
-              onChange={(value) => updateSetting("textScale", value)}
+              onReset={() => updateTopTextScale(100)}
+              onChange={updateTopTextScale}
+            />
+            <button
+              type="button"
+              className={`studio-title-scale-link ${settings.textScaleLinked ? "is-linked" : ""}`}
+              aria-pressed={settings.textScaleLinked}
+              onClick={toggleTextScaleLink}
+            >{settings.textScaleLinked ? "上下行大小联动" : "下行独立调整"}</button>
+            <Slider
+              label="下行标题大小"
+              value={settings.bottomTextScale}
+              min={0}
+              max={200}
+              suffix="%"
+              disabled={settings.textScaleLinked}
+              onReset={() => settings.textScaleLinked ? updateTopTextScale(100) : updateSetting("bottomTextScale", 100)}
+              onChange={(value) => updateSetting("bottomTextScale", value)}
             />
             <Slider
               label="字体描边"
@@ -1908,6 +1963,7 @@ export default function CoverStudio() {
               min={0}
               max={100}
               suffix="%"
+              onReset={() => updateSetting("textStroke", 0)}
               onChange={(value) => updateSetting("textStroke", value)}
             />
             <Slider
@@ -1916,6 +1972,7 @@ export default function CoverStudio() {
               min={0}
               max={100}
               suffix="%"
+              onReset={() => updateSetting("textShadow", 50)}
               onChange={(value) => updateSetting("textShadow", value)}
             />
             <Slider
@@ -1924,6 +1981,7 @@ export default function CoverStudio() {
               min={0}
               max={200}
               suffix="%"
+              onReset={() => updateSetting("brightness", 100)}
               onChange={(value) => updateSetting("brightness", value)}
             />
             <Slider
@@ -1932,6 +1990,7 @@ export default function CoverStudio() {
               min={0}
               max={100}
               suffix="%"
+              onReset={() => updateSetting("shade", 0)}
               onChange={(value) => updateSetting("shade", value)}
             />
             <Slider
@@ -1940,6 +1999,7 @@ export default function CoverStudio() {
               min={0}
               max={100}
               suffix="%"
+              onReset={() => updateSetting("bottomShade", 100)}
               onChange={(value) => updateSetting("bottomShade", value)}
             />
           </div>
