@@ -483,7 +483,7 @@ body {
 .studio-memory > div > button:last-child { grid-column: 1 / -1; }
 .studio-memory b { color: #625b55; font-size: 9px; }
 .studio-memory button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd5cd; border-radius: 8px; background: #fff; color: #514a44; font-size: 8px; font-weight: 750; cursor: pointer; }
-.studio-factory-reset, .studio-reset { width: 100%; min-height: 34px; border-radius: 8px; font-size: 17px; line-height: 1; font-weight: 700; cursor: pointer; }
+.studio-factory-reset, .studio-reset { width: 100%; min-height: 34px; border-radius: 8px; font-size: 14px; line-height: 1; font-weight: 700; cursor: pointer; }
 .studio-factory-reset { margin-bottom: 8px; border: 1px solid var(--red); background: var(--red); color: #fff; }
 .studio-reset { border: 1px solid #202020; background: #202020; color: #fff; }
 .studio-left-watermark-controls { margin-top: 8px; padding: 8px; display: grid; gap: 8px; border: 1px solid #e5ded7; border-radius: 10px; background: #faf9f7; }
@@ -1015,6 +1015,9 @@ body {
 .studio-slider-number:focus { color: var(--red); }
 .studio-slider-reset { min-width: 34px; min-height: 26px; padding: 0 7px; border: 1px solid #ddd5cd; border-radius: 8px; background: #f7f4f1; color: #625b55; font-size: 8px; font-weight: 800; cursor: pointer; }
 .studio-slider-reset:active { background: #e9e3dd; transform: scale(.96); }
+.studio-adjustments .studio-slider-value-control { width: 104px; flex: 0 0 104px; display: grid; grid-template-columns: 64px 36px; }
+.studio-adjustments .studio-slider-number-wrap { width: 64px; box-sizing: border-box; justify-content: flex-end; }
+.studio-adjustments .studio-slider-reset { width: 36px; min-width: 36px; padding: 0; }
 .studio-slider input:disabled { opacity: .45; }
 
 .studio-title-scale-link {
@@ -1169,7 +1172,7 @@ body {
   .studio-design { display: flex; flex-direction: column; }
   .studio-design .studio-panel-heading { margin-bottom: 7px; }
   .studio-design > .studio-factory-reset, .studio-design > .studio-reset { min-height: 52px; border-radius: 10px; }
-  .studio-design > .studio-factory-reset, .studio-design > .studio-reset { font-size: 26px; }
+  .studio-design > .studio-factory-reset, .studio-design > .studio-reset { font-size: 18px; }
   .studio-design > .studio-reset { margin-bottom: 10px; }
   .studio-template-grid { width: 100%; height: auto; aspect-ratio: 1; gap: 6px; }
   .studio-template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
