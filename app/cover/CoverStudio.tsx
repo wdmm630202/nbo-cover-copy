@@ -838,6 +838,7 @@ export default function CoverStudio() {
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(MEMORY_NAMES_KEY) || "null");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate browser-only saved names after mount
       if (Array.isArray(saved) && saved.length === 3) setMemoryNames(saved);
     } catch {}
   }, []);
@@ -872,6 +873,7 @@ export default function CoverStudio() {
 
   useEffect(() => {
     if (!brushMode) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hide the transient cursor when brush mode closes
       setBrushCursor((current) => ({ ...current, visible: false }));
       return;
     }
@@ -1296,6 +1298,7 @@ export default function CoverStudio() {
 
   useEffect(() => {
     exportCacheRef.current = { jpeg: null, png: null };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a changed source invalidates both export readiness flags
     setExportReady({ jpeg: true, png: true });
   }, [buildExportAsset, image]);
 
