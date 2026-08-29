@@ -35,6 +35,7 @@ import {
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
   getVisibleRetouchStrokes,
+  resolvePhotoInteractionTargetFromPoint,
   resolveRetouchTarget,
   resolveRetouchTargetFromPoint,
   RetouchTarget,
@@ -1244,7 +1245,7 @@ export default function CoverStudio() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !image) return;
-    let drag: { pointerId: number; x: number; y: number; offsetX: number; offsetY: number; rotation: number } | null = null;
+    let drag: { pointerId: number; target: RetouchTarget; x: number; y: number; offsetX: number; offsetY: number; rotation: number } | null = null;
     let brushPointer: { pointerId: number; target: RetouchTarget } | null = null;
     let pointerMoveFrame = 0;
     let pendingPointerMove: { pointerId: number; clientX: number; clientY: number } | null = null;
@@ -1274,14 +1275,26 @@ export default function CoverStudio() {
       }
       if (event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches) return;
       const current = settingsRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+      const target = resolvePhotoInteractionTargetFromPoint(
+        point,
+        { width: canvas.width, height: canvas.height },
+        current.compareEnabled,
+        Boolean(beforeImageRef.current),
+      );
       drag = {
         pointerId: event.pointerId,
+        target,
         x: event.clientX,
         y: event.clientY,
-        offsetX: current.offsetX,
-        offsetY: current.offsetY,
-        rotation: current.rotation,
+        offsetX: target === "before" ? current.beforeOffsetX : current.offsetX,
+        offsetY: target === "before" ? current.beforeOffsetY : current.offsetY,
+        rotation: target === "before" ? current.beforeRotation : current.rotation,
       };
+      setNotice(rotationModeRef.current
+        ? target === "before" ? "正在旋转拍摄前照片" : "正在旋转主照片"
+        : target === "before" ? "正在移动拍摄前照片" : "正在移动主照片");
       canvas.setPointerCapture(event.pointerId);
     };
     const applyPointerMove = () => {
@@ -1304,15 +1317,40 @@ export default function CoverStudio() {
       }
       if (!drag || drag.pointerId !== event.pointerId) return;
       const rect = canvas.getBoundingClientRect();
+      const beforeFrame = getBeforeImageFrame({ width: canvas.width, height: canvas.height });
+      const interactionWidth = drag.target === "before" ? rect.width * beforeFrame.width / canvas.width : rect.width;
+      const interactionHeight = drag.target === "before" ? rect.height * beforeFrame.height / canvas.height : rect.height;
       if (rotationModeRef.current) {
-        const rawRotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180);
+        const rawRotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / interactionWidth * 180), -180, 180);
         const snapped = snapRotation(rawRotation);
-        setSettings((current) => ({ ...current, rotation: snapped.value }));
-        showTransformHint(`${snapped.value}°`, snapped.guide);
+        if (drag.target === "before") {
+          setSettings((current) => {
+            const limits = getBeforeOffsetLimits(beforeImageRef.current, beforeFrame, current.beforeZoom, snapped.value);
+            return {
+              ...current,
+              beforeRotation: snapped.value,
+              beforeOffsetX: clamp(current.beforeOffsetX, -Math.floor(limits.x), Math.floor(limits.x)),
+              beforeOffsetY: clamp(current.beforeOffsetY, -Math.floor(limits.y), Math.floor(limits.y)),
+            };
+          });
+          showTransformHint(`拍摄前 ${snapped.value}°`, snapped.guide);
+        } else {
+          setSettings((current) => ({ ...current, rotation: snapped.value }));
+          showTransformHint(`${snapped.value}°`, snapped.guide);
+        }
       } else {
-        const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -200, 200);
-        const offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -200, 200);
-        setSettings((current) => ({ ...current, offsetX, offsetY }));
+        if (drag.target === "before") {
+          setSettings((current) => {
+            const limits = getBeforeOffsetLimits(beforeImageRef.current, beforeFrame, current.beforeZoom, current.beforeRotation);
+            const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / interactionWidth * 100), -Math.floor(limits.x), Math.floor(limits.x));
+            const offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / interactionHeight * 100), -Math.floor(limits.y), Math.floor(limits.y));
+            return { ...current, beforeOffsetX: offsetX, beforeOffsetY: offsetY };
+          });
+        } else {
+          const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / interactionWidth * 100), -200, 200);
+          const offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / interactionHeight * 100), -200, 200);
+          setSettings((current) => ({ ...current, offsetX, offsetY }));
+        }
       }
     };
     const handlePointerMove = (event: PointerEvent) => {
@@ -1337,7 +1375,27 @@ export default function CoverStudio() {
       if (brushModeRef.current) return;
       event.preventDefault();
       const amount = clamp(-event.deltaY * 0.02, -2, 2);
+      const rect = canvas.getBoundingClientRect();
+      const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+      const target = resolvePhotoInteractionTargetFromPoint(
+        point,
+        { width: canvas.width, height: canvas.height },
+        settingsRef.current.compareEnabled,
+        Boolean(beforeImageRef.current),
+      );
       setSettings((current) => {
+        if (target === "before") {
+          const beforeZoom = clamp(Math.round((current.beforeZoom + amount) * 10) / 10, 100, 300);
+          const frame = getBeforeImageFrame({ width: canvas.width, height: canvas.height });
+          const limits = getBeforeOffsetLimits(beforeImageRef.current, frame, beforeZoom, current.beforeRotation);
+          showTransformHint(`拍摄前 ${beforeZoom}%`);
+          return {
+            ...current,
+            beforeZoom,
+            beforeOffsetX: clamp(current.beforeOffsetX, -Math.floor(limits.x), Math.floor(limits.x)),
+            beforeOffsetY: clamp(current.beforeOffsetY, -Math.floor(limits.y), Math.floor(limits.y)),
+          };
+        }
         const zoom = clamp(Math.round((current.zoom + amount) * 10) / 10, 0, 400);
         showTransformHint(`${zoom}%`);
         return { ...current, zoom };
@@ -1346,10 +1404,20 @@ export default function CoverStudio() {
     const handleDoubleClick = (event: MouseEvent) => {
       if (brushModeRef.current) return;
       event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+      const target = resolvePhotoInteractionTargetFromPoint(
+        point,
+        { width: canvas.width, height: canvas.height },
+        settingsRef.current.compareEnabled,
+        Boolean(beforeImageRef.current),
+      );
       setRotationMode((current) => {
         const next = !current;
         rotationModeRef.current = next;
-        setNotice(next ? "已进入旋转：按住照片左右拖动，双击退出" : "已退出旋转，可按住照片移动");
+        setNotice(next
+          ? `已进入${target === "before" ? "拍摄前照片" : "主照片"}旋转：按住左右拖动，双击退出`
+          : "已退出旋转，可按住照片移动");
         return next;
       });
     };

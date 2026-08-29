@@ -107,6 +107,15 @@ export function resolveRetouchTargetFromPoint(
     : "after";
 }
 
+export function resolvePhotoInteractionTargetFromPoint(
+  point: { x: number; y: number },
+  canvas: CompareCanvasSize,
+  comparisonEnabled: boolean,
+  hasBeforeImage: boolean,
+): RetouchTarget {
+  return resolveRetouchTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage);
+}
+
 export function getComparisonSafeRect(canvas: CompareCanvasSize): CompareRect {
   const safeHeight = Math.min(canvas.height, Math.round(canvas.width / 3 * 4));
   return {

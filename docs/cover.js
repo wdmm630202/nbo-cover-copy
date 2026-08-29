@@ -43,6 +43,7 @@ const {
   getComparisonPhotoTransform,
   getVisibleRetouchStrokes,
   normalizeComparisonPhotoAdjustments,
+  resolvePhotoInteractionTargetFromPoint,
   resolveRetouchTarget,
   resolveRetouchTargetFromPoint,
 } = window.NBOCompareLayout;
@@ -246,14 +247,21 @@ canvas.addEventListener("pointerdown", (event) => {
     return;
   }
   if (isMobileTouch(event)) return;
+  const rect = canvas.getBoundingClientRect();
+  const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
   imageInteraction.drag = {
     pointerId: event.pointerId,
+    target,
     x: event.clientX,
     y: event.clientY,
-    offsetX: state.offsetX,
-    offsetY: state.offsetY,
-    rotation: state.rotation,
+    offsetX: target === "before" ? state.beforeOffsetX : state.offsetX,
+    offsetY: target === "before" ? state.beforeOffsetY : state.offsetY,
+    rotation: target === "before" ? state.beforeRotation : state.rotation,
   };
+  setStatus(imageInteraction.rotationMode
+    ? target === "before" ? "正在旋转拍摄前照片" : "正在旋转主照片"
+    : target === "before" ? "正在移动拍摄前照片" : "正在移动主照片");
   canvas.setPointerCapture(event.pointerId);
 });
 
@@ -277,19 +285,36 @@ canvas.addEventListener("pointermove", (event) => {
   const drag = imageInteraction.drag;
   if (!state.image || !drag || drag.pointerId !== event.pointerId) return;
   const rect = canvas.getBoundingClientRect();
+  const beforeFrame = getBeforeImageFrame({ width: canvas.width, height: canvas.height });
+  const interactionWidth = drag.target === "before" ? rect.width * beforeFrame.width / canvas.width : rect.width;
+  const interactionHeight = drag.target === "before" ? rect.height * beforeFrame.height / canvas.height : rect.height;
   if (imageInteraction.rotationMode) {
-    const snapped = snapRotation(clamp(Math.round(drag.rotation + (event.clientX - drag.x) / rect.width * 180), -180, 180));
-    state.rotation = snapped.value;
-    $("#rotation").value = state.rotation;
-    $("#rotationValue").value = state.rotation;
-    showTransformHint(`${state.rotation}°`, snapped.guide);
+    const snapped = snapRotation(clamp(Math.round(drag.rotation + (event.clientX - drag.x) / interactionWidth * 180), -180, 180));
+    if (drag.target === "before") {
+      state.beforeRotation = snapped.value;
+      clampBeforeOffsets();
+      syncBeforeTransformControls();
+      showTransformHint(`拍摄前 ${state.beforeRotation}°`, snapped.guide);
+    } else {
+      state.rotation = snapped.value;
+      $("#rotation").value = state.rotation;
+      $("#rotationValue").value = state.rotation;
+      showTransformHint(`${state.rotation}°`, snapped.guide);
+    }
   } else {
-    state.offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / rect.width * 100), -200, 200);
-    state.offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / rect.height * 100), -200, 200);
-    $("#offsetX").value = state.offsetX;
-    $("#offsetXValue").value = state.offsetX;
-    $("#offsetY").value = state.offsetY;
-    $("#offsetYValue").value = state.offsetY;
+    if (drag.target === "before") {
+      const limits = currentBeforeOffsetLimits();
+      state.beforeOffsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / interactionWidth * 100), -limits.x, limits.x);
+      state.beforeOffsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / interactionHeight * 100), -limits.y, limits.y);
+      syncBeforeTransformControls();
+    } else {
+      state.offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / interactionWidth * 100), -200, 200);
+      state.offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / interactionHeight * 100), -200, 200);
+      $("#offsetX").value = state.offsetX;
+      $("#offsetXValue").value = state.offsetX;
+      $("#offsetY").value = state.offsetY;
+      $("#offsetYValue").value = state.offsetY;
+    }
   }
   saveSettings(); draw();
 });
@@ -439,18 +464,35 @@ canvas.addEventListener("wheel", (event) => {
   if (retouch.active) return;
   event.preventDefault();
   const amount = clamp(-event.deltaY * .02, -2, 2);
-  state.zoom = clamp(Math.round((state.zoom + amount) * 10) / 10, 0, 400);
-  showTransformHint(`${state.zoom}%`);
-  updateUi(); saveSettings(); draw();
+  const rect = canvas.getBoundingClientRect();
+  const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+  if (target === "before") {
+    state.beforeZoom = clamp(Math.round((state.beforeZoom + amount) * 10) / 10, 100, 300);
+    clampBeforeOffsets();
+    syncBeforeTransformControls();
+    showTransformHint(`拍摄前 ${state.beforeZoom}%`);
+  } else {
+    state.zoom = clamp(Math.round((state.zoom + amount) * 10) / 10, 0, 400);
+    $("#zoom").value = state.zoom;
+    $("#zoomValue").value = state.zoom;
+    showTransformHint(`${state.zoom}%`);
+  }
+  saveSettings(); draw();
 }, { passive: false });
 
 canvas.addEventListener("dblclick", (event) => {
   if (!state.image) return;
   if (retouch.active) return;
   event.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
   imageInteraction.rotationMode = !imageInteraction.rotationMode;
   $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
-  setStatus(imageInteraction.rotationMode ? "已进入旋转：按住照片左右拖动，双击退出" : "已退出旋转，可按住照片移动");
+  setStatus(imageInteraction.rotationMode
+    ? `已进入${target === "before" ? "拍摄前照片" : "主照片"}旋转：按住左右拖动，双击退出`
+    : "已退出旋转，可按住照片移动");
 });
 
 window.addEventListener("keydown", (event) => {
@@ -762,6 +804,22 @@ function clampBeforeOffsets() {
   const limits = currentBeforeOffsetLimits();
   state.beforeOffsetX = clamp(state.beforeOffsetX, -limits.x, limits.x);
   state.beforeOffsetY = clamp(state.beforeOffsetY, -limits.y, limits.y);
+}
+
+function syncBeforeTransformControls() {
+  const limits = currentBeforeOffsetLimits();
+  $("#beforeZoom").value = state.beforeZoom;
+  $("#beforeZoomValue").value = state.beforeZoom;
+  $("#beforeRotation").value = state.beforeRotation;
+  $("#beforeRotationValue").value = state.beforeRotation;
+  [["beforeOffsetX", state.beforeOffsetX, limits.x], ["beforeOffsetY", state.beforeOffsetY, limits.y]].forEach(([id, value, limit]) => {
+    $(`#${id}`).min = -limit;
+    $(`#${id}`).max = limit;
+    $(`#${id}`).value = value;
+    $(`#${id}Value`).min = -limit;
+    $(`#${id}Value`).max = limit;
+    $(`#${id}Value`).value = value;
+  });
 }
 
 function updateUi() {

@@ -73,6 +73,10 @@
       : "after";
   }
 
+  function resolvePhotoInteractionTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage) {
+    return resolveRetouchTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage);
+  }
+
   function getComparisonSafeRect(canvas) {
     const safeHeight = Math.min(canvas.height, Math.round(canvas.width / 3 * 4));
     return {
@@ -185,6 +189,7 @@
     getVisibleRetouchStrokes,
     isPointInComparisonPhotoFrame,
     resolveRetouchTargetFromPoint,
+    resolvePhotoInteractionTargetFromPoint,
     getComparisonSafeRect,
     getComparisonEvidenceLayout,
     getComparisonLabelLayout,

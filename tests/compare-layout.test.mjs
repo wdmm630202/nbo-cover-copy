@@ -188,6 +188,17 @@ test("前后对比涂抹按落笔位置自动选择照片，而不是沿用面�
   }
 });
 
+test("普通鼠标操作在拍摄前虚线框内控制拍摄前照片，框外仍控制主照片", async () => {
+  const canvas = { width: 1080, height: 1920 };
+  for (const layout of await loadImplementations()) {
+    assert.equal(typeof layout.resolvePhotoInteractionTargetFromPoint, "function");
+    assert.equal(layout.resolvePhotoInteractionTargetFromPoint({ x: 0.8, y: 0.7 }, canvas, true, true), "before");
+    assert.equal(layout.resolvePhotoInteractionTargetFromPoint({ x: 0.4, y: 0.7 }, canvas, true, true), "after");
+    assert.equal(layout.resolvePhotoInteractionTargetFromPoint({ x: 0.8, y: 0.7 }, canvas, false, true), "after");
+    assert.equal(layout.resolvePhotoInteractionTargetFromPoint({ x: 0.8, y: 0.7 }, canvas, true, false), "after");
+  }
+});
+
 test("前后对比装饰层只绘制前后胶囊，不再写入多余品牌字", async () => {
   for (const layout of await loadImplementations()) {
     const text = [];
