@@ -38,7 +38,7 @@ test("公开入口显示中文密码验证页并记住登录状态", async () =>
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
-  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, coverPage, coverStudio, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
+  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -46,8 +46,10 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
     readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
     readFile(new URL("../docs/cover.html", import.meta.url), "utf8"),
     readFile(new URL("../docs/cover.js", import.meta.url), "utf8"),
+    readFile(new URL("../docs/compare-layout.js", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/compare-layout.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/cover-config.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CopyWorkspaceSwitch.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/CoverWorkspaceEntry.tsx", import.meta.url), "utf8"),
@@ -109,7 +111,11 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /studio-brush-cursor/);
   assert.match(coverStudio, /涂抹前/);
   assert.match(coverStudio, /涂抹后/);
-  assert.match(coverStudio, /showRetouchBefore \? \[\] : retouchStrokes/);
+  assert.match(coverStudio, /aria-label="涂抹对象"/);
+  assert.match(coverStudio, /主照片/);
+  assert.match(coverStudio, /拍摄前照片/);
+  assert.match(coverStudio, /getVisibleRetouchStrokes/);
+  assert.match(coverStudio, /beforeRetouchStrokes/);
   assert.match(coverStudio, /eraseShadeWithBrush/);
   assert.match(coverStudio, /quadraticCurveTo/);
   assert.match(coverStudio, /filter = `blur\(/);
@@ -171,7 +177,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /compare-layout\.js/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /cover\.css\?v=20260829-real-before-after/);
+  assert.match(publicCover, /cover\.css\?v=20260830-before-photo-retouch/);
   assert.match(publicCover, /id="mobileTouchZone"/);
   assert.match(publicCoverScript, /mobileGesture/);
   assert.match(publicCoverScript, /mode: "rotate"/);
@@ -226,7 +232,11 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /id="brushCursor"/);
   assert.match(publicCover, /id="compareBefore"/);
   assert.match(publicCover, /id="compareAfter"/);
-  assert.match(publicCoverScript, /targetCanvas === canvas && retouch\.compareBefore \? \[\] : retouch\.strokes/);
+  assert.match(publicCover, /id="retouchTargetAfter"/);
+  assert.match(publicCover, /id="retouchTargetBefore"/);
+  assert.match(publicCoverScript, /getVisibleRetouchStrokes/);
+  assert.match(publicCoverScript, /beforeStrokes/);
+  assert.match(publicCoverScript, /strokes\.push\([\s\S]*?canvas\.setPointerCapture\([\s\S]*?updateUi\(\);[\s\S]*?draw\(\);/);
   assert.match(publicCoverScript, /BracketLeft/);
   assert.match(publicCoverScript, /BracketRight/);
   assert.match(publicCover, /id="brightness" type="range" min="0" max="200" value="100"/);
@@ -245,6 +255,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /id="offsetY" type="range" min="-200" max="200" value="0"/);
   assert.match(publicCoverScript, /state\.watermarkAlign === "left"/);
   assert.match(publicCoverScript, /state\.watermarkAlign === "right"/);
+  assert.doesNotMatch(coverStudio + coverCompareLayout + publicCoverScript + publicCompareLayout, /真实客片\s*·\s*NANBOART/);
   assert.match(publicCover, /data-template="top-left"/);
   assert.match(publicCover, /data-template="bottom-right"/);
   assert.match(publicCover, /data-watermark-align="center"/);

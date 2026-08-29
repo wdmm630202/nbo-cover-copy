@@ -28,13 +28,16 @@ import {
   normalizeCoverImageSync,
 } from "../workspace-sync";
 import {
+  drawComparisonEditorialOverlay,
   getComparisonEvidenceLayout,
   getComparisonExportError,
   getComparisonFadeStops,
-  getComparisonLabelLayout,
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
-  getComparisonSafeRect,
+  getVisibleRetouchStrokes,
+  isPointInComparisonPhotoFrame,
+  resolveRetouchTarget,
+  RetouchTarget,
 } from "./compare-layout";
 
 type StudioSettings = {
@@ -395,6 +398,25 @@ function getBeforeImageFrame(canvas: { width: number; height: number }) {
   };
 }
 
+function applyComparisonFadeMask(
+  context: CanvasRenderingContext2D,
+  frame: { x: number; y: number; width: number; height: number },
+) {
+  context.save();
+  context.globalCompositeOperation = "destination-in";
+  const horizontalMask = context.createLinearGradient(frame.x, 0, frame.x + frame.width, 0);
+  const verticalMask = context.createLinearGradient(0, frame.y, 0, frame.y + frame.height);
+  for (const [stop, alpha] of getComparisonFadeStops()) {
+    horizontalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
+    verticalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
+  }
+  context.fillStyle = horizontalMask;
+  context.fillRect(frame.x, frame.y, frame.width, frame.height);
+  context.fillStyle = verticalMask;
+  context.fillRect(frame.x, frame.y, frame.width, frame.height);
+  context.restore();
+}
+
 function drawComparisonEvidence(
   context: CanvasRenderingContext2D,
   ownerCanvas: HTMLCanvasElement,
@@ -402,6 +424,7 @@ function drawComparisonEvidence(
   settings: StudioSettings,
   width: number,
   height: number,
+  beforeRetouchStrokes: RetouchStroke[],
 ) {
   const { frame } = getComparisonEvidenceLayout({ width, height });
   const imageFrame = getBeforeImageFrame({ width, height });
@@ -447,132 +470,37 @@ function drawComparisonEvidence(
   scratchContext.drawImage(beforeImage, -transform.drawWidth / 2, -transform.drawHeight / 2, transform.drawWidth, transform.drawHeight);
   scratchContext.setTransform(1, 0, 0, 1, 0, 0);
   scratchContext.filter = "none";
-  if (settings.beforeShade > 0) {
-    const shadeAlpha = Math.max(0, Math.min(0.9, settings.beforeShade / 100));
-    scratchContext.fillStyle = `rgba(0,0,0,${shadeAlpha})`;
-    scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-  }
-  if (settings.beforeBottomShade > 0) {
-    const bottomAlpha = Math.max(0, Math.min(0.9, settings.beforeBottomShade / 100));
-    const bottomGradient = scratchContext.createLinearGradient(0, imageFrame.y + imageFrame.height * 0.35, 0, imageFrame.y + imageFrame.height);
-    bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
-    bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
-    scratchContext.fillStyle = bottomGradient;
-    scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-  }
   scratchContext.restore();
-
-  scratchContext.save();
-  scratchContext.globalCompositeOperation = "destination-in";
-  const horizontalMask = scratchContext.createLinearGradient(imageFrame.x, 0, imageFrame.x + imageFrame.width, 0);
-  const verticalMask = scratchContext.createLinearGradient(0, imageFrame.y, 0, imageFrame.y + imageFrame.height);
-  for (const [stop, alpha] of getComparisonFadeStops()) {
-    horizontalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
-    verticalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
-  }
-  scratchContext.fillStyle = horizontalMask;
-  scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-  scratchContext.fillStyle = verticalMask;
-  scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-  scratchContext.restore();
+  applyComparisonFadeMask(scratchContext, imageFrame);
   context.drawImage(scratch, 0, 0);
-}
 
-function drawComparisonCapsule(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-  word: "前" | "后",
-) {
-  context.save();
-  context.shadowColor = "rgba(0,0,0,.28)";
-  context.shadowBlur = 14;
-  context.shadowOffsetY = 4;
-  roundedRectPath(context, x, y, width, height, radius);
-  context.fillStyle = "rgba(57,57,59,.88)";
-  context.fill();
-  context.shadowColor = "transparent";
-  const circleRadius = height * 0.37;
-  const circleX = x + width - height / 2;
-  const circleY = y + height / 2;
-  context.beginPath();
-  context.arc(circleX, circleY, circleRadius, 0, Math.PI * 2);
-  context.fillStyle = "rgba(238,238,240,.94)";
-  context.fill();
-  context.textBaseline = "middle";
-  context.textAlign = "center";
-  context.font = `650 ${Math.round(height * 0.34)}px -apple-system, BlinkMacSystemFont, sans-serif`;
-  context.fillStyle = "rgba(248,248,250,.96)";
-  context.fillText("拍摄", x + (width - height) * 0.48, circleY);
-  context.font = `750 ${Math.round(height * 0.48)}px -apple-system, BlinkMacSystemFont, sans-serif`;
-  context.fillStyle = "#454547";
-  context.fillText(word, circleX, circleY + 0.5);
-  context.restore();
-}
-
-function drawComparisonEditorialOverlay(
-  context: CanvasRenderingContext2D,
-  _settings: StudioSettings,
-  width: number,
-  height: number,
-) {
-  const scale = width / 1080;
-  const baseCanvas = { width: 1080, height: height / scale };
-  const safe = getComparisonSafeRect(baseCanvas);
-  const { frame } = getComparisonEvidenceLayout(baseCanvas);
-  const labels = getComparisonLabelLayout(baseCanvas);
-  const eyebrowX = safe.x + DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset;
-  const eyebrowY = safe.y + safe.height * 0.35;
-
-  context.save();
-  context.scale(scale, scale);
-  context.beginPath();
-  context.rect(safe.x, safe.y, safe.width, safe.height);
-  context.clip();
-
-  const accent = context.createLinearGradient(eyebrowX, 0, eyebrowX + 142, 0);
-  accent.addColorStop(0, "rgba(205,205,207,.2)");
-  accent.addColorStop(0.16, "rgba(205,205,207,.92)");
-  accent.addColorStop(0.84, "rgba(205,205,207,.92)");
-  accent.addColorStop(1, "rgba(205,205,207,.2)");
-  context.fillStyle = accent;
-  context.fillRect(eyebrowX, eyebrowY - 34, 142, 4);
-  context.fillStyle = "rgba(222,222,224,.9)";
-  context.font = "600 23px -apple-system, BlinkMacSystemFont, sans-serif";
-  context.textAlign = "left";
-  context.textBaseline = "alphabetic";
-  context.fillText("真实客片 · NANBOART", eyebrowX, eyebrowY);
-
-  context.save();
-  context.setLineDash([14, 10]);
-  context.lineWidth = 3.5;
-  context.strokeStyle = "rgba(222,222,224,.86)";
-  roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
-  context.stroke();
-  context.restore();
-
-  drawComparisonCapsule(
-    context,
-    labels.after.right - labels.after.width,
-    labels.after.y,
-    labels.after.width,
-    labels.after.height,
-    labels.after.radius,
-    "后",
-  );
-  drawComparisonCapsule(
-    context,
-    labels.before.right - labels.before.width,
-    labels.before.y,
-    labels.before.width,
-    labels.before.height,
-    labels.before.radius,
-    "前",
-  );
-  context.restore();
+  if (settings.beforeShade > 0 || settings.beforeBottomShade > 0) {
+    const shadeCanvas = getCoverScratch(ownerCanvas, "shade", width, height);
+    const strokeCanvas = getCoverScratch(ownerCanvas, "stroke", width, height);
+    const shadeContext = shadeCanvas.getContext("2d");
+    if (!shadeContext) return;
+    shadeContext.clearRect(0, 0, width, height);
+    shadeContext.save();
+    roundedRectPath(shadeContext, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
+    shadeContext.clip();
+    if (settings.beforeShade > 0) {
+      const shadeAlpha = Math.max(0, Math.min(0.9, settings.beforeShade / 100));
+      shadeContext.fillStyle = `rgba(0,0,0,${shadeAlpha})`;
+      shadeContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+    }
+    if (settings.beforeBottomShade > 0) {
+      const bottomAlpha = Math.max(0, Math.min(0.9, settings.beforeBottomShade / 100));
+      const bottomGradient = shadeContext.createLinearGradient(0, imageFrame.y + imageFrame.height * 0.35, 0, imageFrame.y + imageFrame.height);
+      bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
+      bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
+      shadeContext.fillStyle = bottomGradient;
+      shadeContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+    }
+    shadeContext.restore();
+    eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, beforeRetouchStrokes);
+    applyComparisonFadeMask(shadeContext, imageFrame);
+    context.drawImage(shadeCanvas, 0, 0);
+  }
 }
 
 function drawCover(
@@ -586,13 +514,14 @@ function drawCover(
   outputSize?: { width: number; height: number },
   photoOnly = false,
   retouchStrokes: RetouchStroke[] = [],
+  beforeRetouchStrokes: RetouchStroke[] = [],
 ) {
   const context = canvas.getContext("2d");
   if (!context) return;
 
   const { width, height } = outputSize ?? preset;
   if (!settings.compareEnabled || photoOnly) releaseCoverScratch(canvas, "compare");
-  if (!retouchStrokes.length || photoOnly) {
+  if ((!retouchStrokes.length && !beforeRetouchStrokes.length) || photoOnly) {
     releaseCoverScratch(canvas, "shade");
     releaseCoverScratch(canvas, "stroke");
   }
@@ -644,11 +573,11 @@ function drawCover(
       drawTemplateShade(context, settings.templateId, width, height, settings.shade, settings.bottomShade);
     }
     if (settings.compareEnabled) {
-      drawComparisonEvidence(context, canvas, beforeImage, settings, width, height);
+      drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, beforeRetouchStrokes);
     }
     drawTemplateText(context, settings, width, height, watermark);
     if (settings.compareEnabled) {
-      drawComparisonEditorialOverlay(context, settings, width, height);
+      drawComparisonEditorialOverlay(context, { width, height }, roundedRectPath);
     }
     if (watermark) drawWatermark(context, watermark, settings, width, height);
   }
@@ -1181,10 +1110,14 @@ export default function CoverStudio() {
   const [brushStrength, setBrushStrength] = useState(100);
   const [brushCursor, setBrushCursor] = useState({ x: 0.5, y: 0.5, visible: false });
   const [retouchStrokes, setRetouchStrokes] = useState<RetouchStroke[]>([]);
+  const [beforeRetouchStrokes, setBeforeRetouchStrokes] = useState<RetouchStroke[]>([]);
+  const [retouchTarget, setRetouchTarget] = useState<RetouchTarget>("after");
   const [showRetouchBefore, setShowRetouchBefore] = useState(false);
   const settingsRef = useRef(settings);
+  const beforeImageRef = useRef(beforeImage);
   const rotationModeRef = useRef(rotationMode);
   const brushModeRef = useRef(brushMode);
+  const retouchTargetRef = useRef<RetouchTarget>("after");
   const brushSettingsRef = useRef({ size: brushSize, feather: brushFeather, strength: brushStrength });
 
   const showTransformHint = (text: string, guide: "horizontal" | "vertical" | null = null) => {
@@ -1237,6 +1170,8 @@ export default function CoverStudio() {
     const limits = getBeforeOffsetLimits(beforeImage, frame, settings.beforeZoom, settings.beforeRotation);
     return { x: Math.floor(limits.x), y: Math.floor(limits.y) };
   }, [beforeImage, preset, settings.beforeRotation, settings.beforeZoom]);
+  const activeRetouchTarget = resolveRetouchTarget(retouchTarget, settings.compareEnabled, Boolean(beforeImage));
+  const activeRetouchStrokes = activeRetouchTarget === "before" ? beforeRetouchStrokes : retouchStrokes;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1262,11 +1197,16 @@ export default function CoverStudio() {
 
   useEffect(() => {
     settingsRef.current = settings;
+    beforeImageRef.current = beforeImage;
     const timer = window.setTimeout(() => {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [settings]);
+  }, [beforeImage, settings]);
+
+  useEffect(() => {
+    retouchTargetRef.current = activeRetouchTarget;
+  }, [activeRetouchTarget]);
 
   useEffect(() => {
     rotationModeRef.current = rotationMode;
@@ -1310,7 +1250,7 @@ export default function CoverStudio() {
     const canvas = canvasRef.current;
     if (!canvas || !image) return;
     let drag: { pointerId: number; x: number; y: number; offsetX: number; offsetY: number; rotation: number } | null = null;
-    let brushPointerId: number | null = null;
+    let brushPointer: { pointerId: number; target: RetouchTarget } | null = null;
     let pointerMoveFrame = 0;
     let pendingPointerMove: { pointerId: number; clientX: number; clientY: number } | null = null;
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -1321,9 +1261,16 @@ export default function CoverStudio() {
         setShowRetouchBefore(false);
         const rect = canvas.getBoundingClientRect();
         const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+        const target = resolveRetouchTarget(retouchTargetRef.current, settingsRef.current.compareEnabled, Boolean(beforeImageRef.current));
+        if (target === "before" && !isPointInComparisonPhotoFrame(point, { width: canvas.width, height: canvas.height })) {
+          setNotice("请在右下角拍摄前照片内涂抹");
+          return;
+        }
         const brush = brushSettingsRef.current;
-        brushPointerId = event.pointerId;
-        setRetouchStrokes((current) => [...current, { points: [point], ...brush }]);
+        brushPointer = { pointerId: event.pointerId, target };
+        const appendStroke = (current: RetouchStroke[]) => [...current, { points: [point], ...brush }];
+        if (target === "before") setBeforeRetouchStrokes(appendStroke);
+        else setRetouchStrokes(appendStroke);
         canvas.setPointerCapture(event.pointerId);
         return;
       }
@@ -1346,12 +1293,17 @@ export default function CoverStudio() {
       if (!event) return;
       if (brushModeRef.current) {
         const rect = canvas.getBoundingClientRect();
-        setBrushCursor({ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1), visible: true });
+        const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+        const target = resolveRetouchTarget(retouchTargetRef.current, settingsRef.current.compareEnabled, Boolean(beforeImageRef.current));
+        const visible = target === "after" || isPointInComparisonPhotoFrame(point, { width: canvas.width, height: canvas.height });
+        setBrushCursor({ ...point, visible });
       }
-      if (brushPointerId === event.pointerId) {
+      if (brushPointer?.pointerId === event.pointerId) {
         const rect = canvas.getBoundingClientRect();
         const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-        setRetouchStrokes((current) => current.map((stroke, index) => index === current.length - 1 ? { ...stroke, points: [...stroke.points, point] } : stroke));
+        const appendPoint = (current: RetouchStroke[]) => current.map((stroke, index) => index === current.length - 1 ? { ...stroke, points: [...stroke.points, point] } : stroke);
+        if (brushPointer.target === "before") setBeforeRetouchStrokes(appendPoint);
+        else setRetouchStrokes(appendPoint);
         return;
       }
       if (!drag || drag.pointerId !== event.pointerId) return;
@@ -1376,9 +1328,9 @@ export default function CoverStudio() {
         if (pointerMoveFrame) window.cancelAnimationFrame(pointerMoveFrame);
         applyPointerMove();
       }
-      if (brushPointerId === event.pointerId) {
+      if (brushPointer?.pointerId === event.pointerId) {
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-        brushPointerId = null;
+        brushPointer = null;
         return;
       }
       if (!drag || drag.pointerId !== event.pointerId) return;
@@ -1658,10 +1610,13 @@ export default function CoverStudio() {
       const lowPower = (device.deviceMemory ?? 8) <= 4 || (device.hardwareConcurrency ?? 8) <= 4;
       const width = Math.min(lowPower ? 420 : 540, preset.width);
       const previewSize = { width, height: Math.round(width * preset.height / preset.width) };
-      drawCover(canvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, true, previewSize, false, showRetouchBefore ? [] : retouchStrokes);
+      const strokeGroups = { after: retouchStrokes, before: beforeRetouchStrokes };
+      const visibleAfterStrokes = getVisibleRetouchStrokes(strokeGroups, "after", showRetouchBefore && activeRetouchTarget === "after");
+      const visibleBeforeStrokes = getVisibleRetouchStrokes(strokeGroups, "before", showRetouchBefore && activeRetouchTarget === "before");
+      drawCover(canvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, true, previewSize, false, visibleAfterStrokes, visibleBeforeStrokes);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [beforeImage, image, preset, retouchStrokes, settings, showRetouchBefore, watermark]);
+  }, [activeRetouchTarget, beforeImage, beforeRetouchStrokes, image, preset, retouchStrokes, settings, showRetouchBefore, watermark]);
 
   const buildExportAsset = useCallback(async (
     format: "jpeg" | "png",
@@ -1688,7 +1643,7 @@ export default function CoverStudio() {
     for (const candidate of exportSizeCandidates(originalOutputSize)) {
       let quality = format === "jpeg" ? 0.98 : undefined;
       try {
-        drawCover(exportCanvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, false, candidate, photoOnly, retouchStrokes);
+        drawCover(exportCanvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, false, candidate, photoOnly, retouchStrokes, beforeRetouchStrokes);
         blob = await toBlob(quality);
         if (generation !== exportGenerationRef.current) {
           releaseCoverCanvas(exportCanvas);
@@ -1727,7 +1682,7 @@ export default function CoverStudio() {
     const asset = { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
     releaseCoverCanvas(exportCanvas);
     return asset;
-  }, [beforeImage, fileName, image, preset, retouchStrokes, settings, watermark]);
+  }, [beforeImage, beforeRetouchStrokes, fileName, image, preset, retouchStrokes, settings, watermark]);
 
   useEffect(() => {
     const generation = exportGenerationRef.current + 1;
@@ -1762,6 +1717,8 @@ export default function CoverStudio() {
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_SETTINGS);
     setRetouchStrokes([]);
+    setBeforeRetouchStrokes([]);
+    setRetouchTarget("after");
     setShowRetouchBefore(false);
     setBrushMode(false);
     setNotice("已恢复默认构图和颜色");
@@ -1914,6 +1871,8 @@ export default function CoverStudio() {
     const nextImage = new Image();
     nextImage.onload = () => {
       setBeforeImage(nextImage);
+      setBeforeRetouchStrokes([]);
+      setShowRetouchBefore(false);
       setSettings((current) => {
         const rawLimits = getBeforeOffsetLimits(nextImage, getBeforeImageFrame(preset), current.beforeZoom, current.beforeRotation);
         const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
@@ -2376,28 +2335,62 @@ export default function CoverStudio() {
 
           <button type="button" className="studio-factory-reset" onClick={factoryReset}>彻底重置</button>
           <button type="button" className="studio-reset" onClick={resetSettings}>恢复默认</button>
-          <div className="studio-retouch">
+          <div className={`studio-retouch${settings.compareEnabled && beforeImage ? " is-comparing" : ""}`}>
             <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
+            {settings.compareEnabled && beforeImage ? (
+              <div className="studio-retouch-target" aria-label="涂抹对象">
+                <button
+                  type="button"
+                  className={activeRetouchTarget === "after" ? "is-active" : ""}
+                  onClick={() => {
+                    setRetouchTarget("after");
+                    setShowRetouchBefore(false);
+                    setNotice("当前涂抹对象：主照片");
+                  }}
+                >主照片</button>
+                <button
+                  type="button"
+                  className={activeRetouchTarget === "before" ? "is-active" : ""}
+                  onClick={() => {
+                    setRetouchTarget("before");
+                    setShowRetouchBefore(false);
+                    setNotice("当前涂抹对象：拍摄前照片，请在右下角照片内绘制");
+                  }}
+                >拍摄前照片</button>
+              </div>
+            ) : null}
             <button
               type="button"
               className={brushMode ? "is-active" : ""}
               onClick={() => {
                 setBrushMode((current) => !current);
                 setRotationMode(false);
-                setNotice(brushMode ? "已退出涂抹，可继续移动照片" : "已开启涂抹，请在照片上按住绘制");
+                setNotice(brushMode
+                  ? "已退出涂抹，可继续移动照片"
+                  : activeRetouchTarget === "before"
+                    ? "已开启拍摄前照片涂抹，请在右下角照片内按住绘制"
+                    : "已开启主照片涂抹，请在照片上按住绘制");
               }}
             >{brushMode ? "退出涂抹" : "开启涂抹"}</button>
             <Slider label="画笔大小" value={brushSize} min={20} max={400} suffix="" onChange={setBrushSize} onReset={() => setBrushSize(120)} />
             <Slider label="羽化" value={brushFeather} min={0} max={100} suffix="%" onChange={setBrushFeather} onReset={() => setBrushFeather(70)} />
             <Slider label="涂抹强度" value={brushStrength} min={0} max={100} suffix="%" onChange={setBrushStrength} onReset={() => setBrushStrength(100)} />
             <div className="studio-retouch-compare">
-              <button type="button" disabled={!retouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
+              <button type="button" disabled={!activeRetouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
               <button type="button" className={!showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(false)}>涂抹后</button>
             </div>
-            <small className="studio-retouch-note">仅切换预览，导出始终保留涂抹效果</small>
+            <small className="studio-retouch-note">当前处理：{activeRetouchTarget === "before" ? "拍摄前照片" : "主照片"} · 导出始终保留涂抹效果</small>
             <div className="studio-retouch-actions">
-              <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes((current) => current.slice(0, -1)); }}>撤销一步</button>
-              <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes([]); }}>全部清除</button>
+              <button type="button" disabled={!activeRetouchStrokes.length} onClick={() => {
+                setShowRetouchBefore(false);
+                if (activeRetouchTarget === "before") setBeforeRetouchStrokes((current) => current.slice(0, -1));
+                else setRetouchStrokes((current) => current.slice(0, -1));
+              }}>撤销一步</button>
+              <button type="button" disabled={!activeRetouchStrokes.length} onClick={() => {
+                setShowRetouchBefore(false);
+                if (activeRetouchTarget === "before") setBeforeRetouchStrokes([]);
+                else setRetouchStrokes([]);
+              }}>全部清除</button>
             </div>
           </div>
 

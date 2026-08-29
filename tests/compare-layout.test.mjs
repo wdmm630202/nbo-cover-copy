@@ -146,3 +146,46 @@ test("拍摄前照片旋转后仍按相框覆盖并独立应用位置", async ()
     assert.ok(Math.abs(rotated.rotationRadians - Math.PI / 2) < 1e-9);
   }
 });
+
+test("涂抹目标只在前后对比和拍摄前照片都可用时指向拍摄前", async () => {
+  for (const layout of await loadImplementations()) {
+    assert.equal(layout.resolveRetouchTarget("before", true, true), "before");
+    assert.equal(layout.resolveRetouchTarget("before", false, true), "after");
+    assert.equal(layout.resolveRetouchTarget("before", true, false), "after");
+    assert.equal(layout.resolveRetouchTarget("after", true, true), "after");
+  }
+});
+
+test("主照片与拍摄前照片的涂抹记录互不混用", async () => {
+  const strokes = {
+    after: [{ id: "after-stroke" }],
+    before: [{ id: "before-stroke" }],
+  };
+  for (const layout of await loadImplementations()) {
+    assert.deepEqual(plain(layout.getVisibleRetouchStrokes(strokes, "after", false)), strokes.after);
+    assert.deepEqual(plain(layout.getVisibleRetouchStrokes(strokes, "before", false)), strokes.before);
+    assert.deepEqual(plain(layout.getVisibleRetouchStrokes(strokes, "before", true)), []);
+  }
+});
+
+test("拍摄前照片涂抹只接受右下角照片相框内的落笔", async () => {
+  const canvas = { width: 1080, height: 1920 };
+  for (const layout of await loadImplementations()) {
+    assert.equal(layout.isPointInComparisonPhotoFrame({ x: 0.8, y: 0.7 }, canvas), true);
+    assert.equal(layout.isPointInComparisonPhotoFrame({ x: 0.4, y: 0.7 }, canvas), false);
+    assert.equal(layout.isPointInComparisonPhotoFrame({ x: 0.8, y: 0.4 }, canvas), false);
+  }
+});
+
+test("前后对比装饰层只绘制前后胶囊，不再写入多余品牌字", async () => {
+  for (const layout of await loadImplementations()) {
+    const text = [];
+    const context = {
+      save() {}, restore() {}, scale() {}, beginPath() {}, rect() {}, clip() {},
+      setLineDash() {}, stroke() {}, fill() {}, arc() {},
+      fillText(value) { text.push(value); },
+    };
+    layout.drawComparisonEditorialOverlay(context, { width: 1080, height: 1920 }, () => {});
+    assert.deepEqual(text, ["拍摄", "后", "拍摄", "前"]);
+  }
+});

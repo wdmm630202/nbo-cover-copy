@@ -35,14 +35,16 @@ const PRESETS = {
   shipinhao: { label: "视频号", ratio: "3:4", width: 1080, height: 1440, note: "竖版内容常用工作尺寸" },
 };
 const {
+  drawComparisonEditorialOverlay,
   getComparisonEvidenceLayout,
   getComparisonExportError,
   getComparisonFadeStops,
-  getComparisonLabelLayout,
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
-  getComparisonSafeRect,
+  getVisibleRetouchStrokes,
+  isPointInComparisonPhotoFrame,
   normalizeComparisonPhotoAdjustments,
+  resolveRetouchTarget,
 } = window.NBOCompareLayout;
 const state = {
   platform: "douyin",
@@ -145,7 +147,18 @@ function showTransformHint(text, guide = "") {
     $("#snapVertical").classList.remove("visible");
   }, 650);
 }
-const retouch = { active: false, size: 120, feather: 70, strength: 100, strokes: [], pointerId: null, compareBefore: false };
+const retouch = {
+  active: false,
+  size: 120,
+  feather: 70,
+  strength: 100,
+  strokes: [],
+  beforeStrokes: [],
+  target: "after",
+  pointerId: null,
+  pointerTarget: null,
+  compareBefore: false,
+};
 const syncChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(COPY_SYNC_CHANNEL)
   : null;
@@ -173,6 +186,8 @@ const normalizeComparisonSettings = (value = {}) => {
   };
 };
 const isMobileTouch = (event) => event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches;
+const activeRetouchTarget = () => resolveRetouchTarget(retouch.target, state.compareEnabled, Boolean(state.beforeImage));
+const activeRetouchStrokes = () => activeRetouchTarget() === "before" ? retouch.beforeStrokes : retouch.strokes;
 
 function mobileGestureBaseline() {
   const points = [...mobileGesture.pointers.values()];
@@ -212,14 +227,23 @@ canvas.addEventListener("pointerdown", (event) => {
   if (retouch.active) {
     retouch.compareBefore = false;
     const rect = canvas.getBoundingClientRect();
+    const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
+    const target = activeRetouchTarget();
+    if (target === "before" && !isPointInComparisonPhotoFrame(point, { width: canvas.width, height: canvas.height })) {
+      setStatus("请在右下角拍摄前照片内涂抹");
+      return;
+    }
     retouch.pointerId = event.pointerId;
-    retouch.strokes.push({
-      points: [{ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) }],
+    retouch.pointerTarget = target;
+    const strokes = target === "before" ? retouch.beforeStrokes : retouch.strokes;
+    strokes.push({
+      points: [point],
       size: retouch.size,
       feather: retouch.feather,
       strength: retouch.strength,
     });
     canvas.setPointerCapture(event.pointerId);
+    updateUi();
     draw();
     return;
   }
@@ -238,14 +262,16 @@ canvas.addEventListener("pointerdown", (event) => {
 canvas.addEventListener("pointermove", (event) => {
   if (retouch.active) {
     const rect = canvas.getBoundingClientRect();
+    const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
     const cursor = $("#brushCursor");
-    cursor.style.left = `${clamp((event.clientX - rect.left) / rect.width, 0, 1) * 100}%`;
-    cursor.style.top = `${clamp((event.clientY - rect.top) / rect.height, 0, 1) * 100}%`;
-    cursor.classList.add("visible");
+    cursor.style.left = `${point.x * 100}%`;
+    cursor.style.top = `${point.y * 100}%`;
+    cursor.classList.toggle("visible", activeRetouchTarget() === "after" || isPointInComparisonPhotoFrame(point, { width: canvas.width, height: canvas.height }));
   }
   if (retouch.pointerId === event.pointerId) {
     const rect = canvas.getBoundingClientRect();
-    retouch.strokes.at(-1)?.points.push({ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) });
+    const strokes = retouch.pointerTarget === "before" ? retouch.beforeStrokes : retouch.strokes;
+    strokes.at(-1)?.points.push({ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) });
     draw();
     return;
   }
@@ -274,6 +300,7 @@ const endImageDrag = (event) => {
   if (retouch.pointerId === event.pointerId) {
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     retouch.pointerId = null;
+    retouch.pointerTarget = null;
     return;
   }
   const drag = imageInteraction.drag;
@@ -396,6 +423,7 @@ function exitAllMobileOperations() {
   mobileTouchZone.classList.remove("is-gesture-active");
   if (retouch.pointerId !== null && canvas.hasPointerCapture(retouch.pointerId)) canvas.releasePointerCapture(retouch.pointerId);
   retouch.pointerId = null;
+  retouch.pointerTarget = null;
   retouch.active = false;
   retouch.compareBefore = false;
   imageInteraction.rotationMode = false;
@@ -811,12 +839,19 @@ function updateUi() {
   $("#mobileTouchZone").classList.toggle("active", Boolean(state.image) && state.platform === "douyin" && !retouch.active);
   $("#retouchToggle").classList.toggle("active", retouch.active);
   $("#retouchToggle").textContent = retouch.active ? "退出涂抹" : "开启涂抹";
+  const retouchTarget = activeRetouchTarget();
+  const targetStrokes = activeRetouchStrokes();
+  $("#retouchTarget").hidden = !(state.compareEnabled && state.beforeImage);
+  $(".retouch-panel").classList.toggle("compare-retouch", Boolean(state.compareEnabled && state.beforeImage));
+  $("#retouchTargetAfter").classList.toggle("active", retouchTarget === "after");
+  $("#retouchTargetBefore").classList.toggle("active", retouchTarget === "before");
+  $("#retouchNote").textContent = `当前处理：${retouchTarget === "before" ? "拍摄前照片" : "主照片"} · 导出始终保留涂抹效果`;
   $("#brushSizeValue").value = retouch.size;
   $("#brushFeatherValue").value = retouch.feather;
   $("#brushStrengthValue").value = retouch.strength;
-  $("#undoRetouch").disabled = !retouch.strokes.length;
-  $("#clearRetouch").disabled = !retouch.strokes.length;
-  $("#compareBefore").disabled = !retouch.strokes.length;
+  $("#undoRetouch").disabled = !targetStrokes.length;
+  $("#clearRetouch").disabled = !targetStrokes.length;
+  $("#compareBefore").disabled = !targetStrokes.length;
   $("#compareBefore").classList.toggle("active", retouch.compareBefore);
   $("#compareAfter").classList.toggle("active", !retouch.compareBefore);
   $("#brushCursor").style.width = `${retouch.size / 10.8}%`;
@@ -881,6 +916,8 @@ function loadBeforeFile(file) {
   image.onload = () => {
     state.beforeImage = image;
     state.beforeFileName = file.name;
+    retouch.beforeStrokes = [];
+    retouch.compareBefore = false;
     clampBeforeOffsets();
     updateUi();
     setStatus("拍摄前素颜照已载入，可独立调整七项参数");
@@ -955,7 +992,11 @@ $("#retouchToggle").addEventListener("click", () => {
   retouch.active = !retouch.active;
   imageInteraction.rotationMode = false;
   updateUi();
-  setStatus(retouch.active ? "已开启涂抹，请在照片上按住绘制" : "已退出涂抹，可继续移动照片");
+  setStatus(retouch.active
+    ? activeRetouchTarget() === "before"
+      ? "已开启拍摄前照片涂抹，请在右下角照片内按住绘制"
+      : "已开启主照片涂抹，请在照片上按住绘制"
+    : "已退出涂抹，可继续移动照片");
 });
 [["brushSize", "size"], ["brushFeather", "feather"], ["brushStrength", "strength"]].forEach(([id, key]) => {
   $(`#${id}`).addEventListener("input", (event) => {
@@ -1038,10 +1079,12 @@ document.querySelectorAll("[data-reset-control]").forEach((button) => button.add
   draw();
   setStatus("这一项已恢复默认");
 }));
-$("#compareBefore").addEventListener("click", () => { if (!retouch.strokes.length) return; retouch.compareBefore = true; updateUi(); draw(); });
+$("#retouchTargetAfter").addEventListener("click", () => { retouch.target = "after"; retouch.compareBefore = false; updateUi(); draw(); setStatus("当前涂抹对象：主照片"); });
+$("#retouchTargetBefore").addEventListener("click", () => { retouch.target = "before"; retouch.compareBefore = false; updateUi(); draw(); setStatus("当前涂抹对象：拍摄前照片，请在右下角照片内绘制"); });
+$("#compareBefore").addEventListener("click", () => { if (!activeRetouchStrokes().length) return; retouch.compareBefore = true; updateUi(); draw(); });
 $("#compareAfter").addEventListener("click", () => { retouch.compareBefore = false; updateUi(); draw(); });
-$("#undoRetouch").addEventListener("click", () => { retouch.compareBefore = false; retouch.strokes.pop(); updateUi(); draw(); });
-$("#clearRetouch").addEventListener("click", () => { retouch.compareBefore = false; retouch.strokes = []; updateUi(); draw(); });
+$("#undoRetouch").addEventListener("click", () => { retouch.compareBefore = false; activeRetouchStrokes().pop(); updateUi(); draw(); });
+$("#clearRetouch").addEventListener("click", () => { retouch.compareBefore = false; if (activeRetouchTarget() === "before") retouch.beforeStrokes = []; else retouch.strokes = []; updateUi(); draw(); });
 document.querySelectorAll("[data-watermark-align]").forEach((button) => button.addEventListener("click", () => {
   state.watermarkAlign = button.dataset.watermarkAlign;
   updateUi(); saveSettings(); draw();
@@ -1133,6 +1176,8 @@ $("#resetSettings").addEventListener("click", () => {
   });
   retouch.active = false;
   retouch.strokes = [];
+  retouch.beforeStrokes = [];
+  retouch.target = "after";
   retouch.compareBefore = false;
   updateUi(); saveSettings(); draw(); setStatus("已恢复默认构图和颜色");
 });
@@ -1242,7 +1287,23 @@ function roundedRectPath(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
-function drawComparisonEvidence(ctx, ownerCanvas, width, height) {
+function applyComparisonFadeMask(ctx, frame) {
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-in";
+  const horizontalMask = ctx.createLinearGradient(frame.x, 0, frame.x + frame.width, 0);
+  const verticalMask = ctx.createLinearGradient(0, frame.y, 0, frame.y + frame.height);
+  getComparisonFadeStops().forEach(([stop, alpha]) => {
+    horizontalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
+    verticalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
+  });
+  ctx.fillStyle = horizontalMask;
+  ctx.fillRect(frame.x, frame.y, frame.width, frame.height);
+  ctx.fillStyle = verticalMask;
+  ctx.fillRect(frame.x, frame.y, frame.width, frame.height);
+  ctx.restore();
+}
+
+function drawComparisonEvidence(ctx, ownerCanvas, width, height, beforeRetouchStrokes) {
   const { frame } = getComparisonEvidenceLayout({ width, height });
   const imageFrame = getBeforeImageFrame({ width, height });
 
@@ -1289,104 +1350,46 @@ function drawComparisonEvidence(ctx, ownerCanvas, width, height) {
   scratchContext.drawImage(state.beforeImage, -transform.drawWidth / 2, -transform.drawHeight / 2, transform.drawWidth, transform.drawHeight);
   scratchContext.setTransform(1, 0, 0, 1, 0, 0);
   scratchContext.filter = "none";
-  if (state.beforeShade > 0) {
-    const shadeAlpha = clamp(state.beforeShade / 100, 0, .9);
-    scratchContext.fillStyle = `rgba(0,0,0,${shadeAlpha})`;
-    scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-  }
-  if (state.beforeBottomShade > 0) {
-    const bottomAlpha = clamp(state.beforeBottomShade / 100, 0, .9);
-    const bottomGradient = scratchContext.createLinearGradient(0, imageFrame.y + imageFrame.height * .35, 0, imageFrame.y + imageFrame.height);
-    bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
-    bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
-    scratchContext.fillStyle = bottomGradient;
-    scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-  }
   scratchContext.restore();
-
-  scratchContext.save();
-  scratchContext.globalCompositeOperation = "destination-in";
-  const horizontalMask = scratchContext.createLinearGradient(imageFrame.x, 0, imageFrame.x + imageFrame.width, 0);
-  const verticalMask = scratchContext.createLinearGradient(0, imageFrame.y, 0, imageFrame.y + imageFrame.height);
-  getComparisonFadeStops().forEach(([stop, alpha]) => {
-    horizontalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
-    verticalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
-  });
-  scratchContext.fillStyle = horizontalMask;
-  scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-  scratchContext.fillStyle = verticalMask;
-  scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-  scratchContext.restore();
+  applyComparisonFadeMask(scratchContext, imageFrame);
   ctx.drawImage(scratch, 0, 0);
+
+  if (state.beforeShade > 0 || state.beforeBottomShade > 0) {
+    const shadeCanvas = ownerCanvas === canvas ? previewScratch.shade : document.createElement("canvas");
+    const strokeCanvas = ownerCanvas === canvas ? previewScratch.stroke : document.createElement("canvas");
+    if (shadeCanvas.width !== width) shadeCanvas.width = width;
+    if (shadeCanvas.height !== height) shadeCanvas.height = height;
+    if (strokeCanvas.width !== width) strokeCanvas.width = width;
+    if (strokeCanvas.height !== height) strokeCanvas.height = height;
+    const shadeContext = shadeCanvas.getContext("2d");
+    if (!shadeContext) return;
+    shadeContext.clearRect(0, 0, width, height);
+    shadeContext.save();
+    roundedRectPath(shadeContext, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
+    shadeContext.clip();
+    if (state.beforeShade > 0) {
+      const shadeAlpha = clamp(state.beforeShade / 100, 0, .9);
+      shadeContext.fillStyle = `rgba(0,0,0,${shadeAlpha})`;
+      shadeContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+    }
+    if (state.beforeBottomShade > 0) {
+      const bottomAlpha = clamp(state.beforeBottomShade / 100, 0, .9);
+      const bottomGradient = shadeContext.createLinearGradient(0, imageFrame.y + imageFrame.height * .35, 0, imageFrame.y + imageFrame.height);
+      bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
+      bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
+      shadeContext.fillStyle = bottomGradient;
+      shadeContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+    }
+    shadeContext.restore();
+    eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, beforeRetouchStrokes);
+    applyComparisonFadeMask(shadeContext, imageFrame);
+    ctx.drawImage(shadeCanvas, 0, 0);
+    if (ownerCanvas !== canvas) {
+      shadeCanvas.width = shadeCanvas.height = 1;
+      strokeCanvas.width = strokeCanvas.height = 1;
+    }
+  }
   if (ownerCanvas !== canvas) scratch.width = scratch.height = 1;
-}
-
-function drawComparisonCapsule(ctx, x, y, width, height, radius, word) {
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,.28)";
-  ctx.shadowBlur = 14;
-  ctx.shadowOffsetY = 4;
-  roundedRectPath(ctx, x, y, width, height, radius);
-  ctx.fillStyle = "rgba(57,57,59,.88)";
-  ctx.fill();
-  ctx.shadowColor = "transparent";
-  const circleRadius = height * .37;
-  const circleX = x + width - height / 2;
-  const circleY = y + height / 2;
-  ctx.beginPath();
-  ctx.arc(circleX, circleY, circleRadius, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(238,238,240,.94)";
-  ctx.fill();
-  ctx.textBaseline = "middle";
-  ctx.textAlign = "center";
-  ctx.font = `650 ${Math.round(height * .34)}px -apple-system, BlinkMacSystemFont, sans-serif`;
-  ctx.fillStyle = "rgba(248,248,250,.96)";
-  ctx.fillText("拍摄", x + (width - height) * .48, circleY);
-  ctx.font = `750 ${Math.round(height * .48)}px -apple-system, BlinkMacSystemFont, sans-serif`;
-  ctx.fillStyle = "#454547";
-  ctx.fillText(word, circleX, circleY + .5);
-  ctx.restore();
-}
-
-function drawComparisonEditorialOverlay(ctx, width, height) {
-  const scale = width / 1080;
-  const baseCanvas = { width: 1080, height: height / scale };
-  const safe = getComparisonSafeRect(baseCanvas);
-  const { frame } = getComparisonEvidenceLayout(baseCanvas);
-  const labels = getComparisonLabelLayout(baseCanvas);
-  const eyebrowX = safe.x + DOUYIN_HOME_SAFE.horizontalInset;
-  const eyebrowY = safe.y + safe.height * .35;
-
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.beginPath();
-  ctx.rect(safe.x, safe.y, safe.width, safe.height);
-  ctx.clip();
-
-  const accent = ctx.createLinearGradient(eyebrowX, 0, eyebrowX + 142, 0);
-  accent.addColorStop(0, "rgba(205,205,207,.2)");
-  accent.addColorStop(.16, "rgba(205,205,207,.92)");
-  accent.addColorStop(.84, "rgba(205,205,207,.92)");
-  accent.addColorStop(1, "rgba(205,205,207,.2)");
-  ctx.fillStyle = accent;
-  ctx.fillRect(eyebrowX, eyebrowY - 34, 142, 4);
-  ctx.fillStyle = "rgba(222,222,224,.9)";
-  ctx.font = "600 23px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText("真实客片 · NANBOART", eyebrowX, eyebrowY);
-
-  ctx.save();
-  ctx.setLineDash([14, 10]);
-  ctx.lineWidth = 3.5;
-  ctx.strokeStyle = "rgba(222,222,224,.86)";
-  roundedRectPath(ctx, frame.x, frame.y, frame.width, frame.height, frame.radius);
-  ctx.stroke();
-  ctx.restore();
-
-  drawComparisonCapsule(ctx, labels.after.right - labels.after.width, labels.after.y, labels.after.width, labels.after.height, labels.after.radius, "后");
-  drawComparisonCapsule(ctx, labels.before.right - labels.before.width, labels.before.y, labels.before.width, labels.before.height, labels.before.radius, "前");
-  ctx.restore();
 }
 
 function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, photoOnly = false) {
@@ -1442,8 +1445,11 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
   }
 
   if (!photoOnly) {
-    const visibleStrokes = targetCanvas === canvas && retouch.compareBefore ? [] : retouch.strokes;
-    if (visibleStrokes.length) {
+    const retouchTarget = activeRetouchTarget();
+    const strokeGroups = { after: retouch.strokes, before: retouch.beforeStrokes };
+    const visibleAfterStrokes = getVisibleRetouchStrokes(strokeGroups, "after", targetCanvas === canvas && retouch.compareBefore && retouchTarget === "after");
+    const visibleBeforeStrokes = getVisibleRetouchStrokes(strokeGroups, "before", targetCanvas === canvas && retouch.compareBefore && retouchTarget === "before");
+    if (visibleAfterStrokes.length) {
       const shadeCanvas = targetCanvas === canvas ? previewScratch.shade : document.createElement("canvas");
       const strokeCanvas = targetCanvas === canvas ? previewScratch.stroke : document.createElement("canvas");
       if (shadeCanvas.width !== width) shadeCanvas.width = width;
@@ -1454,15 +1460,15 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
       if (shadeContext) {
         shadeContext.clearRect(0, 0, width, height);
         drawShade(shadeContext, width, height);
-        eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, visibleStrokes);
+        eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, visibleAfterStrokes);
         targetContext.drawImage(shadeCanvas, 0, 0);
       }
     } else {
       drawShade(targetContext, width, height);
     }
-    if (state.compareEnabled) drawComparisonEvidence(targetContext, targetCanvas, width, height);
+    if (state.compareEnabled) drawComparisonEvidence(targetContext, targetCanvas, width, height, visibleBeforeStrokes);
     drawText(targetContext, width, height);
-    if (state.compareEnabled) drawComparisonEditorialOverlay(targetContext, width, height);
+    if (state.compareEnabled) drawComparisonEditorialOverlay(targetContext, { width, height }, roundedRectPath);
     if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
   }
   if (!photoOnly && includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);

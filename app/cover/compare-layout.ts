@@ -1,5 +1,6 @@
 export type CompareCanvasSize = { width: number; height: number };
 export type CompareRect = { x: number; y: number; width: number; height: number };
+export type RetouchTarget = "after" | "before";
 export type ComparisonPhotoAdjustments = {
   zoom: number;
   offsetX: number;
@@ -65,6 +66,36 @@ export function getComparisonPhotoTransform(
   };
 }
 
+export function resolveRetouchTarget(
+  target: unknown,
+  comparisonEnabled: boolean,
+  hasBeforeImage: boolean,
+): RetouchTarget {
+  return target === "before" && comparisonEnabled && hasBeforeImage ? "before" : "after";
+}
+
+export function getVisibleRetouchStrokes<T>(
+  strokes: Record<RetouchTarget, T[]>,
+  target: RetouchTarget,
+  showBefore: boolean,
+) {
+  return showBefore ? [] : strokes[target];
+}
+
+export function isPointInComparisonPhotoFrame(
+  point: { x: number; y: number },
+  canvas: CompareCanvasSize,
+) {
+  const { frame, imageInset } = getComparisonEvidenceLayout(canvas);
+  const inset = Math.max(2, Math.round(imageInset * canvas.width / 1080));
+  const x = point.x * canvas.width;
+  const y = point.y * canvas.height;
+  return x >= frame.x + inset
+    && x <= frame.x + frame.width - inset
+    && y >= frame.y + inset
+    && y <= frame.y + frame.height - inset;
+}
+
 export function getComparisonSafeRect(canvas: CompareCanvasSize): CompareRect {
   const safeHeight = Math.min(canvas.height, Math.round(canvas.width / 3 * 4));
   return {
@@ -104,6 +135,67 @@ export function getComparisonLabelLayout(canvas: CompareCanvasSize) {
     after: { right: safe.x + safe.width - Math.round(48 * scale), y: safe.y + Math.round(48 * scale), ...capsule },
     before: { right: safe.x + safe.width - Math.round(48 * scale), y: frame.y + Math.round(24 * scale), ...capsule },
   };
+}
+
+function drawComparisonCapsule(
+  context: CanvasRenderingContext2D,
+  capsule: { right: number; y: number; width: number; height: number; radius: number },
+  word: "前" | "后",
+  roundedRectPath: (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => void,
+) {
+  const x = capsule.right - capsule.width;
+  context.save();
+  context.shadowColor = "rgba(0,0,0,.28)";
+  context.shadowBlur = 14;
+  context.shadowOffsetY = 4;
+  roundedRectPath(context, x, capsule.y, capsule.width, capsule.height, capsule.radius);
+  context.fillStyle = "rgba(57,57,59,.88)";
+  context.fill();
+  context.shadowColor = "transparent";
+  const circleRadius = capsule.height * 0.37;
+  const circleX = x + capsule.width - capsule.height / 2;
+  const circleY = capsule.y + capsule.height / 2;
+  context.beginPath();
+  context.arc(circleX, circleY, circleRadius, 0, Math.PI * 2);
+  context.fillStyle = "rgba(238,238,240,.94)";
+  context.fill();
+  context.textBaseline = "middle";
+  context.textAlign = "center";
+  context.font = `650 ${Math.round(capsule.height * 0.34)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+  context.fillStyle = "rgba(248,248,250,.96)";
+  context.fillText("拍摄", x + (capsule.width - capsule.height) * 0.48, circleY);
+  context.font = `750 ${Math.round(capsule.height * 0.48)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+  context.fillStyle = "#454547";
+  context.fillText(word, circleX, circleY + 0.5);
+  context.restore();
+}
+
+export function drawComparisonEditorialOverlay(
+  context: CanvasRenderingContext2D,
+  canvas: CompareCanvasSize,
+  roundedRectPath: (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => void,
+) {
+  const scale = canvas.width / 1080;
+  const baseCanvas = { width: 1080, height: canvas.height / scale };
+  const safe = getComparisonSafeRect(baseCanvas);
+  const { frame } = getComparisonEvidenceLayout(baseCanvas);
+  const labels = getComparisonLabelLayout(baseCanvas);
+
+  context.save();
+  context.scale(scale, scale);
+  context.beginPath();
+  context.rect(safe.x, safe.y, safe.width, safe.height);
+  context.clip();
+  context.save();
+  context.setLineDash([14, 10]);
+  context.lineWidth = 3.5;
+  context.strokeStyle = "rgba(222,222,224,.86)";
+  roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
+  context.stroke();
+  context.restore();
+  drawComparisonCapsule(context, labels.after, "后", roundedRectPath);
+  drawComparisonCapsule(context, labels.before, "前", roundedRectPath);
+  context.restore();
 }
 
 export function getComparisonFadeStops() {
