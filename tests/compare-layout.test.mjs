@@ -199,6 +199,24 @@ test("普通鼠标操作在拍摄前虚线框内控制拍摄前照片，框外�
   }
 });
 
+test("前后对比只显示一组照片构图控制，避免右栏重复堆叠", async () => {
+  for (const layout of await loadImplementations()) {
+    assert.equal(typeof layout.getAdjustmentPanelVisibility, "function");
+    const single = layout.getAdjustmentPanelVisibility(false, "before");
+    assert.equal(single.selector, false);
+    assert.equal(single.after, true);
+    assert.equal(single.before, false);
+    const after = layout.getAdjustmentPanelVisibility(true, "after");
+    assert.equal(after.selector, true);
+    assert.equal(after.after, true);
+    assert.equal(after.before, false);
+    const before = layout.getAdjustmentPanelVisibility(true, "before");
+    assert.equal(before.selector, true);
+    assert.equal(before.after, false);
+    assert.equal(before.before, true);
+  }
+});
+
 test("前后对比装饰层只绘制前后胶囊，不再写入多余品牌字", async () => {
   for (const layout of await loadImplementations()) {
     const text = [];

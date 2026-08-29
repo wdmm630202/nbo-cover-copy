@@ -116,6 +116,15 @@ export function resolvePhotoInteractionTargetFromPoint(
   return resolveRetouchTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage);
 }
 
+export function getAdjustmentPanelVisibility(comparisonEnabled: boolean, target: RetouchTarget) {
+  const before = comparisonEnabled && target === "before";
+  return {
+    selector: comparisonEnabled,
+    after: !before,
+    before,
+  };
+}
+
 export function getComparisonSafeRect(canvas: CompareCanvasSize): CompareRect {
   const safeHeight = Math.min(canvas.height, Math.round(canvas.width / 3 * 4));
   return {

@@ -41,6 +41,7 @@ const {
   getComparisonFadeStops,
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
+  getAdjustmentPanelVisibility,
   getVisibleRetouchStrokes,
   normalizeComparisonPhotoAdjustments,
   resolvePhotoInteractionTargetFromPoint,
@@ -125,6 +126,7 @@ let previewDrawFrame = 0;
 let saveSettingsTimer = 0;
 const previewScratch = { shade: document.createElement("canvas"), stroke: document.createElement("canvas"), compare: document.createElement("canvas") };
 let imageInteraction = { rotationMode: false, drag: null };
+let adjustmentTarget = "after";
 const mobileGesture = { pointers: new Map(), holdTimer: 0, active: false, anchorId: null, holdOrigin: null, baseline: null };
 const rotationSnapAngles = [-180, -90, 0, 90, 180];
 let transformHintTimer = 0;
@@ -250,6 +252,7 @@ canvas.addEventListener("pointerdown", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
   const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+  if (state.compareEnabled && adjustmentTarget !== target) { adjustmentTarget = target; updateUi(); }
   imageInteraction.drag = {
     pointerId: event.pointerId,
     target,
@@ -467,6 +470,7 @@ canvas.addEventListener("wheel", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
   const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+  if (state.compareEnabled && adjustmentTarget !== target) { adjustmentTarget = target; updateUi(); }
   if (target === "before") {
     state.beforeZoom = clamp(Math.round((state.beforeZoom + amount) * 10) / 10, 100, 300);
     clampBeforeOffsets();
@@ -488,6 +492,7 @@ canvas.addEventListener("dblclick", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
   const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+  if (state.compareEnabled && adjustmentTarget !== target) { adjustmentTarget = target; updateUi(); }
   imageInteraction.rotationMode = !imageInteraction.rotationMode;
   $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
   setStatus(imageInteraction.rotationMode
@@ -872,7 +877,12 @@ function updateUi() {
   $("#bottomShadeValue").value = state.bottomShade;
   $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
   $("#compareUploadPanel").hidden = !state.compareEnabled;
-  $("#beforeControls").hidden = !state.compareEnabled;
+  const adjustmentPanels = getAdjustmentPanelVisibility(state.compareEnabled, adjustmentTarget);
+  $("#adjustmentTarget").hidden = !adjustmentPanels.selector;
+  $("#mainAdjustments").hidden = !adjustmentPanels.after;
+  $("#beforeControls").hidden = !adjustmentPanels.before;
+  $("#adjustmentTargetAfter").classList.toggle("active", adjustmentTarget === "after");
+  $("#adjustmentTargetBefore").classList.toggle("active", adjustmentTarget === "before");
   $("#beforeUploadTitle").textContent = state.beforeImage ? "更换照片" : "请添加拍摄前素颜照";
   $("#beforeFileName").textContent = state.beforeFileName || "支持 JPG、PNG、WEBP";
   $(".controls").classList.toggle("compare-active", state.compareEnabled);
@@ -1137,6 +1147,8 @@ document.querySelectorAll("[data-reset-control]").forEach((button) => button.add
 }));
 $("#retouchTargetAfter").addEventListener("click", () => { retouch.target = "after"; retouch.compareBefore = false; updateUi(); draw(); setStatus("当前查看主照片的涂抹记录"); });
 $("#retouchTargetBefore").addEventListener("click", () => { retouch.target = "before"; retouch.compareBefore = false; updateUi(); draw(); setStatus("当前查看拍摄前照片的涂抹记录"); });
+$("#adjustmentTargetAfter").addEventListener("click", () => { adjustmentTarget = "after"; updateUi(); setStatus("当前显示主照片与文字构图控制"); });
+$("#adjustmentTargetBefore").addEventListener("click", () => { adjustmentTarget = "before"; updateUi(); setStatus("当前显示拍摄前照片构图控制"); });
 $("#compareBefore").addEventListener("click", () => { if (!activeRetouchStrokes().length) return; retouch.compareBefore = true; updateUi(); draw(); });
 $("#compareAfter").addEventListener("click", () => { retouch.compareBefore = false; updateUi(); draw(); });
 $("#undoRetouch").addEventListener("click", () => { retouch.compareBefore = false; activeRetouchStrokes().pop(); updateUi(); draw(); });

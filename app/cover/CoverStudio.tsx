@@ -34,6 +34,7 @@ import {
   getComparisonFadeStops,
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
+  getAdjustmentPanelVisibility,
   getVisibleRetouchStrokes,
   resolvePhotoInteractionTargetFromPoint,
   resolveRetouchTarget,
@@ -1113,6 +1114,7 @@ export default function CoverStudio() {
   const [retouchStrokes, setRetouchStrokes] = useState<RetouchStroke[]>([]);
   const [beforeRetouchStrokes, setBeforeRetouchStrokes] = useState<RetouchStroke[]>([]);
   const [retouchTarget, setRetouchTarget] = useState<RetouchTarget>("after");
+  const [adjustmentTarget, setAdjustmentTarget] = useState<RetouchTarget>("after");
   const [showRetouchBefore, setShowRetouchBefore] = useState(false);
   const settingsRef = useRef(settings);
   const beforeImageRef = useRef(beforeImage);
@@ -1172,6 +1174,7 @@ export default function CoverStudio() {
   }, [beforeImage, preset, settings.beforeRotation, settings.beforeZoom]);
   const activeRetouchTarget = resolveRetouchTarget(retouchTarget, settings.compareEnabled, Boolean(beforeImage));
   const activeRetouchStrokes = activeRetouchTarget === "before" ? beforeRetouchStrokes : retouchStrokes;
+  const adjustmentPanels = getAdjustmentPanelVisibility(settings.compareEnabled, adjustmentTarget);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1283,6 +1286,7 @@ export default function CoverStudio() {
         current.compareEnabled,
         Boolean(beforeImageRef.current),
       );
+      setAdjustmentTarget(target);
       drag = {
         pointerId: event.pointerId,
         target,
@@ -1383,6 +1387,7 @@ export default function CoverStudio() {
         settingsRef.current.compareEnabled,
         Boolean(beforeImageRef.current),
       );
+      setAdjustmentTarget(target);
       setSettings((current) => {
         if (target === "before") {
           const beforeZoom = clamp(Math.round((current.beforeZoom + amount) * 10) / 10, 100, 300);
@@ -1412,6 +1417,7 @@ export default function CoverStudio() {
         settingsRef.current.compareEnabled,
         Boolean(beforeImageRef.current),
       );
+      setAdjustmentTarget(target);
       setRotationMode((current) => {
         const next = !current;
         rotationModeRef.current = next;
@@ -2458,7 +2464,28 @@ export default function CoverStudio() {
             </div>
           </div>
 
-          {settings.compareEnabled ? (
+          {adjustmentPanels.selector ? (
+            <div className="studio-adjustment-target" aria-label="选择构图控制对象">
+              <button
+                type="button"
+                className={adjustmentTarget === "after" ? "is-active" : ""}
+                onClick={() => {
+                  setAdjustmentTarget("after");
+                  setNotice("当前显示主照片与文字构图控制");
+                }}
+              >主照片与文字</button>
+              <button
+                type="button"
+                className={adjustmentTarget === "before" ? "is-active" : ""}
+                onClick={() => {
+                  setAdjustmentTarget("before");
+                  setNotice("当前显示拍摄前照片构图控制");
+                }}
+              >拍摄前照片</button>
+            </div>
+          ) : null}
+
+          {adjustmentPanels.before ? (
             <div className="studio-before-adjustments">
               <div className="studio-before-adjustments-heading">
                 <div><b>拍摄前照片构图</b><span>独立调整右下角素颜照</span></div>
@@ -2579,7 +2606,7 @@ export default function CoverStudio() {
             </div>
           ) : null}
 
-          <div className="studio-adjustments">
+          {adjustmentPanels.after ? <div className="studio-adjustments">
             <Slider
               label="照片缩放"
               value={settings.zoom}
@@ -2690,7 +2717,7 @@ export default function CoverStudio() {
               onReset={() => updateSetting("bottomShade", 100)}
               onChange={(value) => updateSetting("bottomShade", value)}
             />
-          </div>
+          </div> : null}
         </aside>
       </div>
 

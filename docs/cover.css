@@ -174,10 +174,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .template.clean { background: linear-gradient(130deg, #45413d, #161616); }
 .template.bottom { background: linear-gradient(0deg, #0c0c0c, #4a433d); }
 .sliders { margin-top: 20px; display: grid; gap: 14px; }
-.sliders label > span { margin-bottom: 7px; display: flex; justify-content: space-between; color: #6e6761; font-size: 10px; }
+.sliders label > span, .before-controls label > span { margin-bottom: 7px; display: flex; justify-content: space-between; color: #6e6761; font-size: 10px; }
 .sliders label > span b { color: #262321; }
-.sliders input { width: 100%; accent-color: var(--red); }
-.before-controls { padding: 11px; display: grid; gap: 11px; border: 1px solid #d8d2cc; border-radius: 12px; background: #f5f3f1; }
+.sliders input, .before-controls input { width: 100%; accent-color: var(--red); }
+.adjustment-target { margin-top: 12px; padding: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; border-radius: 11px; background: #eeeae6; }
+.adjustment-target button { min-height: 30px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #625b55; font-size: 9px; font-weight: 800; cursor: pointer; }
+.adjustment-target button.active { border-color: #202020; background: #202020; color: #fff; }
+.before-controls { margin-top: 12px; padding: 11px; display: grid; gap: 11px; border: 1px solid #d8d2cc; border-radius: 12px; background: #f5f3f1; }
 .before-controls > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .before-controls > div b { color: #33302d; font-size: 10px; }
 .before-controls > div small { color: #8e8882; font-size: 8px; }
@@ -212,9 +215,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .slider-number-wrap i { font-size: 9px; font-style: normal; font-weight: 800; }
 .slider-reset { min-width: 34px; min-height: 26px; padding: 0 7px; border: 1px solid #ddd5cd; border-radius: 8px; background: #f7f4f1; color: #625b55; font-size: 8px; font-weight: 800; cursor: pointer; }
 .slider-reset:active { background: #e9e3dd; transform: scale(.96); }
-.sliders .slider-value-control { width: 104px; flex: 0 0 104px; display: grid; grid-template-columns: 64px 36px; }
-.sliders .slider-number-wrap { width: 64px; box-sizing: border-box; justify-content: flex-end; }
-.sliders .slider-reset { width: 36px; min-width: 36px; padding: 0; }
+.sliders .slider-value-control, .before-controls .slider-value-control { width: 104px; flex: 0 0 104px; display: grid; grid-template-columns: 64px 36px; }
+.sliders .slider-number-wrap, .before-controls .slider-number-wrap { width: 64px; box-sizing: border-box; justify-content: flex-end; }
+.sliders .slider-reset, .before-controls .slider-reset { width: 36px; min-width: 36px; padding: 0; }
 .sliders input:disabled { opacity: .45; }
 .title-scale-link { min-height: 30px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #6e6761; font-size: 9px; font-weight: 800; cursor: pointer; }
 .title-scale-link.active { border-color: #202020; background: #202020; color: #fff; }
@@ -226,7 +229,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .standard li { color: #6e6761; font-size: 11px; line-height: 1.6; }
 .standard li b { margin-right: 5px; color: #24211f; }
 .standard > p { grid-column: 2; margin: 0; color: #99928b; font-size: 9px; line-height: 1.7; }
-@media (min-width: 1181px) and (min-height: 800px) {
+@media (min-width: 1181px) and (min-height: 1100px) {
   .cover-page { padding-bottom: 8px; }
   .studio-header { min-height: 58px; }
   .brand-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
@@ -277,11 +280,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .template b { font-size: 8px; }
   .template span { font-size: 6px; }
   .sliders { min-height: 0; margin-top: 16px; flex: 1; grid-template-columns: 1fr; grid-template-rows: repeat(12, minmax(0, 1fr)); align-items: center; gap: 0; }
-  .controls.compare-active, .design.compare-active { overflow-y: auto; }
-  .design.compare-active .sliders { min-height: auto; flex: 0 0 auto; grid-template-rows: none; gap: 10px; }
-  .before-controls { padding: 8px; gap: 8px; }
-  .sliders label > span { margin-bottom: 3px; font-size: 9px; }
-  .sliders input[type="range"] { height: 15px; }
+  .controls.compare-active { overflow-y: auto; }
+  .design.compare-active { overflow: hidden; }
+  .design.compare-active .adjustment-target { margin-top: 8px; flex: 0 0 auto; }
+  .design.compare-active .sliders { min-height: 0; margin-top: 8px; flex: 1; grid-template-rows: repeat(12, minmax(0, 1fr)); gap: 0; }
+  .design.compare-active .before-controls { min-height: 0; margin-top: 8px; padding: 8px; flex: 1; grid-template-rows: auto repeat(7, minmax(0, 1fr)) auto; align-items: center; gap: 0; }
+  .sliders label > span, .before-controls label > span { margin-bottom: 3px; font-size: 9px; }
+  .sliders input[type="range"], .before-controls input[type="range"] { height: 15px; }
   .retouch-panel { height: 210px; padding: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px 8px; }
   .retouch-panel.compare-retouch { height: 246px; }
   .retouch-panel > div:first-child, .retouch-panel > button { grid-column: 1 / -1; }

@@ -77,6 +77,11 @@
     return resolveRetouchTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage);
   }
 
+  function getAdjustmentPanelVisibility(comparisonEnabled, target) {
+    const before = comparisonEnabled && target === "before";
+    return { selector: comparisonEnabled, after: !before, before };
+  }
+
   function getComparisonSafeRect(canvas) {
     const safeHeight = Math.min(canvas.height, Math.round(canvas.width / 3 * 4));
     return {
@@ -190,6 +195,7 @@
     isPointInComparisonPhotoFrame,
     resolveRetouchTargetFromPoint,
     resolvePhotoInteractionTargetFromPoint,
+    getAdjustmentPanelVisibility,
     getComparisonSafeRect,
     getComparisonEvidenceLayout,
     getComparisonLabelLayout,

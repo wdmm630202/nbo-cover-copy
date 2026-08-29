@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#202020" />
     <meta name="robots" content="noindex,nofollow" />
-    <!-- Cache lineage: mobile-123-gestures → 20260830-before-frame-mouse. -->
+    <!-- Cache lineage: mobile-123-gestures → 20260830-compare-panel-tabs. -->
     <title>NBO南铂封面制作台</title>
-    <link rel="stylesheet" href="./cover.css?v=20260830-before-frame-mouse" />
+    <link rel="stylesheet" href="./cover.css?v=20260830-compare-panel-tabs" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -161,21 +161,25 @@
               <small id="retouchNote">落笔自动识别照片 · 当前管理：主照片</small>
               <section><button id="undoRetouch" type="button" disabled>撤销一步</button><button id="clearRetouch" type="button" disabled>全部清除</button></section>
             </div>
-            <div class="sliders">
+            <section class="adjustment-target" id="adjustmentTarget" aria-label="选择构图控制对象" hidden>
+              <button id="adjustmentTargetAfter" class="active" type="button">主照片与文字</button>
+              <button id="adjustmentTargetBefore" type="button">拍摄前照片</button>
+            </section>
+            <section class="before-controls" id="beforeControls" hidden>
+              <div><b>拍摄前照片构图</b><small>与主照片独立调整</small></div>
+              <label><span>拍摄前照片缩放 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeZoomValue" data-value-control="beforeZoom" type="number" inputmode="decimal" min="100" max="300" value="100" aria-label="拍摄前照片缩放准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeZoom">复位</button></span></span><input id="beforeZoom" type="range" min="100" max="300" value="100" /></label>
+              <label><span>拍摄前左右位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeOffsetXValue" data-value-control="beforeOffsetX" type="number" inputmode="decimal" min="-100" max="100" value="0" aria-label="拍摄前左右位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="beforeOffsetX">复位</button></span></span><input id="beforeOffsetX" type="range" min="-100" max="100" value="0" /></label>
+              <label><span>拍摄前上下位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeOffsetYValue" data-value-control="beforeOffsetY" type="number" inputmode="decimal" min="-100" max="100" value="0" aria-label="拍摄前上下位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="beforeOffsetY">复位</button></span></span><input id="beforeOffsetY" type="range" min="-100" max="100" value="0" /></label>
+              <label><span>拍摄前自由旋转 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeRotationValue" data-value-control="beforeRotation" type="number" inputmode="decimal" min="-180" max="180" value="0" aria-label="拍摄前自由旋转准确数值" /><i>°</i></span><button type="button" class="slider-reset" data-reset-control="beforeRotation">复位</button></span></span><input id="beforeRotation" type="range" min="-180" max="180" value="0" /></label>
+              <label><span>拍摄前亮度 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeBrightnessValue" data-value-control="beforeBrightness" type="number" inputmode="decimal" min="0" max="200" value="100" aria-label="拍摄前亮度准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeBrightness">复位</button></span></span><input id="beforeBrightness" type="range" min="0" max="200" value="100" /></label>
+              <label><span>拍摄前压暗强度 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeShadeValue" data-value-control="beforeShade" type="number" inputmode="decimal" min="0" max="100" value="0" aria-label="拍摄前压暗强度准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeShade">复位</button></span></span><input id="beforeShade" type="range" min="0" max="100" value="0" /></label>
+              <label><span>拍摄前底部向上压暗 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeBottomShadeValue" data-value-control="beforeBottomShade" type="number" inputmode="decimal" min="0" max="100" value="100" aria-label="拍摄前底部向上压暗准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeBottomShade">复位</button></span></span><input id="beforeBottomShade" type="range" min="0" max="100" value="100" /></label>
+              <button class="before-reset" id="resetBeforeControls" type="button">恢复拍摄前照片默认构图</button>
+            </section>
+            <div class="sliders" id="mainAdjustments">
               <label><span>照片缩放 <span class="slider-value-control"><span class="slider-number-wrap"><input id="zoomValue" data-value-control="zoom" type="number" inputmode="decimal" min="0" max="400" value="100" aria-label="照片缩放准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="zoom">复位</button></span></span><input id="zoom" type="range" min="0" max="400" value="100" /></label>
               <label><span>左右位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="offsetXValue" data-value-control="offsetX" type="number" inputmode="decimal" min="-200" max="200" value="0" aria-label="左右位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="offsetX">复位</button></span></span><input id="offsetX" type="range" min="-200" max="200" value="0" /></label>
               <label><span>上下位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="offsetYValue" data-value-control="offsetY" type="number" inputmode="decimal" min="-200" max="200" value="0" aria-label="上下位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="offsetY">复位</button></span></span><input id="offsetY" type="range" min="-200" max="200" value="0" /></label>
-              <section class="before-controls" id="beforeControls" hidden>
-                <div><b>拍摄前照片构图</b><small>与主照片独立调整</small></div>
-                <label><span>拍摄前照片缩放 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeZoomValue" data-value-control="beforeZoom" type="number" inputmode="decimal" min="100" max="300" value="100" aria-label="拍摄前照片缩放准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeZoom">复位</button></span></span><input id="beforeZoom" type="range" min="100" max="300" value="100" /></label>
-                <label><span>拍摄前左右位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeOffsetXValue" data-value-control="beforeOffsetX" type="number" inputmode="decimal" min="-100" max="100" value="0" aria-label="拍摄前左右位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="beforeOffsetX">复位</button></span></span><input id="beforeOffsetX" type="range" min="-100" max="100" value="0" /></label>
-                <label><span>拍摄前上下位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeOffsetYValue" data-value-control="beforeOffsetY" type="number" inputmode="decimal" min="-100" max="100" value="0" aria-label="拍摄前上下位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="beforeOffsetY">复位</button></span></span><input id="beforeOffsetY" type="range" min="-100" max="100" value="0" /></label>
-                <label><span>拍摄前自由旋转 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeRotationValue" data-value-control="beforeRotation" type="number" inputmode="decimal" min="-180" max="180" value="0" aria-label="拍摄前自由旋转准确数值" /><i>°</i></span><button type="button" class="slider-reset" data-reset-control="beforeRotation">复位</button></span></span><input id="beforeRotation" type="range" min="-180" max="180" value="0" /></label>
-                <label><span>拍摄前亮度 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeBrightnessValue" data-value-control="beforeBrightness" type="number" inputmode="decimal" min="0" max="200" value="100" aria-label="拍摄前亮度准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeBrightness">复位</button></span></span><input id="beforeBrightness" type="range" min="0" max="200" value="100" /></label>
-                <label><span>拍摄前压暗强度 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeShadeValue" data-value-control="beforeShade" type="number" inputmode="decimal" min="0" max="100" value="0" aria-label="拍摄前压暗强度准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeShade">复位</button></span></span><input id="beforeShade" type="range" min="0" max="100" value="0" /></label>
-                <label><span>拍摄前底部向上压暗 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeBottomShadeValue" data-value-control="beforeBottomShade" type="number" inputmode="decimal" min="0" max="100" value="100" aria-label="拍摄前底部向上压暗准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeBottomShade">复位</button></span></span><input id="beforeBottomShade" type="range" min="0" max="100" value="100" /></label>
-                <button class="before-reset" id="resetBeforeControls" type="button">恢复拍摄前照片默认构图</button>
-              </section>
               <label><span>自由旋转 <span class="slider-value-control"><span class="slider-number-wrap"><input id="rotationValue" data-value-control="rotation" type="number" inputmode="decimal" min="-180" max="180" value="0" aria-label="自由旋转准确数值" /><i>°</i></span><button type="button" class="slider-reset" data-reset-control="rotation">复位</button></span></span><input id="rotation" type="range" min="-180" max="180" value="0" /></label>
               <label><span>上行标题大小 <span class="slider-value-control"><span class="slider-number-wrap"><input id="textScaleValue" data-value-control="textScale" type="number" inputmode="decimal" min="0" max="200" value="100" aria-label="上行标题大小准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="textScale">复位</button></span></span><input id="textScale" type="range" min="0" max="200" value="100" /></label>
               <button id="textScaleLink" class="title-scale-link active" type="button" aria-pressed="true">上下行大小联动</button>
@@ -211,7 +215,7 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./compare-layout.js?v=20260830-before-frame-mouse"></script>
-    <script src="./cover.js?v=20260830-before-frame-mouse"></script>
+    <script src="./compare-layout.js?v=20260830-compare-panel-tabs"></script>
+    <script src="./cover.js?v=20260830-compare-panel-tabs"></script>
   </body>
 </html>
