@@ -40,7 +40,9 @@ const {
   getComparisonFadeStops,
   getComparisonLabelLayout,
   getComparisonOverlapWarning,
+  getComparisonPhotoTransform,
   getComparisonSafeRect,
+  normalizeComparisonPhotoAdjustments,
 } = window.NBOCompareLayout;
 const state = {
   platform: "douyin",
@@ -74,6 +76,10 @@ const state = {
   beforeZoom: 100,
   beforeOffsetX: 0,
   beforeOffsetY: 0,
+  beforeRotation: 0,
+  beforeBrightness: 100,
+  beforeShade: 0,
+  beforeBottomShade: 100,
   watermarkScale: 100,
   watermarkAlign: "left",
   watermarkOpacity: 50,
@@ -145,12 +151,27 @@ const syncChannel = "BroadcastChannel" in window
   : null;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-const normalizeComparisonSettings = (value = {}) => ({
-  compareEnabled: value.compareEnabled === true,
-  beforeZoom: clamp(Number.isFinite(Number(value.beforeZoom)) ? Number(value.beforeZoom) : 100, 100, 300),
-  beforeOffsetX: clamp(Number.isFinite(Number(value.beforeOffsetX)) ? Number(value.beforeOffsetX) : 0, -100, 100),
-  beforeOffsetY: clamp(Number.isFinite(Number(value.beforeOffsetY)) ? Number(value.beforeOffsetY) : 0, -100, 100),
-});
+const normalizeComparisonSettings = (value = {}) => {
+  const adjustments = normalizeComparisonPhotoAdjustments({
+    zoom: value.beforeZoom,
+    offsetX: value.beforeOffsetX,
+    offsetY: value.beforeOffsetY,
+    rotation: value.beforeRotation,
+    brightness: value.beforeBrightness,
+    shade: value.beforeShade,
+    bottomShade: value.beforeBottomShade,
+  });
+  return {
+    compareEnabled: value.compareEnabled === true,
+    beforeZoom: adjustments.zoom,
+    beforeOffsetX: adjustments.offsetX,
+    beforeOffsetY: adjustments.offsetY,
+    beforeRotation: adjustments.rotation,
+    beforeBrightness: adjustments.brightness,
+    beforeShade: adjustments.shade,
+    beforeBottomShade: adjustments.bottomShade,
+  };
+};
 const isMobileTouch = (event) => event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches;
 
 function mobileGestureBaseline() {
@@ -688,14 +709,17 @@ function getBeforeImageFrame(canvasSize) {
   };
 }
 
-function getBeforeOffsetLimits(beforeImage, frame, beforeZoom) {
+function getBeforeOffsetLimits(beforeImage, frame, beforeZoom, beforeRotation = 0) {
   if (!beforeImage?.naturalWidth || !beforeImage.naturalHeight) return { x: 0, y: 0 };
-  const coverScale = Math.max(
-    frame.width / beforeImage.naturalWidth,
-    frame.height / beforeImage.naturalHeight,
-  ) * beforeZoom / 100;
-  const drawWidth = beforeImage.naturalWidth * coverScale;
-  const drawHeight = beforeImage.naturalHeight * coverScale;
+  const transform = getComparisonPhotoTransform(
+    { width: beforeImage.naturalWidth, height: beforeImage.naturalHeight },
+    { x: 0, y: 0, width: frame.width, height: frame.height },
+    { zoom: beforeZoom, rotation: beforeRotation },
+  );
+  const cosine = Math.abs(Math.cos(transform.rotationRadians));
+  const sine = Math.abs(Math.sin(transform.rotationRadians));
+  const drawWidth = transform.drawWidth * cosine + transform.drawHeight * sine;
+  const drawHeight = transform.drawWidth * sine + transform.drawHeight * cosine;
   return {
     x: Math.min(100, Math.max(0, (drawWidth - frame.width) / 2 / frame.width * 100)),
     y: Math.min(100, Math.max(0, (drawHeight - frame.height) / 2 / frame.height * 100)),
@@ -703,7 +727,7 @@ function getBeforeOffsetLimits(beforeImage, frame, beforeZoom) {
 }
 
 function currentBeforeOffsetLimits(beforeZoom = state.beforeZoom) {
-  const raw = getBeforeOffsetLimits(state.beforeImage, getBeforeImageFrame(preset()), beforeZoom);
+  const raw = getBeforeOffsetLimits(state.beforeImage, getBeforeImageFrame(preset()), beforeZoom, state.beforeRotation);
   return { x: Math.floor(raw.x), y: Math.floor(raw.y) };
 }
 
@@ -727,7 +751,7 @@ function updateUi() {
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   $("#safeToggle").checked = state.safe;
   $("#compareToggle").checked = state.compareEnabled;
-  ["zoom", "offsetX", "offsetY", "beforeZoom", "beforeOffsetX", "beforeOffsetY", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
+  ["zoom", "offsetX", "offsetY", "beforeZoom", "beforeOffsetX", "beforeOffsetY", "beforeRotation", "beforeBrightness", "beforeShade", "beforeBottomShade", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
   });
   $("#zoomValue").value = state.zoom;
@@ -737,6 +761,10 @@ function updateUi() {
   const visibleBeforeOffsetX = clamp(state.beforeOffsetX, -beforeOffsetLimits.x, beforeOffsetLimits.x);
   const visibleBeforeOffsetY = clamp(state.beforeOffsetY, -beforeOffsetLimits.y, beforeOffsetLimits.y);
   $("#beforeZoomValue").value = state.beforeZoom;
+  $("#beforeRotationValue").value = state.beforeRotation;
+  $("#beforeBrightnessValue").value = state.beforeBrightness;
+  $("#beforeShadeValue").value = state.beforeShade;
+  $("#beforeBottomShadeValue").value = state.beforeBottomShade;
   [["beforeOffsetX", visibleBeforeOffsetX, beforeOffsetLimits.x], ["beforeOffsetY", visibleBeforeOffsetY, beforeOffsetLimits.y]].forEach(([id, value, limit]) => {
     $(`#${id}`).min = -limit;
     $(`#${id}`).max = limit;
@@ -855,7 +883,7 @@ function loadBeforeFile(file) {
     state.beforeFileName = file.name;
     clampBeforeOffsets();
     updateUi();
-    setStatus("拍摄前素颜照已载入，可独立调整缩放和位置");
+    setStatus("拍摄前素颜照已载入，可独立调整七项参数");
     URL.revokeObjectURL(url);
     draw();
   };
@@ -886,13 +914,18 @@ $("#subtitleScale").addEventListener("input", (event) => {
   saveSettings(); draw();
 });
 $("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
-["zoom", "offsetX", "offsetY", "beforeZoom", "beforeOffsetX", "beforeOffsetY", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
+["zoom", "offsetX", "offsetY", "beforeZoom", "beforeOffsetX", "beforeOffsetY", "beforeRotation", "beforeBrightness", "beforeShade", "beforeBottomShade", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     const rawValue = Number(event.target.value);
     if (id === "rotation") {
       const snapped = snapRotation(rawValue);
       state.rotation = snapped.value;
       showTransformHint(`${state.rotation}°`, snapped.guide);
+    } else if (id === "beforeRotation") {
+      const snapped = snapRotation(rawValue);
+      state.beforeRotation = snapped.value;
+      clampBeforeOffsets();
+      showTransformHint(`拍摄前 ${state.beforeRotation}°`, snapped.guide);
     } else {
       if (id === "beforeOffsetX" || id === "beforeOffsetY") {
         const axis = id === "beforeOffsetX" ? "x" : "y";
@@ -940,6 +973,10 @@ const resetDefaults = {
   beforeZoom: 100,
   beforeOffsetX: 0,
   beforeOffsetY: 0,
+  beforeRotation: 0,
+  beforeBrightness: 100,
+  beforeShade: 0,
+  beforeBottomShade: 100,
   rotation: 0,
   textScale: 100,
   bottomTextScale: 100,
@@ -968,7 +1005,7 @@ document.querySelectorAll("[data-value-control]").forEach((input) => {
       } else {
         state[id] = next;
       }
-      if (id === "beforeZoom") clampBeforeOffsets();
+      if (id === "beforeZoom" || id === "beforeRotation") clampBeforeOffsets();
       if (id === "textScale" && state.textScaleLinked) state.bottomTextScale = next;
     }
     updateUi();
@@ -993,7 +1030,7 @@ document.querySelectorAll("[data-reset-control]").forEach((button) => button.add
     state.bottomTextScale = resetDefaults.bottomTextScale;
   } else {
     state[id] = resetDefaults[id];
-    if (id === "beforeZoom") clampBeforeOffsets();
+    if (id === "beforeZoom" || id === "beforeRotation") clampBeforeOffsets();
     if (id === "textScale" && state.textScaleLinked) state.bottomTextScale = resetDefaults.bottomTextScale;
   }
   updateUi();
@@ -1025,6 +1062,10 @@ $("#resetBeforeControls").addEventListener("click", () => {
   state.beforeZoom = 100;
   state.beforeOffsetX = 0;
   state.beforeOffsetY = 0;
+  state.beforeRotation = 0;
+  state.beforeBrightness = 100;
+  state.beforeShade = 0;
+  state.beforeBottomShade = 100;
   updateUi();
   saveSettings();
   draw();
@@ -1087,7 +1128,7 @@ $("#resetSettings").addEventListener("click", () => {
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100, brightness: 100,
     zoom: 100, offsetX: 0, offsetXRangeVersion: 2, offsetY: 0, rotation: 0, textScale: 100, bottomTextScale: 100, textScaleLinked: true, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 3, shade: 0, bottomShade: 100,
-    safe: true, compareEnabled: false, beforeZoom: 100, beforeOffsetX: 0, beforeOffsetY: 0,
+    safe: true, compareEnabled: false, beforeZoom: 100, beforeOffsetX: 0, beforeOffsetY: 0, beforeRotation: 0, beforeBrightness: 100, beforeShade: 0, beforeBottomShade: 100,
     watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: false, watermarkDefaultVersion: 1,
   });
   retouch.active = false;
@@ -1229,18 +1270,38 @@ function drawComparisonEvidence(ctx, ownerCanvas, width, height) {
   scratchContext.save();
   roundedRectPath(scratchContext, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
   scratchContext.clip();
-  const coverScale = Math.max(
-    imageFrame.width / state.beforeImage.naturalWidth,
-    imageFrame.height / state.beforeImage.naturalHeight,
-  ) * state.beforeZoom / 100;
-  const drawWidth = state.beforeImage.naturalWidth * coverScale;
-  const drawHeight = state.beforeImage.naturalHeight * coverScale;
-  const offsetLimits = getBeforeOffsetLimits(state.beforeImage, imageFrame, state.beforeZoom);
+  const offsetLimits = getBeforeOffsetLimits(state.beforeImage, imageFrame, state.beforeZoom, state.beforeRotation);
   const offsetX = clamp(state.beforeOffsetX, -offsetLimits.x, offsetLimits.x);
   const offsetY = clamp(state.beforeOffsetY, -offsetLimits.y, offsetLimits.y);
-  const centerX = imageFrame.x + imageFrame.width / 2 + offsetX / 100 * imageFrame.width;
-  const centerY = imageFrame.y + imageFrame.height / 2 + offsetY / 100 * imageFrame.height;
-  scratchContext.drawImage(state.beforeImage, centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight);
+  const transform = getComparisonPhotoTransform(
+    { width: state.beforeImage.naturalWidth, height: state.beforeImage.naturalHeight },
+    imageFrame,
+    {
+      zoom: state.beforeZoom,
+      offsetX,
+      offsetY,
+      rotation: state.beforeRotation,
+    },
+  );
+  scratchContext.filter = `brightness(${state.beforeBrightness}%)`;
+  scratchContext.translate(transform.centerX, transform.centerY);
+  scratchContext.rotate(transform.rotationRadians);
+  scratchContext.drawImage(state.beforeImage, -transform.drawWidth / 2, -transform.drawHeight / 2, transform.drawWidth, transform.drawHeight);
+  scratchContext.setTransform(1, 0, 0, 1, 0, 0);
+  scratchContext.filter = "none";
+  if (state.beforeShade > 0) {
+    const shadeAlpha = clamp(state.beforeShade / 100, 0, .9);
+    scratchContext.fillStyle = `rgba(0,0,0,${shadeAlpha})`;
+    scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+  }
+  if (state.beforeBottomShade > 0) {
+    const bottomAlpha = clamp(state.beforeBottomShade / 100, 0, .9);
+    const bottomGradient = scratchContext.createLinearGradient(0, imageFrame.y + imageFrame.height * .35, 0, imageFrame.y + imageFrame.height);
+    bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
+    bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
+    scratchContext.fillStyle = bottomGradient;
+    scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+  }
   scratchContext.restore();
 
   scratchContext.save();

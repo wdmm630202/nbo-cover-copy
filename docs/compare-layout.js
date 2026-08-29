@@ -1,4 +1,53 @@
 (function attachComparisonLayout(global) {
+  const comparisonPhotoDefaults = {
+    zoom: 100,
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    brightness: 100,
+    shade: 0,
+    bottomShade: 100,
+  };
+
+  function comparisonNumber(value, fallback, min, max) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
+  }
+
+  function normalizeComparisonPhotoAdjustments(value = {}) {
+    const source = value || {};
+    return {
+      zoom: comparisonNumber(source.zoom, comparisonPhotoDefaults.zoom, 100, 300),
+      offsetX: comparisonNumber(source.offsetX, comparisonPhotoDefaults.offsetX, -100, 100),
+      offsetY: comparisonNumber(source.offsetY, comparisonPhotoDefaults.offsetY, -100, 100),
+      rotation: comparisonNumber(source.rotation, comparisonPhotoDefaults.rotation, -180, 180),
+      brightness: comparisonNumber(source.brightness, comparisonPhotoDefaults.brightness, 0, 200),
+      shade: comparisonNumber(source.shade, comparisonPhotoDefaults.shade, 0, 100),
+      bottomShade: comparisonNumber(source.bottomShade, comparisonPhotoDefaults.bottomShade, 0, 100),
+    };
+  }
+
+  function getComparisonPhotoTransform(image, frame, value = {}) {
+    const settings = normalizeComparisonPhotoAdjustments(value);
+    const rotationRadians = settings.rotation * Math.PI / 180;
+    const cosine = Math.abs(Math.cos(rotationRadians));
+    const sine = Math.abs(Math.sin(rotationRadians));
+    const naturalWidth = Math.max(1, image.width);
+    const naturalHeight = Math.max(1, image.height);
+    const coverScale = Math.max(
+      (frame.width * cosine + frame.height * sine) / naturalWidth,
+      (frame.width * sine + frame.height * cosine) / naturalHeight,
+    ) * settings.zoom / 100;
+
+    return {
+      drawWidth: naturalWidth * coverScale,
+      drawHeight: naturalHeight * coverScale,
+      centerX: frame.x + frame.width / 2 + settings.offsetX / 100 * frame.width,
+      centerY: frame.y + frame.height / 2 + settings.offsetY / 100 * frame.height,
+      rotationRadians,
+    };
+  }
+
   function getComparisonSafeRect(canvas) {
     const safeHeight = Math.min(canvas.height, Math.round(canvas.width / 3 * 4));
     return {
@@ -54,6 +103,8 @@
   }
 
   global.NBOCompareLayout = {
+    normalizeComparisonPhotoAdjustments,
+    getComparisonPhotoTransform,
     getComparisonSafeRect,
     getComparisonEvidenceLayout,
     getComparisonLabelLayout,

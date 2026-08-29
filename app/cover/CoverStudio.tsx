@@ -33,6 +33,7 @@ import {
   getComparisonFadeStops,
   getComparisonLabelLayout,
   getComparisonOverlapWarning,
+  getComparisonPhotoTransform,
   getComparisonSafeRect,
 } from "./compare-layout";
 
@@ -68,6 +69,10 @@ type StudioSettings = {
   beforeZoom: number;
   beforeOffsetX: number;
   beforeOffsetY: number;
+  beforeRotation: number;
+  beforeBrightness: number;
+  beforeShade: number;
+  beforeBottomShade: number;
   watermarkScale: number;
   watermarkAlign: "left" | "center" | "right";
   watermarkOpacity: number;
@@ -202,6 +207,10 @@ const DEFAULT_SETTINGS: StudioSettings = {
   beforeZoom: 100,
   beforeOffsetX: 0,
   beforeOffsetY: 0,
+  beforeRotation: 0,
+  beforeBrightness: 100,
+  beforeShade: 0,
+  beforeBottomShade: 100,
   watermarkScale: 100,
   watermarkAlign: "left",
   watermarkOpacity: 50,
@@ -318,6 +327,10 @@ function normalizeStudioSettings(value: unknown): StudioSettings {
     beforeZoom: numberValue("beforeZoom", 100, 300),
     beforeOffsetX: numberValue("beforeOffsetX", -100, 100),
     beforeOffsetY: numberValue("beforeOffsetY", -100, 100),
+    beforeRotation: numberValue("beforeRotation", -180, 180),
+    beforeBrightness: numberValue("beforeBrightness", 0, 200),
+    beforeShade: numberValue("beforeShade", 0, 100),
+    beforeBottomShade: numberValue("beforeBottomShade", 0, 100),
     watermarkScale: numberValue("watermarkScale", 0, 300),
     watermarkAlign,
     watermarkOpacity: numberValue("watermarkOpacity", 0, 100),
@@ -352,14 +365,18 @@ function getBeforeOffsetLimits(
   beforeImage: HTMLImageElement | null,
   frame: { width: number; height: number },
   beforeZoom: number,
+  beforeRotation = 0,
 ) {
   if (!beforeImage || !beforeImage.naturalWidth || !beforeImage.naturalHeight) return { x: 0, y: 0 };
-  const coverScale = Math.max(
-    frame.width / beforeImage.naturalWidth,
-    frame.height / beforeImage.naturalHeight,
-  ) * (beforeZoom / 100);
-  const drawWidth = beforeImage.naturalWidth * coverScale;
-  const drawHeight = beforeImage.naturalHeight * coverScale;
+  const transform = getComparisonPhotoTransform(
+    { width: beforeImage.naturalWidth, height: beforeImage.naturalHeight },
+    { x: 0, y: 0, width: frame.width, height: frame.height },
+    { zoom: beforeZoom, rotation: beforeRotation },
+  );
+  const cosine = Math.abs(Math.cos(transform.rotationRadians));
+  const sine = Math.abs(Math.sin(transform.rotationRadians));
+  const drawWidth = transform.drawWidth * cosine + transform.drawHeight * sine;
+  const drawHeight = transform.drawWidth * sine + transform.drawHeight * cosine;
   return {
     x: Math.min(100, Math.max(0, (drawWidth - frame.width) / 2 / frame.width * 100)),
     y: Math.min(100, Math.max(0, (drawHeight - frame.height) / 2 / frame.height * 100)),
@@ -411,18 +428,38 @@ function drawComparisonEvidence(
   scratchContext.save();
   roundedRectPath(scratchContext, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
   scratchContext.clip();
-  const coverScale = Math.max(
-    imageFrame.width / beforeImage.naturalWidth,
-    imageFrame.height / beforeImage.naturalHeight,
-  ) * (settings.beforeZoom / 100);
-  const drawWidth = beforeImage.naturalWidth * coverScale;
-  const drawHeight = beforeImage.naturalHeight * coverScale;
-  const offsetLimits = getBeforeOffsetLimits(beforeImage, imageFrame, settings.beforeZoom);
+  const offsetLimits = getBeforeOffsetLimits(beforeImage, imageFrame, settings.beforeZoom, settings.beforeRotation);
   const offsetX = Math.max(-offsetLimits.x, Math.min(offsetLimits.x, settings.beforeOffsetX));
   const offsetY = Math.max(-offsetLimits.y, Math.min(offsetLimits.y, settings.beforeOffsetY));
-  const centerX = imageFrame.x + imageFrame.width / 2 + offsetX / 100 * imageFrame.width;
-  const centerY = imageFrame.y + imageFrame.height / 2 + offsetY / 100 * imageFrame.height;
-  scratchContext.drawImage(beforeImage, centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight);
+  const transform = getComparisonPhotoTransform(
+    { width: beforeImage.naturalWidth, height: beforeImage.naturalHeight },
+    imageFrame,
+    {
+      zoom: settings.beforeZoom,
+      offsetX,
+      offsetY,
+      rotation: settings.beforeRotation,
+    },
+  );
+  scratchContext.filter = `brightness(${settings.beforeBrightness}%)`;
+  scratchContext.translate(transform.centerX, transform.centerY);
+  scratchContext.rotate(transform.rotationRadians);
+  scratchContext.drawImage(beforeImage, -transform.drawWidth / 2, -transform.drawHeight / 2, transform.drawWidth, transform.drawHeight);
+  scratchContext.setTransform(1, 0, 0, 1, 0, 0);
+  scratchContext.filter = "none";
+  if (settings.beforeShade > 0) {
+    const shadeAlpha = Math.max(0, Math.min(0.9, settings.beforeShade / 100));
+    scratchContext.fillStyle = `rgba(0,0,0,${shadeAlpha})`;
+    scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+  }
+  if (settings.beforeBottomShade > 0) {
+    const bottomAlpha = Math.max(0, Math.min(0.9, settings.beforeBottomShade / 100));
+    const bottomGradient = scratchContext.createLinearGradient(0, imageFrame.y + imageFrame.height * 0.35, 0, imageFrame.y + imageFrame.height);
+    bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
+    bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
+    scratchContext.fillStyle = bottomGradient;
+    scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+  }
   scratchContext.restore();
 
   scratchContext.save();
@@ -1197,9 +1234,9 @@ export default function CoverStudio() {
   );
   const beforeOffsetLimits = useMemo(() => {
     const frame = getBeforeImageFrame(preset);
-    const limits = getBeforeOffsetLimits(beforeImage, frame, settings.beforeZoom);
+    const limits = getBeforeOffsetLimits(beforeImage, frame, settings.beforeZoom, settings.beforeRotation);
     return { x: Math.floor(limits.x), y: Math.floor(limits.y) };
-  }, [beforeImage, preset, settings.beforeZoom]);
+  }, [beforeImage, preset, settings.beforeRotation, settings.beforeZoom]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1878,7 +1915,7 @@ export default function CoverStudio() {
     nextImage.onload = () => {
       setBeforeImage(nextImage);
       setSettings((current) => {
-        const rawLimits = getBeforeOffsetLimits(nextImage, getBeforeImageFrame(preset), current.beforeZoom);
+        const rawLimits = getBeforeOffsetLimits(nextImage, getBeforeImageFrame(preset), current.beforeZoom, current.beforeRotation);
         const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
         return {
           ...current,
@@ -1887,7 +1924,7 @@ export default function CoverStudio() {
         };
       });
       setBeforeFileName(file.name);
-      setNotice("拍摄前素颜照已载入，只保留在本机内存中");
+      setNotice("拍摄前素颜照已载入，可独立调整七项参数");
       URL.revokeObjectURL(url);
     };
     nextImage.onerror = () => {
@@ -2373,6 +2410,10 @@ export default function CoverStudio() {
                   beforeZoom: 100,
                   beforeOffsetX: 0,
                   beforeOffsetY: 0,
+                  beforeRotation: 0,
+                  beforeBrightness: 100,
+                  beforeShade: 0,
+                  beforeBottomShade: 100,
                 }))}>恢复默认</button>
               </div>
               <Slider
@@ -2382,7 +2423,7 @@ export default function CoverStudio() {
                 max={300}
                 suffix="%"
                 onReset={() => setSettings((current) => {
-                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), 100);
+                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), 100, current.beforeRotation);
                   const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
                   return {
                     ...current,
@@ -2392,7 +2433,7 @@ export default function CoverStudio() {
                   };
                 })}
                 onChange={(value) => setSettings((current) => {
-                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), value);
+                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), value, current.beforeRotation);
                   const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
                   return {
                     ...current,
@@ -2419,6 +2460,64 @@ export default function CoverStudio() {
                 suffix=""
                 onReset={() => updateSetting("beforeOffsetY", 0)}
                 onChange={(value) => updateSetting("beforeOffsetY", Math.max(-beforeOffsetLimits.y, Math.min(beforeOffsetLimits.y, value)))}
+              />
+              <Slider
+                label="拍摄前自由旋转"
+                value={settings.beforeRotation}
+                min={-180}
+                max={180}
+                suffix="°"
+                onReset={() => setSettings((current) => {
+                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), current.beforeZoom, 0);
+                  const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
+                  return {
+                    ...current,
+                    beforeRotation: 0,
+                    beforeOffsetX: Math.max(-limits.x, Math.min(limits.x, current.beforeOffsetX)),
+                    beforeOffsetY: Math.max(-limits.y, Math.min(limits.y, current.beforeOffsetY)),
+                  };
+                })}
+                onChange={(value) => {
+                  const snapped = snapRotation(value);
+                  setSettings((current) => {
+                    const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), current.beforeZoom, snapped.value);
+                    const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
+                    return {
+                      ...current,
+                      beforeRotation: snapped.value,
+                      beforeOffsetX: Math.max(-limits.x, Math.min(limits.x, current.beforeOffsetX)),
+                      beforeOffsetY: Math.max(-limits.y, Math.min(limits.y, current.beforeOffsetY)),
+                    };
+                  });
+                  showTransformHint(`拍摄前 ${snapped.value}°`, snapped.guide);
+                }}
+              />
+              <Slider
+                label="拍摄前亮度"
+                value={settings.beforeBrightness}
+                min={0}
+                max={200}
+                suffix="%"
+                onReset={() => updateSetting("beforeBrightness", 100)}
+                onChange={(value) => updateSetting("beforeBrightness", value)}
+              />
+              <Slider
+                label="拍摄前压暗强度"
+                value={settings.beforeShade}
+                min={0}
+                max={100}
+                suffix="%"
+                onReset={() => updateSetting("beforeShade", 0)}
+                onChange={(value) => updateSetting("beforeShade", value)}
+              />
+              <Slider
+                label="拍摄前底部向上压暗"
+                value={settings.beforeBottomShade}
+                min={0}
+                max={100}
+                suffix="%"
+                onReset={() => updateSetting("beforeBottomShade", 100)}
+                onChange={(value) => updateSetting("beforeBottomShade", value)}
               />
             </div>
           ) : null}

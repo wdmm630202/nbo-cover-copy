@@ -86,3 +86,63 @@ test("前后对比只提醒可能遮挡的非左侧版式", async () => {
     assert.equal(layout.getComparisonOverlapWarning(false, "bottom-right"), "");
   }
 });
+
+test("拍摄前照片保留七项独立参数并限制输入范围", async () => {
+  const defaults = {
+    zoom: 100,
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    brightness: 100,
+    shade: 0,
+    bottomShade: 100,
+  };
+  const clamped = {
+    zoom: 300,
+    offsetX: -100,
+    offsetY: 100,
+    rotation: 180,
+    brightness: 0,
+    shade: 100,
+    bottomShade: 0,
+  };
+
+  for (const layout of await loadImplementations()) {
+    assert.deepEqual(plain(layout.normalizeComparisonPhotoAdjustments()), defaults);
+    assert.deepEqual(plain(layout.normalizeComparisonPhotoAdjustments({
+      zoom: 999,
+      offsetX: -999,
+      offsetY: 999,
+      rotation: 999,
+      brightness: -1,
+      shade: 999,
+      bottomShade: -1,
+    })), clamped);
+  }
+});
+
+test("拍摄前照片旋转后仍按相框覆盖并独立应用位置", async () => {
+  const image = { width: 400, height: 800 };
+  const frame = { x: 100, y: 200, width: 400, height: 600 };
+
+  for (const layout of await loadImplementations()) {
+    const straight = layout.getComparisonPhotoTransform(image, frame, {
+      zoom: 100,
+      offsetX: 25,
+      offsetY: -10,
+    });
+    assert.equal(straight.drawWidth, 400);
+    assert.equal(straight.drawHeight, 800);
+    assert.equal(straight.centerX, 400);
+    assert.equal(straight.centerY, 440);
+    assert.equal(straight.rotationRadians, 0);
+
+    const rotated = layout.getComparisonPhotoTransform(image, frame, {
+      zoom: 100,
+      rotation: 90,
+    });
+    assert.ok(Math.abs(rotated.drawWidth - 600) < 1e-9);
+    assert.ok(Math.abs(rotated.drawHeight - 1200) < 1e-9);
+    assert.ok(Math.abs(rotated.rotationRadians - Math.PI / 2) < 1e-9);
+  }
+});

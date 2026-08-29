@@ -90,6 +90,10 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /前后对比/);
   assert.match(coverStudio, /拍摄前素颜照/);
   assert.match(coverStudio, /拍摄前照片缩放/);
+  assert.match(coverStudio, /拍摄前自由旋转/);
+  assert.match(coverStudio, /拍摄前亮度/);
+  assert.match(coverStudio, /拍摄前压暗强度/);
+  assert.match(coverStudio, /拍摄前底部向上压暗/);
   assert.match(coverStudio, /getComparisonEvidenceLayout/);
   assert.match(coverStudio, /getComparisonExportError/);
   assert.match(coverStudio, /photoOnly/);
@@ -160,6 +164,10 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /前后对比/);
   assert.match(publicCover, /拍摄前素颜照/);
   assert.match(publicCover, /拍摄前照片缩放/);
+  assert.match(publicCover, /id="beforeRotation"/);
+  assert.match(publicCover, /id="beforeBrightness"/);
+  assert.match(publicCover, /id="beforeShade"/);
+  assert.match(publicCover, /id="beforeBottomShade"/);
   assert.match(publicCover, /compare-layout\.js/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);

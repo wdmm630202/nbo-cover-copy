@@ -1,5 +1,69 @@
 export type CompareCanvasSize = { width: number; height: number };
 export type CompareRect = { x: number; y: number; width: number; height: number };
+export type ComparisonPhotoAdjustments = {
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+  rotation: number;
+  brightness: number;
+  shade: number;
+  bottomShade: number;
+};
+
+const COMPARISON_PHOTO_DEFAULTS: ComparisonPhotoAdjustments = {
+  zoom: 100,
+  offsetX: 0,
+  offsetY: 0,
+  rotation: 0,
+  brightness: 100,
+  shade: 0,
+  bottomShade: 100,
+};
+
+function comparisonNumber(value: unknown, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
+}
+
+export function normalizeComparisonPhotoAdjustments(
+  value: Partial<Record<keyof ComparisonPhotoAdjustments, unknown>> | null = {},
+): ComparisonPhotoAdjustments {
+  const source = value ?? {};
+  return {
+    zoom: comparisonNumber(source.zoom, COMPARISON_PHOTO_DEFAULTS.zoom, 100, 300),
+    offsetX: comparisonNumber(source.offsetX, COMPARISON_PHOTO_DEFAULTS.offsetX, -100, 100),
+    offsetY: comparisonNumber(source.offsetY, COMPARISON_PHOTO_DEFAULTS.offsetY, -100, 100),
+    rotation: comparisonNumber(source.rotation, COMPARISON_PHOTO_DEFAULTS.rotation, -180, 180),
+    brightness: comparisonNumber(source.brightness, COMPARISON_PHOTO_DEFAULTS.brightness, 0, 200),
+    shade: comparisonNumber(source.shade, COMPARISON_PHOTO_DEFAULTS.shade, 0, 100),
+    bottomShade: comparisonNumber(source.bottomShade, COMPARISON_PHOTO_DEFAULTS.bottomShade, 0, 100),
+  };
+}
+
+export function getComparisonPhotoTransform(
+  image: { width: number; height: number },
+  frame: CompareRect,
+  value: Partial<Record<keyof ComparisonPhotoAdjustments, unknown>> | null = {},
+) {
+  const settings = normalizeComparisonPhotoAdjustments(value);
+  const rotationRadians = settings.rotation * Math.PI / 180;
+  const cosine = Math.abs(Math.cos(rotationRadians));
+  const sine = Math.abs(Math.sin(rotationRadians));
+  const naturalWidth = Math.max(1, image.width);
+  const naturalHeight = Math.max(1, image.height);
+  const coverScale = Math.max(
+    (frame.width * cosine + frame.height * sine) / naturalWidth,
+    (frame.width * sine + frame.height * cosine) / naturalHeight,
+  ) * settings.zoom / 100;
+
+  return {
+    drawWidth: naturalWidth * coverScale,
+    drawHeight: naturalHeight * coverScale,
+    centerX: frame.x + frame.width / 2 + settings.offsetX / 100 * frame.width,
+    centerY: frame.y + frame.height / 2 + settings.offsetY / 100 * frame.height,
+    rotationRadians,
+  };
+}
 
 export function getComparisonSafeRect(canvas: CompareCanvasSize): CompareRect {
   const safeHeight = Math.min(canvas.height, Math.round(canvas.width / 3 * 4));
