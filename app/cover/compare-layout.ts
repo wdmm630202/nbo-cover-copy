@@ -96,6 +96,17 @@ export function isPointInComparisonPhotoFrame(
     && y <= frame.y + frame.height - inset;
 }
 
+export function resolveRetouchTargetFromPoint(
+  point: { x: number; y: number },
+  canvas: CompareCanvasSize,
+  comparisonEnabled: boolean,
+  hasBeforeImage: boolean,
+): RetouchTarget {
+  return comparisonEnabled && hasBeforeImage && isPointInComparisonPhotoFrame(point, canvas)
+    ? "before"
+    : "after";
+}
+
 export function getComparisonSafeRect(canvas: CompareCanvasSize): CompareRect {
   const safeHeight = Math.min(canvas.height, Math.round(canvas.width / 3 * 4));
   return {

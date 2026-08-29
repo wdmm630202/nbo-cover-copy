@@ -35,8 +35,8 @@ import {
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
   getVisibleRetouchStrokes,
-  isPointInComparisonPhotoFrame,
   resolveRetouchTarget,
+  resolveRetouchTargetFromPoint,
   RetouchTarget,
 } from "./compare-layout";
 
@@ -1117,7 +1117,6 @@ export default function CoverStudio() {
   const beforeImageRef = useRef(beforeImage);
   const rotationModeRef = useRef(rotationMode);
   const brushModeRef = useRef(brushMode);
-  const retouchTargetRef = useRef<RetouchTarget>("after");
   const brushSettingsRef = useRef({ size: brushSize, feather: brushFeather, strength: brushStrength });
 
   const showTransformHint = (text: string, guide: "horizontal" | "vertical" | null = null) => {
@@ -1205,10 +1204,6 @@ export default function CoverStudio() {
   }, [beforeImage, settings]);
 
   useEffect(() => {
-    retouchTargetRef.current = activeRetouchTarget;
-  }, [activeRetouchTarget]);
-
-  useEffect(() => {
     rotationModeRef.current = rotationMode;
   }, [rotationMode]);
 
@@ -1261,13 +1256,16 @@ export default function CoverStudio() {
         setShowRetouchBefore(false);
         const rect = canvas.getBoundingClientRect();
         const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-        const target = resolveRetouchTarget(retouchTargetRef.current, settingsRef.current.compareEnabled, Boolean(beforeImageRef.current));
-        if (target === "before" && !isPointInComparisonPhotoFrame(point, { width: canvas.width, height: canvas.height })) {
-          setNotice("请在右下角拍摄前照片内涂抹");
-          return;
-        }
+        const target = resolveRetouchTargetFromPoint(
+          point,
+          { width: canvas.width, height: canvas.height },
+          settingsRef.current.compareEnabled,
+          Boolean(beforeImageRef.current),
+        );
         const brush = brushSettingsRef.current;
         brushPointer = { pointerId: event.pointerId, target };
+        setRetouchTarget(target);
+        setNotice(target === "before" ? "正在涂抹拍摄前照片" : "正在涂抹主照片");
         const appendStroke = (current: RetouchStroke[]) => [...current, { points: [point], ...brush }];
         if (target === "before") setBeforeRetouchStrokes(appendStroke);
         else setRetouchStrokes(appendStroke);
@@ -1294,9 +1292,7 @@ export default function CoverStudio() {
       if (brushModeRef.current) {
         const rect = canvas.getBoundingClientRect();
         const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-        const target = resolveRetouchTarget(retouchTargetRef.current, settingsRef.current.compareEnabled, Boolean(beforeImageRef.current));
-        const visible = target === "after" || isPointInComparisonPhotoFrame(point, { width: canvas.width, height: canvas.height });
-        setBrushCursor({ ...point, visible });
+        setBrushCursor({ ...point, visible: true });
       }
       if (brushPointer?.pointerId === event.pointerId) {
         const rect = canvas.getBoundingClientRect();
@@ -2338,25 +2334,25 @@ export default function CoverStudio() {
           <div className={`studio-retouch${settings.compareEnabled && beforeImage ? " is-comparing" : ""}`}>
             <div className="studio-retouch-heading"><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
             {settings.compareEnabled && beforeImage ? (
-              <div className="studio-retouch-target" aria-label="涂抹对象">
+              <div className="studio-retouch-target" aria-label="管理涂抹记录">
                 <button
                   type="button"
                   className={activeRetouchTarget === "after" ? "is-active" : ""}
                   onClick={() => {
                     setRetouchTarget("after");
                     setShowRetouchBefore(false);
-                    setNotice("当前涂抹对象：主照片");
+                    setNotice("当前查看主照片的涂抹记录");
                   }}
-                >主照片</button>
+                >主照片记录</button>
                 <button
                   type="button"
                   className={activeRetouchTarget === "before" ? "is-active" : ""}
                   onClick={() => {
                     setRetouchTarget("before");
                     setShowRetouchBefore(false);
-                    setNotice("当前涂抹对象：拍摄前照片，请在右下角照片内绘制");
+                    setNotice("当前查看拍摄前照片的涂抹记录");
                   }}
-                >拍摄前照片</button>
+                >拍摄前记录</button>
               </div>
             ) : null}
             <button
@@ -2367,8 +2363,8 @@ export default function CoverStudio() {
                 setRotationMode(false);
                 setNotice(brushMode
                   ? "已退出涂抹，可继续移动照片"
-                  : activeRetouchTarget === "before"
-                    ? "已开启拍摄前照片涂抹，请在右下角照片内按住绘制"
+                  : settings.compareEnabled && beforeImage
+                    ? "已开启涂抹，落笔位置会自动识别主照片或拍摄前照片"
                     : "已开启主照片涂抹，请在照片上按住绘制");
               }}
             >{brushMode ? "退出涂抹" : "开启涂抹"}</button>
@@ -2379,7 +2375,7 @@ export default function CoverStudio() {
               <button type="button" disabled={!activeRetouchStrokes.length} className={showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(true)}>涂抹前</button>
               <button type="button" className={!showRetouchBefore ? "is-active" : ""} onClick={() => setShowRetouchBefore(false)}>涂抹后</button>
             </div>
-            <small className="studio-retouch-note">当前处理：{activeRetouchTarget === "before" ? "拍摄前照片" : "主照片"} · 导出始终保留涂抹效果</small>
+            <small className="studio-retouch-note">落笔自动识别照片 · 当前管理：{activeRetouchTarget === "before" ? "拍摄前照片" : "主照片"}</small>
             <div className="studio-retouch-actions">
               <button type="button" disabled={!activeRetouchStrokes.length} onClick={() => {
                 setShowRetouchBefore(false);

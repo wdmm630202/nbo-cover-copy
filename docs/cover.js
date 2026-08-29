@@ -42,9 +42,9 @@ const {
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
   getVisibleRetouchStrokes,
-  isPointInComparisonPhotoFrame,
   normalizeComparisonPhotoAdjustments,
   resolveRetouchTarget,
+  resolveRetouchTargetFromPoint,
 } = window.NBOCompareLayout;
 const state = {
   platform: "douyin",
@@ -228,11 +228,8 @@ canvas.addEventListener("pointerdown", (event) => {
     retouch.compareBefore = false;
     const rect = canvas.getBoundingClientRect();
     const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-    const target = activeRetouchTarget();
-    if (target === "before" && !isPointInComparisonPhotoFrame(point, { width: canvas.width, height: canvas.height })) {
-      setStatus("请在右下角拍摄前照片内涂抹");
-      return;
-    }
+    const target = resolveRetouchTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+    retouch.target = target;
     retouch.pointerId = event.pointerId;
     retouch.pointerTarget = target;
     const strokes = target === "before" ? retouch.beforeStrokes : retouch.strokes;
@@ -244,6 +241,7 @@ canvas.addEventListener("pointerdown", (event) => {
     });
     canvas.setPointerCapture(event.pointerId);
     updateUi();
+    setStatus(target === "before" ? "正在涂抹拍摄前照片" : "正在涂抹主照片");
     draw();
     return;
   }
@@ -266,7 +264,7 @@ canvas.addEventListener("pointermove", (event) => {
     const cursor = $("#brushCursor");
     cursor.style.left = `${point.x * 100}%`;
     cursor.style.top = `${point.y * 100}%`;
-    cursor.classList.toggle("visible", activeRetouchTarget() === "after" || isPointInComparisonPhotoFrame(point, { width: canvas.width, height: canvas.height }));
+    cursor.classList.add("visible");
   }
   if (retouch.pointerId === event.pointerId) {
     const rect = canvas.getBoundingClientRect();
@@ -845,7 +843,7 @@ function updateUi() {
   $(".retouch-panel").classList.toggle("compare-retouch", Boolean(state.compareEnabled && state.beforeImage));
   $("#retouchTargetAfter").classList.toggle("active", retouchTarget === "after");
   $("#retouchTargetBefore").classList.toggle("active", retouchTarget === "before");
-  $("#retouchNote").textContent = `当前处理：${retouchTarget === "before" ? "拍摄前照片" : "主照片"} · 导出始终保留涂抹效果`;
+  $("#retouchNote").textContent = `落笔自动识别照片 · 当前管理：${retouchTarget === "before" ? "拍摄前照片" : "主照片"}`;
   $("#brushSizeValue").value = retouch.size;
   $("#brushFeatherValue").value = retouch.feather;
   $("#brushStrengthValue").value = retouch.strength;
@@ -993,8 +991,8 @@ $("#retouchToggle").addEventListener("click", () => {
   imageInteraction.rotationMode = false;
   updateUi();
   setStatus(retouch.active
-    ? activeRetouchTarget() === "before"
-      ? "已开启拍摄前照片涂抹，请在右下角照片内按住绘制"
+    ? state.compareEnabled && state.beforeImage
+      ? "已开启涂抹，落笔位置会自动识别主照片或拍摄前照片"
       : "已开启主照片涂抹，请在照片上按住绘制"
     : "已退出涂抹，可继续移动照片");
 });
@@ -1079,8 +1077,8 @@ document.querySelectorAll("[data-reset-control]").forEach((button) => button.add
   draw();
   setStatus("这一项已恢复默认");
 }));
-$("#retouchTargetAfter").addEventListener("click", () => { retouch.target = "after"; retouch.compareBefore = false; updateUi(); draw(); setStatus("当前涂抹对象：主照片"); });
-$("#retouchTargetBefore").addEventListener("click", () => { retouch.target = "before"; retouch.compareBefore = false; updateUi(); draw(); setStatus("当前涂抹对象：拍摄前照片，请在右下角照片内绘制"); });
+$("#retouchTargetAfter").addEventListener("click", () => { retouch.target = "after"; retouch.compareBefore = false; updateUi(); draw(); setStatus("当前查看主照片的涂抹记录"); });
+$("#retouchTargetBefore").addEventListener("click", () => { retouch.target = "before"; retouch.compareBefore = false; updateUi(); draw(); setStatus("当前查看拍摄前照片的涂抹记录"); });
 $("#compareBefore").addEventListener("click", () => { if (!activeRetouchStrokes().length) return; retouch.compareBefore = true; updateUi(); draw(); });
 $("#compareAfter").addEventListener("click", () => { retouch.compareBefore = false; updateUi(); draw(); });
 $("#undoRetouch").addEventListener("click", () => { retouch.compareBefore = false; activeRetouchStrokes().pop(); updateUi(); draw(); });

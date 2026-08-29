@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#202020" />
     <meta name="robots" content="noindex,nofollow" />
-    <!-- Cache lineage: mobile-123-gestures → 20260830-before-photo-retouch. -->
+    <!-- Cache lineage: mobile-123-gestures → 20260830-auto-retouch-target. -->
     <title>NBO南铂封面制作台</title>
-    <link rel="stylesheet" href="./cover.css?v=20260830-before-photo-retouch" />
+    <link rel="stylesheet" href="./cover.css?v=20260830-auto-retouch-target" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -152,13 +152,13 @@
             <button id="resetSettings" class="reset-settings" type="button">恢复默认</button>
             <div class="retouch-panel">
               <div><b>局部涂抹提亮</b><span>⌘[ 缩小 · ⌘] 放大</span></div>
-              <section class="retouch-target" id="retouchTarget" aria-label="涂抹对象" hidden><button id="retouchTargetAfter" class="active" type="button">主照片</button><button id="retouchTargetBefore" type="button">拍摄前照片</button></section>
+              <section class="retouch-target" id="retouchTarget" aria-label="管理涂抹记录" hidden><button id="retouchTargetAfter" class="active" type="button">主照片记录</button><button id="retouchTargetBefore" type="button">拍摄前记录</button></section>
               <button id="retouchToggle" type="button">开启涂抹</button>
               <label><span>画笔大小 <span class="slider-value-control"><span class="slider-number-wrap"><input id="brushSizeValue" data-value-control="brushSize" type="number" inputmode="decimal" min="20" max="400" value="120" aria-label="画笔大小准确数值" /></span><button type="button" class="slider-reset" data-reset-control="brushSize">复位</button></span></span><input id="brushSize" type="range" min="20" max="400" value="120" /></label>
               <label><span>羽化 <span class="slider-value-control"><span class="slider-number-wrap"><input id="brushFeatherValue" data-value-control="brushFeather" type="number" inputmode="decimal" min="0" max="100" value="70" aria-label="羽化准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="brushFeather">复位</button></span></span><input id="brushFeather" type="range" min="0" max="100" value="70" /></label>
               <label><span>涂抹强度 <span class="slider-value-control"><span class="slider-number-wrap"><input id="brushStrengthValue" data-value-control="brushStrength" type="number" inputmode="decimal" min="0" max="100" value="100" aria-label="涂抹强度准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="brushStrength">复位</button></span></span><input id="brushStrength" type="range" min="0" max="100" value="100" /></label>
               <section class="retouch-compare"><button id="compareBefore" type="button" disabled>涂抹前</button><button id="compareAfter" class="active" type="button">涂抹后</button></section>
-              <small id="retouchNote">当前处理：主照片 · 导出始终保留涂抹效果</small>
+              <small id="retouchNote">落笔自动识别照片 · 当前管理：主照片</small>
               <section><button id="undoRetouch" type="button" disabled>撤销一步</button><button id="clearRetouch" type="button" disabled>全部清除</button></section>
             </div>
             <div class="sliders">
@@ -211,7 +211,7 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./compare-layout.js?v=20260830-before-photo-retouch"></script>
-    <script src="./cover.js?v=20260830-before-photo-retouch"></script>
+    <script src="./compare-layout.js?v=20260830-auto-retouch-target"></script>
+    <script src="./cover.js?v=20260830-auto-retouch-target"></script>
   </body>
 </html>

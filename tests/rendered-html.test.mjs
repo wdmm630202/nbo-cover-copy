@@ -111,7 +111,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /studio-brush-cursor/);
   assert.match(coverStudio, /涂抹前/);
   assert.match(coverStudio, /涂抹后/);
-  assert.match(coverStudio, /aria-label="涂抹对象"/);
+  assert.match(coverStudio, /aria-label="管理涂抹记录"/);
   assert.match(coverStudio, /主照片/);
   assert.match(coverStudio, /拍摄前照片/);
   assert.match(coverStudio, /getVisibleRetouchStrokes/);
@@ -177,7 +177,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /compare-layout\.js/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /cover\.css\?v=20260830-before-photo-retouch/);
+  assert.match(publicCover, /cover\.css\?v=20260830-auto-retouch-target/);
   assert.match(publicCover, /id="mobileTouchZone"/);
   assert.match(publicCoverScript, /mobileGesture/);
   assert.match(publicCoverScript, /mode: "rotate"/);

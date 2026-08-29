@@ -177,6 +177,17 @@ test("拍摄前照片涂抹只接受右下角照片相框内的落笔", async ()
   }
 });
 
+test("前后对比涂抹按落笔位置自动选择照片，而不是沿用面板中的旧目标", async () => {
+  const canvas = { width: 1080, height: 1920 };
+  for (const layout of await loadImplementations()) {
+    assert.equal(typeof layout.resolveRetouchTargetFromPoint, "function");
+    assert.equal(layout.resolveRetouchTargetFromPoint({ x: 0.8, y: 0.7 }, canvas, true, true), "before");
+    assert.equal(layout.resolveRetouchTargetFromPoint({ x: 0.4, y: 0.7 }, canvas, true, true), "after");
+    assert.equal(layout.resolveRetouchTargetFromPoint({ x: 0.8, y: 0.7 }, canvas, false, true), "after");
+    assert.equal(layout.resolveRetouchTargetFromPoint({ x: 0.8, y: 0.7 }, canvas, true, false), "after");
+  }
+});
+
 test("前后对比装饰层只绘制前后胶囊，不再写入多余品牌字", async () => {
   for (const layout of await loadImplementations()) {
     const text = [];
