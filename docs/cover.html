@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#202020" />
     <meta name="robots" content="noindex,nofollow" />
+    <!-- Cache lineage: mobile-123-gestures → 20260829-real-before-after. -->
     <title>NBO南铂封面制作台</title>
-    <link rel="stylesheet" href="./cover.css?v=20260803-mobile-123-gestures" />
+    <link rel="stylesheet" href="./cover.css?v=20260829-real-before-after" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -36,7 +37,7 @@
         <div class="studio-grid">
           <aside class="panel controls">
             <div class="panel-heading"><b>01</b><span><strong>照片与文字</strong><small>先放原片，再放两行主文案</small></span></div>
-            <div class="status"><i></i><span id="statusText">上传照片后即可制作</span></div>
+            <div class="status" aria-live="polite" aria-atomic="true"><i></i><span id="statusText">上传照片后即可制作</span></div>
             <div class="copy-sync" id="copySync">
               <div><strong id="copySyncTitle">等待文案页方案</strong><small id="copySyncDetail">识别完成并选择方案后，可同步两行封面文字</small></div>
               <button id="syncAllCopy" type="button" disabled>全部同步</button>
@@ -48,6 +49,16 @@
                 <small id="fileName">支持 JPG、PNG、WEBP</small>
               </label>
               <button class="image-sync" id="syncCoverImage" type="button" disabled>同步封面</button>
+            </div>
+            <div class="compare-upload-panel" id="compareUploadPanel" hidden>
+              <div><strong>拍摄前素颜照</strong><small>仅在当前浏览器内存中处理，不上传、不保存</small></div>
+              <div class="compare-upload" id="beforeUploadBox">
+                <input id="beforeFileInput" type="file" accept="image/jpeg,image/png,image/webp" />
+                <button id="beforeUploadButton" type="button">
+                  <strong id="beforeUploadTitle">请添加拍摄前素颜照</strong>
+                  <small id="beforeFileName">支持 JPG、PNG、WEBP</small>
+                </button>
+              </div>
             </div>
             <div class="field">
               <div class="field-title"><span>上行主标题 <b>默认纯白·可取色</b></span></div>
@@ -98,7 +109,10 @@
           <section class="preview-panel">
             <div class="preview-toolbar">
               <span><strong>实时封面预览</strong><small id="previewRatio">抖音 · 9:16</small></span>
-              <label class="switch"><input id="safeToggle" type="checkbox" checked /><i></i>安全区</label>
+              <div class="preview-switches">
+                <label class="switch"><input id="safeToggle" type="checkbox" checked /><i></i>安全区</label>
+                <label class="switch"><input id="compareToggle" type="checkbox" /><i></i>前后对比</label>
+              </div>
             </div>
             <div class="canvas-shell ratio-9-16" id="canvasShell">
               <canvas id="coverCanvas" aria-label="封面实时预览，可拖动照片、滚轮缩放、双击旋转"></canvas>
@@ -109,16 +123,19 @@
               <span class="brush-cursor" id="brushCursor" aria-hidden="true"></span>
             </div>
             <div class="preview-tools" id="previewTools">
-              <div class="templates" id="templates">
-                <button type="button" class="template" data-template="top-left"><i>01</i><b>上方左题</b><span>上方区域，左侧对齐</span></button>
-                <button type="button" class="template center" data-template="top-center"><i>02</i><b>上方居中</b><span>上方区域，中轴对齐</span></button>
-                <button type="button" class="template right" data-template="top-right"><i>03</i><b>上方右题</b><span>上方区域，右侧对齐</span></button>
-                <button type="button" class="template active" data-template="middle-left"><i>04</i><b>居中左题</b><span>居中区域，左侧对齐</span></button>
-                <button type="button" class="template center" data-template="middle-center"><i>05</i><b>居中</b><span>居中区域，中轴对齐</span></button>
-                <button type="button" class="template right" data-template="middle-right"><i>06</i><b>居中右题</b><span>居中区域，右侧对齐</span></button>
-                <button type="button" class="template bottom" data-template="bottom-left"><i>07</i><b>下方左题</b><span>下方区域，左侧对齐</span></button>
-                <button type="button" class="template center bottom" data-template="bottom-center"><i>08</i><b>下方居中</b><span>下方区域，中轴对齐</span></button>
-                <button type="button" class="template right bottom" data-template="bottom-right"><i>09</i><b>下方右题</b><span>下方区域，右侧对齐</span></button>
+              <div class="template-area">
+                <div class="templates" id="templates">
+                  <button type="button" class="template" data-template="top-left"><i>01</i><b>上方左题</b><span>上方区域，左侧对齐</span></button>
+                  <button type="button" class="template center" data-template="top-center"><i>02</i><b>上方居中</b><span>上方区域，中轴对齐</span></button>
+                  <button type="button" class="template right" data-template="top-right"><i>03</i><b>上方右题</b><span>上方区域，右侧对齐</span></button>
+                  <button type="button" class="template active" data-template="middle-left"><i>04</i><b>居中左题</b><span>居中区域，左侧对齐</span></button>
+                  <button type="button" class="template center" data-template="middle-center"><i>05</i><b>居中</b><span>居中区域，中轴对齐</span></button>
+                  <button type="button" class="template right" data-template="middle-right"><i>06</i><b>居中右题</b><span>居中区域，右侧对齐</span></button>
+                  <button type="button" class="template bottom" data-template="bottom-left"><i>07</i><b>下方左题</b><span>下方区域，左侧对齐</span></button>
+                  <button type="button" class="template center bottom" data-template="bottom-center"><i>08</i><b>下方居中</b><span>下方区域，中轴对齐</span></button>
+                  <button type="button" class="template right bottom" data-template="bottom-right"><i>09</i><b>下方右题</b><span>下方区域，右侧对齐</span></button>
+                </div>
+                <p class="compare-overlap-warning" id="compareOverlapWarning" hidden></p>
               </div>
               <div class="export-row">
                 <button type="button" class="original" id="exportOriginalPng">导出原图 PNG</button>
@@ -147,6 +164,13 @@
               <label><span>照片缩放 <span class="slider-value-control"><span class="slider-number-wrap"><input id="zoomValue" data-value-control="zoom" type="number" inputmode="decimal" min="0" max="400" value="100" aria-label="照片缩放准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="zoom">复位</button></span></span><input id="zoom" type="range" min="0" max="400" value="100" /></label>
               <label><span>左右位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="offsetXValue" data-value-control="offsetX" type="number" inputmode="decimal" min="-200" max="200" value="0" aria-label="左右位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="offsetX">复位</button></span></span><input id="offsetX" type="range" min="-200" max="200" value="0" /></label>
               <label><span>上下位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="offsetYValue" data-value-control="offsetY" type="number" inputmode="decimal" min="-200" max="200" value="0" aria-label="上下位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="offsetY">复位</button></span></span><input id="offsetY" type="range" min="-200" max="200" value="0" /></label>
+              <section class="before-controls" id="beforeControls" hidden>
+                <div><b>拍摄前照片构图</b><small>与主照片独立调整</small></div>
+                <label><span>拍摄前照片缩放 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeZoomValue" data-value-control="beforeZoom" type="number" inputmode="decimal" min="100" max="300" value="100" aria-label="拍摄前照片缩放准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeZoom">复位</button></span></span><input id="beforeZoom" type="range" min="100" max="300" value="100" /></label>
+                <label><span>拍摄前左右位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeOffsetXValue" data-value-control="beforeOffsetX" type="number" inputmode="decimal" min="-100" max="100" value="0" aria-label="拍摄前左右位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="beforeOffsetX">复位</button></span></span><input id="beforeOffsetX" type="range" min="-100" max="100" value="0" /></label>
+                <label><span>拍摄前上下位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeOffsetYValue" data-value-control="beforeOffsetY" type="number" inputmode="decimal" min="-100" max="100" value="0" aria-label="拍摄前上下位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="beforeOffsetY">复位</button></span></span><input id="beforeOffsetY" type="range" min="-100" max="100" value="0" /></label>
+                <button class="before-reset" id="resetBeforeControls" type="button">恢复拍摄前照片默认构图</button>
+              </section>
               <label><span>自由旋转 <span class="slider-value-control"><span class="slider-number-wrap"><input id="rotationValue" data-value-control="rotation" type="number" inputmode="decimal" min="-180" max="180" value="0" aria-label="自由旋转准确数值" /><i>°</i></span><button type="button" class="slider-reset" data-reset-control="rotation">复位</button></span></span><input id="rotation" type="range" min="-180" max="180" value="0" /></label>
               <label><span>上行标题大小 <span class="slider-value-control"><span class="slider-number-wrap"><input id="textScaleValue" data-value-control="textScale" type="number" inputmode="decimal" min="0" max="200" value="100" aria-label="上行标题大小准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="textScale">复位</button></span></span><input id="textScale" type="range" min="0" max="200" value="100" /></label>
               <button id="textScaleLink" class="title-scale-link active" type="button" aria-pressed="true">上下行大小联动</button>
@@ -182,6 +206,7 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./cover.js?v=20260803-mobile-123-gestures"></script>
+    <script src="./compare-layout.js?v=20260829-real-before-after"></script>
+    <script src="./cover.js?v=20260829-real-before-after"></script>
   </body>
 </html>

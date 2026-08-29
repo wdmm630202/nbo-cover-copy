@@ -27,6 +27,14 @@ import {
   normalizeCoverCopySync,
   normalizeCoverImageSync,
 } from "../workspace-sync";
+import {
+  getComparisonEvidenceLayout,
+  getComparisonExportError,
+  getComparisonFadeStops,
+  getComparisonLabelLayout,
+  getComparisonOverlapWarning,
+  getComparisonSafeRect,
+} from "./compare-layout";
 
 type StudioSettings = {
   platformId: PlatformPreset["id"];
@@ -56,6 +64,10 @@ type StudioSettings = {
   shade: number;
   bottomShade: number;
   showSafeArea: boolean;
+  compareEnabled: boolean;
+  beforeZoom: number;
+  beforeOffsetX: number;
+  beforeOffsetY: number;
   watermarkScale: number;
   watermarkAlign: "left" | "center" | "right";
   watermarkOpacity: number;
@@ -71,28 +83,47 @@ type ExportAsset = {
 
 type RetouchPoint = { x: number; y: number };
 type RetouchStroke = { points: RetouchPoint[]; size: number; feather: number; strength: number };
-type CoverScratch = { shade: HTMLCanvasElement; stroke: HTMLCanvasElement };
+type CoverScratchKind = "shade" | "stroke" | "compare";
+type CoverScratch = Partial<Record<CoverScratchKind, HTMLCanvasElement>>;
 
 const coverScratch = new WeakMap<HTMLCanvasElement, CoverScratch>();
 
-function getCoverScratch(canvas: HTMLCanvasElement, width: number, height: number) {
+function getCoverScratch(
+  canvas: HTMLCanvasElement,
+  kind: CoverScratchKind,
+  width: number,
+  height: number,
+) {
   let scratch = coverScratch.get(canvas);
   if (!scratch) {
-    scratch = { shade: document.createElement("canvas"), stroke: document.createElement("canvas") };
+    scratch = {};
     coverScratch.set(canvas, scratch);
   }
-  for (const item of [scratch.shade, scratch.stroke]) {
-    if (item.width !== width) item.width = width;
-    if (item.height !== height) item.height = height;
+  let item = scratch[kind];
+  if (!item) {
+    item = document.createElement("canvas");
+    scratch[kind] = item;
   }
-  return scratch;
+  if (item.width !== width) item.width = width;
+  if (item.height !== height) item.height = height;
+  return item;
+}
+
+function releaseCoverScratch(canvas: HTMLCanvasElement, kind: CoverScratchKind) {
+  const scratch = coverScratch.get(canvas);
+  const item = scratch?.[kind];
+  if (!scratch || !item) return;
+  item.width = item.height = 1;
+  delete scratch[kind];
+  if (!Object.keys(scratch).length) coverScratch.delete(canvas);
 }
 
 function releaseCoverCanvas(canvas: HTMLCanvasElement) {
   const scratch = coverScratch.get(canvas);
   if (scratch) {
-    scratch.shade.width = scratch.shade.height = 1;
-    scratch.stroke.width = scratch.stroke.height = 1;
+    Object.values(scratch).forEach((item) => {
+      item.width = item.height = 1;
+    });
     coverScratch.delete(canvas);
   }
   canvas.width = canvas.height = 1;
@@ -167,6 +198,10 @@ const DEFAULT_SETTINGS: StudioSettings = {
   shade: 0,
   bottomShade: 100,
   showSafeArea: true,
+  compareEnabled: false,
+  beforeZoom: 100,
+  beforeOffsetX: 0,
+  beforeOffsetY: 0,
   watermarkScale: 100,
   watermarkAlign: "left",
   watermarkOpacity: 50,
@@ -190,9 +225,323 @@ function normalizeTemplateId(value: unknown): CoverTemplate["id"] {
     : DEFAULT_SETTINGS.templateId;
 }
 
+function normalizeStudioSettings(value: unknown): StudioSettings {
+  const source: Record<string, unknown> = value && typeof value === "object" && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : {};
+  if (!Object.keys(DEFAULT_SETTINGS).some((key) => Object.prototype.hasOwnProperty.call(source, key))) {
+    return { ...DEFAULT_SETTINGS };
+  }
+  const numberValue = (key: keyof StudioSettings, min: number, max: number) => {
+    const parsed = Number(source[key]);
+    return Number.isFinite(parsed)
+      ? Math.max(min, Math.min(max, parsed))
+      : DEFAULT_SETTINGS[key] as number;
+  };
+  const booleanValue = (key: keyof StudioSettings) => typeof source[key] === "boolean"
+    ? source[key] as boolean
+    : DEFAULT_SETTINGS[key] as boolean;
+  const textValue = (key: "topText" | "bottomText" | "subtitle", maxLength: number) => typeof source[key] === "string"
+    ? source[key].slice(0, maxLength)
+    : DEFAULT_SETTINGS[key];
+  const colorValue = (key: "topColor" | "bottomColor" | "dividerColor" | "subtitleColor") => {
+    const color = typeof source[key] === "string" ? source[key].toUpperCase() : "";
+    return /^#[0-9A-F]{6}$/.test(color) ? color : DEFAULT_SETTINGS[key];
+  };
+
+  if (source.bottomColor === "#FEE800") source.bottomColor = "#FFFFFF";
+  if (Number(source.watermarkOpacity) === 92) source.watermarkOpacity = 50;
+  if (Number(source.watermarkScale) <= 42) source.watermarkScale = 100;
+  if (Number(source.shade) === 62) source.shade = 0;
+  if (source.watermarkDefaultVersion !== 1) {
+    source.watermarkEnabled = false;
+    source.watermarkDefaultVersion = 1;
+  }
+  if (Number(source.titleScaleVersion ?? 0) < 2) {
+    source.textScale = Math.round(Number(source.textScale || 100) / 1.8);
+  }
+  if (Number(source.titleScaleVersion ?? 0) < 3) {
+    source.bottomTextScale = Number(source.textScale || 100);
+    source.textScaleLinked = true;
+    source.titleScaleVersion = 3;
+  }
+  if (source.textShadowDefaultVersion !== 1) {
+    source.textShadow = 50;
+    source.textShadowDefaultVersion = 1;
+  }
+  if (source.offsetXRangeVersion !== 2) {
+    const previousOffsetX = Number(source.offsetX ?? (source.offsetXRangeVersion === 1 ? 100 : 0));
+    source.offsetX = Math.max(-200, Math.min(200, source.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
+    source.offsetXRangeVersion = 2;
+  }
+  if (source.bottomText === "藏在自然状态里") source.bottomText = "藏在自然状态";
+
+  const platformId = typeof source.platformId === "string"
+    && PLATFORM_PRESETS.some((item) => item.id === source.platformId)
+    ? source.platformId as PlatformPreset["id"]
+    : DEFAULT_SETTINGS.platformId;
+  const watermarkAlign = source.watermarkAlign === "left"
+    || source.watermarkAlign === "center"
+    || source.watermarkAlign === "right"
+    ? source.watermarkAlign
+    : DEFAULT_SETTINGS.watermarkAlign;
+
+  return {
+    platformId,
+    templateId: normalizeTemplateId(source.templateId),
+    topText: textValue("topText", 18),
+    bottomText: textValue("bottomText", 18),
+    subtitle: textValue("subtitle", 38),
+    topColor: colorValue("topColor"),
+    bottomColor: colorValue("bottomColor"),
+    dividerColor: colorValue("dividerColor"),
+    showDivider: booleanValue("showDivider"),
+    subtitleColor: colorValue("subtitleColor"),
+    subtitleScale: numberValue("subtitleScale", 60, 160),
+    brightness: numberValue("brightness", 0, 200),
+    zoom: numberValue("zoom", 0, 400),
+    offsetX: numberValue("offsetX", -200, 200),
+    offsetXRangeVersion: 2,
+    offsetY: numberValue("offsetY", -200, 200),
+    rotation: numberValue("rotation", -180, 180),
+    textScale: numberValue("textScale", 0, 200),
+    bottomTextScale: numberValue("bottomTextScale", 0, 200),
+    textScaleLinked: booleanValue("textScaleLinked"),
+    textStroke: numberValue("textStroke", 0, 100),
+    textShadow: numberValue("textShadow", 0, 100),
+    textShadowDefaultVersion: 1,
+    titleScaleVersion: 3,
+    shade: numberValue("shade", 0, 100),
+    bottomShade: numberValue("bottomShade", 0, 100),
+    showSafeArea: booleanValue("showSafeArea"),
+    compareEnabled: booleanValue("compareEnabled"),
+    beforeZoom: numberValue("beforeZoom", 100, 300),
+    beforeOffsetX: numberValue("beforeOffsetX", -100, 100),
+    beforeOffsetY: numberValue("beforeOffsetY", -100, 100),
+    watermarkScale: numberValue("watermarkScale", 0, 300),
+    watermarkAlign,
+    watermarkOpacity: numberValue("watermarkOpacity", 0, 100),
+    watermarkEnabled: booleanValue("watermarkEnabled"),
+    watermarkDefaultVersion: 1,
+  };
+}
+
+function roundedRectPath(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+  context.closePath();
+}
+
+function getBeforeOffsetLimits(
+  beforeImage: HTMLImageElement | null,
+  frame: { width: number; height: number },
+  beforeZoom: number,
+) {
+  if (!beforeImage || !beforeImage.naturalWidth || !beforeImage.naturalHeight) return { x: 0, y: 0 };
+  const coverScale = Math.max(
+    frame.width / beforeImage.naturalWidth,
+    frame.height / beforeImage.naturalHeight,
+  ) * (beforeZoom / 100);
+  const drawWidth = beforeImage.naturalWidth * coverScale;
+  const drawHeight = beforeImage.naturalHeight * coverScale;
+  return {
+    x: Math.min(100, Math.max(0, (drawWidth - frame.width) / 2 / frame.width * 100)),
+    y: Math.min(100, Math.max(0, (drawHeight - frame.height) / 2 / frame.height * 100)),
+  };
+}
+
+function getBeforeImageFrame(canvas: { width: number; height: number }) {
+  const { frame, imageInset } = getComparisonEvidenceLayout(canvas);
+  const inset = Math.max(2, Math.round(imageInset * canvas.width / 1080));
+  return {
+    x: frame.x + inset,
+    y: frame.y + inset,
+    width: frame.width - inset * 2,
+    height: frame.height - inset * 2,
+    radius: Math.max(1, frame.radius - inset),
+  };
+}
+
+function drawComparisonEvidence(
+  context: CanvasRenderingContext2D,
+  ownerCanvas: HTMLCanvasElement,
+  beforeImage: HTMLImageElement | null,
+  settings: StudioSettings,
+  width: number,
+  height: number,
+) {
+  const { frame } = getComparisonEvidenceLayout({ width, height });
+  const imageFrame = getBeforeImageFrame({ width, height });
+
+  if (!beforeImage) {
+    context.save();
+    roundedRectPath(context, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
+    context.clip();
+    context.fillStyle = "rgba(28,28,28,.66)";
+    context.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+    context.fillStyle = "rgba(238,238,238,.86)";
+    context.font = `600 ${Math.max(12, Math.round(width * 0.018))}px sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("请添加拍摄前素颜照", frame.x + frame.width / 2, frame.y + frame.height / 2, frame.width * 0.82);
+    context.restore();
+    return;
+  }
+
+  const scratch = getCoverScratch(ownerCanvas, "compare", width, height);
+  const scratchContext = scratch.getContext("2d");
+  if (!scratchContext) return;
+  scratchContext.clearRect(0, 0, width, height);
+  scratchContext.save();
+  roundedRectPath(scratchContext, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
+  scratchContext.clip();
+  const coverScale = Math.max(
+    imageFrame.width / beforeImage.naturalWidth,
+    imageFrame.height / beforeImage.naturalHeight,
+  ) * (settings.beforeZoom / 100);
+  const drawWidth = beforeImage.naturalWidth * coverScale;
+  const drawHeight = beforeImage.naturalHeight * coverScale;
+  const offsetLimits = getBeforeOffsetLimits(beforeImage, imageFrame, settings.beforeZoom);
+  const offsetX = Math.max(-offsetLimits.x, Math.min(offsetLimits.x, settings.beforeOffsetX));
+  const offsetY = Math.max(-offsetLimits.y, Math.min(offsetLimits.y, settings.beforeOffsetY));
+  const centerX = imageFrame.x + imageFrame.width / 2 + offsetX / 100 * imageFrame.width;
+  const centerY = imageFrame.y + imageFrame.height / 2 + offsetY / 100 * imageFrame.height;
+  scratchContext.drawImage(beforeImage, centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight);
+  scratchContext.restore();
+
+  scratchContext.save();
+  scratchContext.globalCompositeOperation = "destination-in";
+  const horizontalMask = scratchContext.createLinearGradient(imageFrame.x, 0, imageFrame.x + imageFrame.width, 0);
+  const verticalMask = scratchContext.createLinearGradient(0, imageFrame.y, 0, imageFrame.y + imageFrame.height);
+  for (const [stop, alpha] of getComparisonFadeStops()) {
+    horizontalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
+    verticalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
+  }
+  scratchContext.fillStyle = horizontalMask;
+  scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+  scratchContext.fillStyle = verticalMask;
+  scratchContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+  scratchContext.restore();
+  context.drawImage(scratch, 0, 0);
+}
+
+function drawComparisonCapsule(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  word: "前" | "后",
+) {
+  context.save();
+  context.shadowColor = "rgba(0,0,0,.28)";
+  context.shadowBlur = 14;
+  context.shadowOffsetY = 4;
+  roundedRectPath(context, x, y, width, height, radius);
+  context.fillStyle = "rgba(57,57,59,.88)";
+  context.fill();
+  context.shadowColor = "transparent";
+  const circleRadius = height * 0.37;
+  const circleX = x + width - height / 2;
+  const circleY = y + height / 2;
+  context.beginPath();
+  context.arc(circleX, circleY, circleRadius, 0, Math.PI * 2);
+  context.fillStyle = "rgba(238,238,240,.94)";
+  context.fill();
+  context.textBaseline = "middle";
+  context.textAlign = "center";
+  context.font = `650 ${Math.round(height * 0.34)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+  context.fillStyle = "rgba(248,248,250,.96)";
+  context.fillText("拍摄", x + (width - height) * 0.48, circleY);
+  context.font = `750 ${Math.round(height * 0.48)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+  context.fillStyle = "#454547";
+  context.fillText(word, circleX, circleY + 0.5);
+  context.restore();
+}
+
+function drawComparisonEditorialOverlay(
+  context: CanvasRenderingContext2D,
+  _settings: StudioSettings,
+  width: number,
+  height: number,
+) {
+  const scale = width / 1080;
+  const baseCanvas = { width: 1080, height: height / scale };
+  const safe = getComparisonSafeRect(baseCanvas);
+  const { frame } = getComparisonEvidenceLayout(baseCanvas);
+  const labels = getComparisonLabelLayout(baseCanvas);
+  const eyebrowX = safe.x + DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset;
+  const eyebrowY = safe.y + safe.height * 0.35;
+
+  context.save();
+  context.scale(scale, scale);
+  context.beginPath();
+  context.rect(safe.x, safe.y, safe.width, safe.height);
+  context.clip();
+
+  const accent = context.createLinearGradient(eyebrowX, 0, eyebrowX + 142, 0);
+  accent.addColorStop(0, "rgba(205,205,207,.2)");
+  accent.addColorStop(0.16, "rgba(205,205,207,.92)");
+  accent.addColorStop(0.84, "rgba(205,205,207,.92)");
+  accent.addColorStop(1, "rgba(205,205,207,.2)");
+  context.fillStyle = accent;
+  context.fillRect(eyebrowX, eyebrowY - 34, 142, 4);
+  context.fillStyle = "rgba(222,222,224,.9)";
+  context.font = "600 23px -apple-system, BlinkMacSystemFont, sans-serif";
+  context.textAlign = "left";
+  context.textBaseline = "alphabetic";
+  context.fillText("真实客片 · NANBOART", eyebrowX, eyebrowY);
+
+  context.save();
+  context.setLineDash([14, 10]);
+  context.lineWidth = 3.5;
+  context.strokeStyle = "rgba(222,222,224,.86)";
+  roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
+  context.stroke();
+  context.restore();
+
+  drawComparisonCapsule(
+    context,
+    labels.after.right - labels.after.width,
+    labels.after.y,
+    labels.after.width,
+    labels.after.height,
+    labels.after.radius,
+    "后",
+  );
+  drawComparisonCapsule(
+    context,
+    labels.before.right - labels.before.width,
+    labels.before.y,
+    labels.before.width,
+    labels.before.height,
+    labels.before.radius,
+    "前",
+  );
+  context.restore();
+}
+
 function drawCover(
   canvas: HTMLCanvasElement,
   image: HTMLImageElement | null,
+  beforeImage: HTMLImageElement | null,
   watermark: HTMLImageElement | null,
   settings: StudioSettings,
   preset: PlatformPreset,
@@ -205,6 +554,11 @@ function drawCover(
   if (!context) return;
 
   const { width, height } = outputSize ?? preset;
+  if (!settings.compareEnabled || photoOnly) releaseCoverScratch(canvas, "compare");
+  if (!retouchStrokes.length || photoOnly) {
+    releaseCoverScratch(canvas, "shade");
+    releaseCoverScratch(canvas, "stroke");
+  }
   canvas.width = width;
   canvas.height = height;
   context.clearRect(0, 0, width, height);
@@ -240,19 +594,25 @@ function drawCover(
 
   if (!photoOnly) {
     if (retouchStrokes.length) {
-      const scratch = getCoverScratch(canvas, width, height);
-      const shadeCanvas = scratch.shade;
+      const shadeCanvas = getCoverScratch(canvas, "shade", width, height);
+      const strokeCanvas = getCoverScratch(canvas, "stroke", width, height);
       const shadeContext = shadeCanvas.getContext("2d");
       if (shadeContext) {
         shadeContext.clearRect(0, 0, width, height);
         drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
-        eraseShadeWithBrush(shadeContext, scratch.stroke, width, height, retouchStrokes);
+        eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, retouchStrokes);
         context.drawImage(shadeCanvas, 0, 0);
       }
     } else {
       drawTemplateShade(context, settings.templateId, width, height, settings.shade, settings.bottomShade);
     }
+    if (settings.compareEnabled) {
+      drawComparisonEvidence(context, canvas, beforeImage, settings, width, height);
+    }
     drawTemplateText(context, settings, width, height, watermark);
+    if (settings.compareEnabled) {
+      drawComparisonEditorialOverlay(context, settings, width, height);
+    }
     if (watermark) drawWatermark(context, watermark, settings, width, height);
   }
 
@@ -433,7 +793,7 @@ function drawTemplateText(
   const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
   const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
   const subtitleLineHeight = Math.round(subtitleFontSize * 1.45);
-  const subtitleLines = countWrappedLines(context, settings.subtitle, maxWidth);
+  const subtitleLines = countWrappedLines(settings.subtitle);
   const blockTop = -topHeadlineInk.ascent;
   const blockBottom = settings.subtitle.trim()
     ? relativeSubtitleBaseline + (subtitleLines - 1) * subtitleLineHeight + subtitleInk.descent
@@ -651,7 +1011,7 @@ function drawWrappedText(
   });
 }
 
-function countWrappedLines(_context: CanvasRenderingContext2D, text: string, _maxWidth: number) {
+function countWrappedLines(text: string) {
   if (!text.trim()) return 0;
   return Math.min(Math.ceil(Array.from(text).length / 12), 2);
 }
@@ -758,16 +1118,19 @@ export default function CoverStudio() {
   const mobileGestureCancelRef = useRef<() => void>(() => {});
   const previewToolsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const beforeFileInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
   const defaultWatermarkRef = useRef<HTMLImageElement | null>(null);
   const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fileName, setFileName] = useState("");
+  const [beforeImage, setBeforeImage] = useState<HTMLImageElement | null>(null);
+  const [beforeFileName, setBeforeFileName] = useState("");
   const [watermark, setWatermark] = useState<HTMLImageElement | null>(null);
-  const [watermarkName, setWatermarkName] = useState("");
   const [watermarkKind, setWatermarkKind] = useState<"default" | "custom">("default");
   const [exportReady, setExportReady] = useState({ jpeg: false, png: false });
-  const exportCacheRef = useRef<{ jpeg: ExportAsset | null; png: ExportAsset | null }>({ jpeg: null, png: null });
+  const exportGenerationRef = useRef(0);
+  const exportCacheRef = useRef<{ generation: number; jpeg: ExportAsset | null; png: ExportAsset | null }>({ generation: 0, jpeg: null, png: null });
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
@@ -828,41 +1191,22 @@ export default function CoverStudio() {
     () => PLATFORM_PRESETS.find((item) => item.id === settings.platformId) ?? PLATFORM_PRESETS[0],
     [settings.platformId],
   );
+  const comparisonOverlapWarning = useMemo(
+    () => getComparisonOverlapWarning(settings.compareEnabled, settings.templateId),
+    [settings.compareEnabled, settings.templateId],
+  );
+  const beforeOffsetLimits = useMemo(() => {
+    const frame = getBeforeImageFrame(preset);
+    const limits = getBeforeOffsetLimits(beforeImage, frame, settings.beforeZoom);
+    return { x: Math.floor(limits.x), y: Math.floor(limits.y) };
+  }, [beforeImage, preset, settings.beforeZoom]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
-          if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
-          if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
-          if (Number(parsed.shade) === 62) parsed.shade = 0;
-          if (parsed.watermarkDefaultVersion !== 1) {
-            parsed.watermarkEnabled = false;
-            parsed.watermarkDefaultVersion = 1;
-          }
-          if (Number(parsed.titleScaleVersion ?? 0) < 2) {
-            parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
-          }
-          if (Number(parsed.titleScaleVersion ?? 0) < 3) {
-            parsed.bottomTextScale = Number(parsed.textScale || 100);
-            parsed.textScaleLinked = true;
-            parsed.titleScaleVersion = 3;
-          }
-          if (parsed.textShadowDefaultVersion !== 1) {
-            parsed.textShadow = 50;
-            parsed.textShadowDefaultVersion = 1;
-          }
-          if (parsed.offsetXRangeVersion !== 2) {
-            const previousOffsetX = Number(parsed.offsetX ?? (parsed.offsetXRangeVersion === 1 ? 100 : 0));
-            parsed.offsetX = Math.max(-200, Math.min(200, parsed.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
-            parsed.offsetXRangeVersion = 2;
-          }
-          if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
-          parsed.templateId = normalizeTemplateId(parsed.templateId);
-          setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+          setSettings(normalizeStudioSettings(JSON.parse(saved)));
         }
       } catch {
         setNotice("已使用默认封面设置");
@@ -1264,7 +1608,6 @@ export default function CoverStudio() {
     defaultWatermark.onload = () => {
       defaultWatermarkRef.current = defaultWatermark;
       setWatermark((current) => current ?? defaultWatermark);
-      setWatermarkName((current) => current || "南铂固定水印");
     };
     defaultWatermark.onerror = () => setNotice("固定水印暂时无法读取，请刷新页面");
     defaultWatermark.src = "/nanbo-default-watermark.png";
@@ -1278,13 +1621,17 @@ export default function CoverStudio() {
       const lowPower = (device.deviceMemory ?? 8) <= 4 || (device.hardwareConcurrency ?? 8) <= 4;
       const width = Math.min(lowPower ? 420 : 540, preset.width);
       const previewSize = { width, height: Math.round(width * preset.height / preset.width) };
-      drawCover(canvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, true, previewSize, false, showRetouchBefore ? [] : retouchStrokes);
+      drawCover(canvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, true, previewSize, false, showRetouchBefore ? [] : retouchStrokes);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [image, preset, retouchStrokes, settings, showRetouchBefore, watermark]);
+  }, [beforeImage, image, preset, retouchStrokes, settings, showRetouchBefore, watermark]);
 
-  const buildExportAsset = useCallback(async (format: "jpeg" | "png", photoOnly = false): Promise<ExportAsset | null> => {
-    if (!image) return null;
+  const buildExportAsset = useCallback(async (
+    format: "jpeg" | "png",
+    photoOnly = false,
+    generation = exportGenerationRef.current,
+  ): Promise<ExportAsset | null> => {
+    if (!image || generation !== exportGenerationRef.current) return null;
     const sourceRatio = image.naturalWidth / image.naturalHeight;
     const targetRatio = preset.width / preset.height;
     const originalOutputSize = sourceRatio >= targetRatio
@@ -1304,11 +1651,19 @@ export default function CoverStudio() {
     for (const candidate of exportSizeCandidates(originalOutputSize)) {
       let quality = format === "jpeg" ? 0.98 : undefined;
       try {
-        drawCover(exportCanvas, image, settings.watermarkEnabled ? watermark : null, settings, preset, false, candidate, photoOnly, retouchStrokes);
+        drawCover(exportCanvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, false, candidate, photoOnly, retouchStrokes);
         blob = await toBlob(quality);
+        if (generation !== exportGenerationRef.current) {
+          releaseCoverCanvas(exportCanvas);
+          return null;
+        }
         while (blob && blob.size > maxBytes && format === "jpeg" && (quality ?? 0) > 0.56) {
           quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
           blob = await toBlob(quality);
+          if (generation !== exportGenerationRef.current) {
+            releaseCoverCanvas(exportCanvas);
+            return null;
+          }
         }
       } catch {
         blob = null;
@@ -1320,8 +1675,13 @@ export default function CoverStudio() {
       blob = null;
       releaseCoverCanvas(exportCanvas);
       await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      if (generation !== exportGenerationRef.current) return null;
     }
     if (!blob) {
+      releaseCoverCanvas(exportCanvas);
+      return null;
+    }
+    if (generation !== exportGenerationRef.current) {
       releaseCoverCanvas(exportCanvas);
       return null;
     }
@@ -1330,13 +1690,15 @@ export default function CoverStudio() {
     const asset = { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
     releaseCoverCanvas(exportCanvas);
     return asset;
-  }, [fileName, image, preset, retouchStrokes, settings, watermark]);
+  }, [beforeImage, fileName, image, preset, retouchStrokes, settings, watermark]);
 
   useEffect(() => {
-    exportCacheRef.current = { jpeg: null, png: null };
+    const generation = exportGenerationRef.current + 1;
+    exportGenerationRef.current = generation;
+    exportCacheRef.current = { generation, jpeg: null, png: null };
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a changed source invalidates both export readiness flags
     setExportReady({ jpeg: true, png: true });
-  }, [buildExportAsset, image]);
+  }, [buildExportAsset]);
 
   const updateSetting = useCallback(
     <Key extends keyof StudioSettings>(key: Key, value: StudioSettings[Key]) => {
@@ -1392,30 +1754,7 @@ export default function CoverStudio() {
         setNotice(`记忆点 ${slot} 还没有保存设置`);
         return;
       }
-      const parsed = JSON.parse(saved);
-      if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
-      if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
-      if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
-      if (Number(parsed.titleScaleVersion ?? 0) < 2) {
-        parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
-      }
-      if (Number(parsed.titleScaleVersion ?? 0) < 3) {
-        parsed.bottomTextScale = Number(parsed.textScale || 100);
-        parsed.textScaleLinked = true;
-        parsed.titleScaleVersion = 3;
-      }
-      if (parsed.textShadowDefaultVersion !== 1) {
-        parsed.textShadow = 50;
-        parsed.textShadowDefaultVersion = 1;
-      }
-      if (parsed.offsetXRangeVersion !== 2) {
-        const previousOffsetX = Number(parsed.offsetX ?? (parsed.offsetXRangeVersion === 1 ? 100 : 0));
-        parsed.offsetX = Math.max(-200, Math.min(200, parsed.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
-        parsed.offsetXRangeVersion = 2;
-      }
-      if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
-      parsed.templateId = normalizeTemplateId(parsed.templateId);
-      setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+      setSettings(normalizeStudioSettings(JSON.parse(saved)));
       setNotice(`已应用记忆点 ${slot}`);
     } catch {
       setNotice(`记忆点 ${slot} 读取失败，请重新保存`);
@@ -1528,6 +1867,36 @@ export default function CoverStudio() {
     loadFile(event.dataTransfer.files?.[0]);
   };
 
+  const loadBeforeFile = useCallback((file: File | undefined) => {
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      setNotice("拍摄前照片请选择 JPG、PNG 或 WEBP 图片");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const nextImage = new Image();
+    nextImage.onload = () => {
+      setBeforeImage(nextImage);
+      setSettings((current) => {
+        const rawLimits = getBeforeOffsetLimits(nextImage, getBeforeImageFrame(preset), current.beforeZoom);
+        const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
+        return {
+          ...current,
+          beforeOffsetX: Math.max(-limits.x, Math.min(limits.x, current.beforeOffsetX)),
+          beforeOffsetY: Math.max(-limits.y, Math.min(limits.y, current.beforeOffsetY)),
+        };
+      });
+      setBeforeFileName(file.name);
+      setNotice("拍摄前素颜照已载入，只保留在本机内存中");
+      URL.revokeObjectURL(url);
+    };
+    nextImage.onerror = () => {
+      setNotice("这张拍摄前照片暂时无法读取，请更换一张");
+      URL.revokeObjectURL(url);
+    };
+    nextImage.src = url;
+  }, [preset]);
+
   const loadWatermark = useCallback((file: File | undefined) => {
     if (!file) return;
     if (file.type !== "image/png") {
@@ -1538,7 +1907,6 @@ export default function CoverStudio() {
     const nextWatermark = new Image();
     nextWatermark.onload = () => {
       setWatermark(nextWatermark);
-      setWatermarkName(file.name);
       setWatermarkKind("custom");
       updateSetting("watermarkEnabled", true);
       setNotice("透明水印已加入，导出时会保留");
@@ -1549,32 +1917,41 @@ export default function CoverStudio() {
       URL.revokeObjectURL(url);
     };
     nextWatermark.src = url;
-  }, []);
+  }, [updateSetting]);
 
   const exportCover = async (format: "jpeg" | "png", photoOnly = false) => {
     if (!image || !canvasRef.current) {
       setNotice("请先上传一张照片");
       return;
     }
-    let asset = photoOnly ? null : exportCacheRef.current[format];
+    const comparisonError = getComparisonExportError(settings.compareEnabled, Boolean(beforeImage));
+    if (!photoOnly && comparisonError) {
+      setNotice(comparisonError);
+      return;
+    }
+    const generation = exportGenerationRef.current;
+    const cached = exportCacheRef.current;
+    let asset = photoOnly || cached.generation !== generation ? null : cached[format];
     if (photoOnly) {
       setNotice(`正在生成无文字、无水印的${format === "png" ? " PNG" : " JPG"}…`);
       try {
-        asset = await buildExportAsset(format, true);
+        asset = await buildExportAsset(format, true, generation);
       } catch {
         asset = null;
       }
+      if (generation !== exportGenerationRef.current) return;
       if (!asset) return setNotice("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
     } else if (!asset) {
       setExportReady((current) => ({ ...current, [format]: false }));
       setNotice(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
       let prepared: ExportAsset | null = null;
       try {
-        prepared = await buildExportAsset(format);
+        prepared = await buildExportAsset(format, false, generation);
       } catch {
         prepared = null;
       }
-      exportCacheRef.current[format] = prepared;
+      if (generation !== exportGenerationRef.current) return;
+      exportCacheRef.current = { ...exportCacheRef.current, generation, [format]: prepared };
       setExportReady((current) => ({ ...current, [format]: true }));
       if (!prepared) return setNotice("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
       asset = prepared;
@@ -1592,14 +1969,16 @@ export default function CoverStudio() {
       try {
         if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
         await navigator.share({ files: [namedAsset.file], title: "南铂封面" });
+        if (generation !== exportGenerationRef.current) return;
         setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
         return;
       } catch (error) {
+        if (generation !== exportGenerationRef.current) return;
         return setNotice(error instanceof DOMException && error.name === "AbortError" ? "已取消系统分享，也可以长按成品图保存" : "系统分享未打开，请点击“打开手机分享”或长按成品图保存");
       }
     }
     const picker = (window as typeof window & {
-      showSaveFilePicker?: (options: { suggestedName: string; types: Array<{ description: string; accept: Record<string, string[]> }> }) => Promise<{ createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }> }>;
+      showSaveFilePicker?: (options: { suggestedName: string; types: Array<{ description: string; accept: Record<string, string[]> }> }) => Promise<{ createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void>; abort?: () => Promise<void> }> }>;
     }).showSaveFilePicker;
     if (!isMobile && picker) {
       try {
@@ -1607,15 +1986,27 @@ export default function CoverStudio() {
           suggestedName: namedAsset.file.name,
           types: [{ description: format === "png" ? "PNG 图片" : "JPG 图片", accept: { [asset.blob.type]: [format === "png" ? ".png" : ".jpg"] } }],
         });
+        if (generation !== exportGenerationRef.current) return;
         const writable = await handle.createWritable();
+        if (generation !== exportGenerationRef.current) {
+          await writable.abort?.();
+          return;
+        }
         await writable.write(asset.blob);
+        if (generation !== exportGenerationRef.current) {
+          await writable.abort?.();
+          return;
+        }
         await writable.close();
+        if (generation !== exportGenerationRef.current) return;
         setNotice(`已保存高清图片 · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
         return;
       } catch (error) {
+        if (generation !== exportGenerationRef.current) return;
         if (error instanceof DOMException && error.name === "AbortError") return setNotice("已取消保存，可再次点击导出");
       }
     }
+    if (generation !== exportGenerationRef.current) return;
     const url = URL.createObjectURL(asset.blob);
     setSavePreview((current) => {
       if (current) URL.revokeObjectURL(current.url);
@@ -1631,6 +2022,8 @@ export default function CoverStudio() {
           <div className="save-preview-card">
             <strong>高清成品已生成</strong>
             <p>请长按下面的图片，选择“存储到照片”</p>
+            {/* Blob 预览是用户本机刚生成的成品，不能交给 next/image 远程优化。 */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={savePreview.url} alt="高清封面成品" />
             <div>
               <button type="button" onClick={async () => {
@@ -1647,7 +2040,7 @@ export default function CoverStudio() {
           </div>
         </div>
       )}
-      <div className="cover-studio-grid">
+      <div className={`cover-studio-grid ${settings.compareEnabled ? "is-comparing" : ""}`}>
         <aside className="studio-panel studio-controls">
           <div className="studio-panel-heading">
             <span>01</span>
@@ -1657,7 +2050,7 @@ export default function CoverStudio() {
             </div>
           </div>
 
-          <div className="studio-status">
+          <div className="studio-status" role="status" aria-live="polite">
             <i />
             {notice}
           </div>
@@ -1708,6 +2101,28 @@ export default function CoverStudio() {
               同步封面
             </button>
           </div>
+
+          {settings.compareEnabled ? (
+            <div className="studio-before-upload">
+              <input
+                ref={beforeFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  loadBeforeFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+              <div>
+                <strong>拍摄前素颜照</strong>
+                <small>照片只存在本机内存，刷新后自动清除</small>
+              </div>
+              <button type="button" onClick={() => beforeFileInputRef.current?.click()}>
+                <b>{beforeImage ? "更换照片" : "请添加拍摄前素颜照"}</b>
+                <span>{beforeFileName || "支持 JPG、PNG、WEBP"}</span>
+              </button>
+            </div>
+          ) : null}
 
           <div className="studio-field">
             <div className="studio-field-heading">
@@ -1778,7 +2193,6 @@ export default function CoverStudio() {
               <button type="button" onClick={() => watermarkInputRef.current?.click()}>换水印</button>
               <button type="button" onClick={() => {
                 setWatermark(defaultWatermarkRef.current);
-                setWatermarkName("南铂固定水印");
                 setWatermarkKind("default");
                 updateSetting("watermarkEnabled", true);
                 setNotice(watermarkKind === "custom" ? "临时水印已移除，已恢复南铂固定水印" : "已使用南铂固定水印");
@@ -1840,15 +2254,32 @@ export default function CoverStudio() {
               <strong>实时封面预览</strong>
               <span>{preset.label} · {preset.ratio}</span>
             </div>
-            <label className="studio-switch">
-              <input
-                type="checkbox"
-                checked={settings.showSafeArea}
-                onChange={(event) => updateSetting("showSafeArea", event.target.checked)}
-              />
-              <span />
-              安全区
-            </label>
+            <div className="studio-preview-switches">
+              <label className="studio-switch">
+                <input
+                  type="checkbox"
+                  checked={settings.showSafeArea}
+                  onChange={(event) => updateSetting("showSafeArea", event.target.checked)}
+                />
+                <span />
+                安全区
+              </label>
+              <label className="studio-switch">
+                <input
+                  type="checkbox"
+                  checked={settings.compareEnabled}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    updateSetting("compareEnabled", enabled);
+                    setNotice(enabled
+                      ? getComparisonOverlapWarning(true, settings.templateId) || "已开启前后对比，请添加拍摄前素颜照"
+                      : "已返回单张封面模式，拍摄前照片仍保留在本机内存");
+                  }}
+                />
+                <span />
+                前后对比
+              </label>
+            </div>
           </div>
           <div ref={canvasShellRef} className={`studio-canvas-shell ratio-${preset.ratio.replace(":", "-")} ${image ? "has-image" : ""} ${rotationMode ? "is-rotating" : ""} ${brushMode ? "is-brushing" : ""}`}>
             <canvas ref={canvasRef} aria-label="封面实时预览，可拖动照片；开启涂抹后可局部擦开压暗层" />
@@ -1863,23 +2294,26 @@ export default function CoverStudio() {
             />
           </div>
           <div ref={previewToolsRef} className="studio-preview-tools">
-            <div className="studio-template-grid">
-              {COVER_TEMPLATES.map((template) => (
-                <button
-                  type="button"
-                  key={template.id}
-                  className={`studio-template template-${template.id} ${settings.templateId === template.id ? "is-active" : ""}`}
-                  onClick={() => setSettings((current) => ({
-                    ...current,
-                    templateId: template.id,
-                    watermarkAlign: template.id.endsWith("-left") ? "left" : template.id.endsWith("-right") ? "right" : "center",
-                  }))}
-                >
-                  <i>{template.number}</i>
-                  <b>{template.name}</b>
-                  <span>{template.hint}</span>
-                </button>
-              ))}
+            <div className="studio-template-area">
+              <div className="studio-template-grid">
+                {COVER_TEMPLATES.map((template) => (
+                  <button
+                    type="button"
+                    key={template.id}
+                    className={`studio-template template-${template.id} ${settings.templateId === template.id ? "is-active" : ""}`}
+                    onClick={() => setSettings((current) => ({
+                      ...current,
+                      templateId: template.id,
+                      watermarkAlign: template.id.endsWith("-left") ? "left" : template.id.endsWith("-right") ? "right" : "center",
+                    }))}
+                  >
+                    <i>{template.number}</i>
+                    <b>{template.name}</b>
+                    <span>{template.hint}</span>
+                  </button>
+                ))}
+              </div>
+              {comparisonOverlapWarning ? <p className="studio-compare-warning">{comparisonOverlapWarning}</p> : null}
             </div>
             <div className="studio-export-row">
               <button type="button" className="export-original" onClick={() => exportCover("png", true)}>导出原图 PNG</button>
@@ -1929,6 +2363,65 @@ export default function CoverStudio() {
               <button type="button" disabled={!retouchStrokes.length} onClick={() => { setShowRetouchBefore(false); setRetouchStrokes([]); }}>全部清除</button>
             </div>
           </div>
+
+          {settings.compareEnabled ? (
+            <div className="studio-before-adjustments">
+              <div className="studio-before-adjustments-heading">
+                <div><b>拍摄前照片构图</b><span>独立调整右下角素颜照</span></div>
+                <button type="button" onClick={() => setSettings((current) => ({
+                  ...current,
+                  beforeZoom: 100,
+                  beforeOffsetX: 0,
+                  beforeOffsetY: 0,
+                }))}>恢复默认</button>
+              </div>
+              <Slider
+                label="拍摄前照片缩放"
+                value={settings.beforeZoom}
+                min={100}
+                max={300}
+                suffix="%"
+                onReset={() => setSettings((current) => {
+                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), 100);
+                  const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
+                  return {
+                    ...current,
+                    beforeZoom: 100,
+                    beforeOffsetX: Math.max(-limits.x, Math.min(limits.x, current.beforeOffsetX)),
+                    beforeOffsetY: Math.max(-limits.y, Math.min(limits.y, current.beforeOffsetY)),
+                  };
+                })}
+                onChange={(value) => setSettings((current) => {
+                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), value);
+                  const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
+                  return {
+                    ...current,
+                    beforeZoom: value,
+                    beforeOffsetX: Math.max(-limits.x, Math.min(limits.x, current.beforeOffsetX)),
+                    beforeOffsetY: Math.max(-limits.y, Math.min(limits.y, current.beforeOffsetY)),
+                  };
+                })}
+              />
+              <Slider
+                label="拍摄前左右位置"
+                value={Math.max(-beforeOffsetLimits.x, Math.min(beforeOffsetLimits.x, settings.beforeOffsetX))}
+                min={-beforeOffsetLimits.x}
+                max={beforeOffsetLimits.x}
+                suffix=""
+                onReset={() => updateSetting("beforeOffsetX", 0)}
+                onChange={(value) => updateSetting("beforeOffsetX", Math.max(-beforeOffsetLimits.x, Math.min(beforeOffsetLimits.x, value)))}
+              />
+              <Slider
+                label="拍摄前上下位置"
+                value={Math.max(-beforeOffsetLimits.y, Math.min(beforeOffsetLimits.y, settings.beforeOffsetY))}
+                min={-beforeOffsetLimits.y}
+                max={beforeOffsetLimits.y}
+                suffix=""
+                onReset={() => updateSetting("beforeOffsetY", 0)}
+                onChange={(value) => updateSetting("beforeOffsetY", Math.max(-beforeOffsetLimits.y, Math.min(beforeOffsetLimits.y, value)))}
+              />
+            </div>
+          ) : null}
 
           <div className="studio-adjustments">
             <Slider

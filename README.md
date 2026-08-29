@@ -17,10 +17,14 @@
 - 支持“不满意，换一批”和复制当前平台整套内容
 - 密码首次验证后在当前浏览器记住 180 天
 - API 密钥仅保存在 Apps Script 项目属性中，不进入仓库
+- 封面制作统一使用一套正式工作台，原有九种版式与构图工具保持不变
+- 可切换“前后对比”，加入独立拍摄前照片、四周溶图、虚线框与“拍摄前/后”胶囊
+- 拍摄前照片仅保留在当前浏览器内存中，刷新即清除；抖音对比元素自动锁进居中 3:4 安全区
 
 ## 公开入口
 
 - GitHub Pages：<https://wdmm630202.github.io/nbo-cover-copy/>
+- 正式封面工作台：<https://wdmm630202.github.io/nbo-cover-copy/cover.html>
 - AI 应用：<https://script.google.com/macros/s/AKfycbwE3jYEnaSh75A-5ft6T-ChSvDnKrLFHvKi8fBvMEHhyRcBgieWcKsuN-3iuuzwQIQ_/exec>
 
 GitHub Pages 和 Sites 只负责跳转，核心 AI 页面与服务端逻辑由 Google Apps Script 托管。
@@ -30,6 +34,7 @@ GitHub Pages 和 Sites 只负责跳转，核心 AI 页面与服务端逻辑由 G
 - `apps-script/Code.gs`：访问验证、Gemini 调用、公开搜索联想、字数校验与刷新
 - `apps-script/Index.html`：响应式网页、上传预览、开始/停止、结果与复制交互
 - `docs/index.html`：GitHub Pages 稳定入口
+- `docs/cover.html`、`docs/cover.js`：唯一正式封面界面及导出逻辑
 - `app/page.tsx`：Sites 入口
 
 ## 免费版边界

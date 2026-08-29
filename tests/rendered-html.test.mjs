@@ -87,6 +87,11 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /导出原图 JPG/);
   assert.doesNotMatch(coverStudio, /cover-studio-intro/);
   assert.match(coverStudio, /导出设计 JPG/);
+  assert.match(coverStudio, /前后对比/);
+  assert.match(coverStudio, /拍摄前素颜照/);
+  assert.match(coverStudio, /拍摄前照片缩放/);
+  assert.match(coverStudio, /getComparisonEvidenceLayout/);
+  assert.match(coverStudio, /getComparisonExportError/);
   assert.match(coverStudio, /photoOnly/);
   assert.match(coverStudio, /字体描边/);
   assert.match(coverStudio, /字体阴影/);
@@ -152,9 +157,13 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverConfig, /cropBottom: 1680/);
   assert.match(coverConfig, /bottom-right/);
   assert.match(publicCover, /南铂封面制作台/);
+  assert.match(publicCover, /前后对比/);
+  assert.match(publicCover, /拍摄前素颜照/);
+  assert.match(publicCover, /拍摄前照片缩放/);
+  assert.match(publicCover, /compare-layout\.js/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /mobile-123-gestures/);
+  assert.match(publicCover, /cover\.css\?v=20260829-real-before-after/);
   assert.match(publicCover, /id="mobileTouchZone"/);
   assert.match(publicCoverScript, /mobileGesture/);
   assert.match(publicCoverScript, /mode: "rotate"/);
@@ -188,6 +197,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicEntry, /NBO_COVER_IMAGE_READY/);
   assert.match(publicEntry, /localStorage\.setItem/);
   assert.match(publicCoverScript, /image\/jpeg/);
+  assert.match(publicCoverScript, /getComparisonEvidenceLayout/);
+  assert.match(publicCoverScript, /getComparisonExportError/);
   assert.match(publicCoverScript, /typeof navigator\.share/);
   assert.match(publicCoverScript, /navigator\.share/);
   assert.match(publicCoverScript, /存储图像/);
