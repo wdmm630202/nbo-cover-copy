@@ -156,14 +156,18 @@ export function getComparisonEvidenceLayout(canvas: CompareCanvasSize) {
 export function getComparisonLabelLayout(canvas: CompareCanvasSize) {
   const { safe, frame } = getComparisonEvidenceLayout(canvas);
   const scale = canvas.width / 1080;
+  const width = 104 * scale;
+  const height = 63 * scale;
   const capsule = {
-    width: Math.round(104 * scale),
-    height: Math.round(54 * scale),
-    radius: Math.round(27 * scale),
+    width,
+    height,
+    radius: height / 2,
   };
+  const afterCenterY = safe.y + 75 * scale;
+  const beforeCenterY = frame.y + 51 * scale;
   return {
-    after: { right: safe.x + safe.width - Math.round(48 * scale), y: safe.y + Math.round(48 * scale), ...capsule },
-    before: { right: safe.x + safe.width - Math.round(48 * scale), y: frame.y + Math.round(24 * scale), ...capsule },
+    after: { right: safe.x + safe.width - Math.round(48 * scale), y: afterCenterY - height / 2, ...capsule },
+    before: { right: safe.x + safe.width - Math.round(48 * scale), y: beforeCenterY - height / 2, ...capsule },
   };
 }
 
@@ -193,8 +197,8 @@ function drawComparisonCapsule(
   context.strokeStyle = "rgba(255,255,255,.52)";
   context.stroke();
 
-  const circleRadius = capsule.height * 0.39;
-  const circleX = x + capsule.width - capsule.height / 2;
+  const circleRadius = capsule.width * (16.5 / 104);
+  const circleX = x + capsule.width * (74.5 / 104);
   const circleY = capsule.y + capsule.height / 2;
   context.shadowColor = "rgba(0,0,0,.2)";
   context.shadowBlur = Math.max(2, 4 * outputScale);
@@ -214,15 +218,26 @@ function drawComparisonCapsule(
 
   context.textBaseline = "middle";
   context.textAlign = "center";
-  const labelFontSize = Math.round(capsule.height * 0.34);
-  const opticalGap = capsule.height * 0.074;
-  const secondCharacterX = circleX - circleRadius - opticalGap - labelFontSize / 2;
-  const firstCharacterX = secondCharacterX - labelFontSize - opticalGap;
+  const labelFontSize = Math.round(capsule.width * (16 / 104));
   context.font = `700 ${labelFontSize}px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
+  const glyphInk = (glyph: string) => {
+    const metrics = typeof context.measureText === "function" ? context.measureText(glyph) : null;
+    const fallback = labelFontSize / 2;
+    return {
+      left: metrics && Number.isFinite(metrics.actualBoundingBoxLeft) ? metrics.actualBoundingBoxLeft : fallback,
+      right: metrics && Number.isFinite(metrics.actualBoundingBoxRight) ? metrics.actualBoundingBoxRight : fallback,
+    };
+  };
+  const firstCharacterX = x + capsule.width * 0.21;
+  const firstInk = glyphInk("拍");
+  const secondInk = glyphInk("摄");
+  const circleLeft = circleX - circleRadius;
+  const firstRight = firstCharacterX + firstInk.right;
+  const secondCharacterX = (circleLeft + firstRight + secondInk.left - secondInk.right) / 2;
   context.fillStyle = "rgba(248,248,250,.96)";
   context.fillText("拍", firstCharacterX, circleY);
   context.fillText("摄", secondCharacterX, circleY);
-  context.font = `800 ${Math.round(capsule.height * 0.48)}px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
+  context.font = `800 ${Math.round(capsule.width * (21 / 104))}px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
   context.fillStyle = "#252527";
   context.fillText(word, circleX, circleY + 0.5);
   context.restore();

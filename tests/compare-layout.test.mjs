@@ -23,8 +23,8 @@ const cases = [
     safe: { x: 0, y: 0, width: 1080, height: 1440 },
     frame: { x: 630, y: 807, width: 421, height: 605, radius: 30 },
     labels: {
-      after: { right: 1032, y: 48, width: 104, height: 54, radius: 27 },
-      before: { right: 1032, y: 831, width: 104, height: 54, radius: 27 },
+      after: { right: 1032, y: 43.5, width: 104, height: 63, radius: 31.5 },
+      before: { right: 1032, y: 826.5, width: 104, height: 63, radius: 31.5 },
     },
   },
   {
@@ -33,8 +33,8 @@ const cases = [
     safe: { x: 0, y: 240, width: 1080, height: 1440 },
     frame: { x: 630, y: 1047, width: 421, height: 605, radius: 30 },
     labels: {
-      after: { right: 1032, y: 288, width: 104, height: 54, radius: 27 },
-      before: { right: 1032, y: 1071, width: 104, height: 54, radius: 27 },
+      after: { right: 1032, y: 283.5, width: 104, height: 63, radius: 31.5 },
+      before: { right: 1032, y: 1066.5, width: 104, height: 63, radius: 31.5 },
     },
   },
 ];
@@ -62,8 +62,8 @@ test("四周溶图从透明进入完整照片再回到透明", async () => {
 
 test("胶囊尺寸和边距随预览宽度同比缩放", async () => {
   const expected = {
-    after: { right: 516, y: 24, width: 52, height: 27, radius: 14 },
-    before: { right: 516, y: 416, width: 52, height: 27, radius: 14 },
+    after: { right: 516, y: 21.75, width: 52, height: 31.5, radius: 15.75 },
+    before: { right: 516, y: 413.75, width: 52, height: 31.5, radius: 15.75 },
   };
   for (const layout of await loadImplementations()) {
     assert.deepEqual(plain(layout.getComparisonLabelLayout({ width: 540, height: 720 })), expected);
@@ -264,6 +264,11 @@ test("胶囊缩小时仍保持整圆角、透明材质和三字协调间距", as
       setLineDash() {}, fill() {}, stroke() { strokes.push(this.lineWidth); },
       arc(x, y, radius) { arcs.push({ x, y, radius }); },
       fillText(value, x, y) { text.push({ value, x, y, font: this.font }); },
+      measureText(value) {
+        return value === "拍"
+          ? { actualBoundingBoxLeft: 7, actualBoundingBoxRight: 8 }
+          : { actualBoundingBoxLeft: 8, actualBoundingBoxRight: 7.5 };
+      },
       createLinearGradient() {
         const stops = [];
         gradients.push(stops);
@@ -277,17 +282,19 @@ test("胶囊缩小时仍保持整圆角、透明材质和三字协调间距", as
     );
 
     assert.deepEqual(capsulePaths.slice(-2), [
-      { height: 54, radius: 27 },
-      { height: 54, radius: 27 },
+      { height: 63, radius: 31.5 },
+      { height: 63, radius: 31.5 },
     ]);
     assert.deepEqual(text.map((item) => item.value), ["拍", "摄", "后", "拍", "摄", "前"]);
+    assert.ok(arcs.every((circle) => circle.radius === 16.5 && circle.x === 1002.5));
+    assert.ok(text.filter((_, index) => index % 3 !== 2).every((item) => item.font.includes("16px")));
+    assert.ok(text.filter((_, index) => index % 3 === 2).every((item) => item.font.includes("21px")));
 
     for (let index = 0; index < text.length; index += 3) {
       const [first, second, third] = text.slice(index, index + 3);
-      const fontSize = Number(first.font.match(/(\d+)px/)[1]);
       const circle = arcs[index / 3];
-      const firstGap = second.x - first.x - fontSize;
-      const secondGap = third.x - circle.radius - (second.x + fontSize / 2);
+      const firstGap = second.x - 8 - (first.x + 8);
+      const secondGap = third.x - circle.radius - (second.x + 7.5);
       assert.ok(Math.abs(firstGap - secondGap) < 0.01);
     }
 
