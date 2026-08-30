@@ -285,6 +285,36 @@
     return { ...output, quality: format === "jpeg" ? .98 : null };
   }
 
+  const MOBILE_EXPORT_LIMITS = [
+    { maxPixels: 8_000_000, maxSide: 4096 },
+    { maxPixels: 6_000_000, maxSide: 4096 },
+    { maxPixels: 4_000_000, maxSide: 4096 },
+    { maxPixels: 2_100_000, maxSide: 4096 },
+  ];
+
+  function constrainExportSize(size, maxPixels, maxSide) {
+    const scale = Math.min(
+      1,
+      Math.sqrt(maxPixels / (size.width * size.height)),
+      maxSide / size.width,
+      maxSide / size.height,
+    );
+    return {
+      width: Math.max(1, Math.round(size.width * scale)),
+      height: Math.max(1, Math.round(size.height * scale)),
+    };
+  }
+
+  function getExportAttemptSizes(source, preset, format, mobile) {
+    const plan = getOriginalPixelExportPlan(source, preset, format);
+    const original = { width: plan.width, height: plan.height };
+    if (!mobile) return [original];
+    const candidates = [original, ...MOBILE_EXPORT_LIMITS.map(({ maxPixels, maxSide }) =>
+      constrainExportSize(original, maxPixels, maxSide))];
+    return candidates.filter((candidate, index) => candidates.findIndex((item) =>
+      item.width === candidate.width && item.height === candidate.height) === index);
+  }
+
   function getOriginalPixelJpegQualities() {
     return [.98, .91, .84, .77, .7, .63, .56];
   }
@@ -312,6 +342,7 @@
     getComparisonExportError,
     getComparisonOverlapWarning,
     getOriginalPixelExportPlan,
+    getExportAttemptSizes,
     getOriginalPixelJpegQualities,
     getOriginalPixelJpegMaxBytes,
   };

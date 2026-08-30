@@ -425,6 +425,29 @@ test("大尺寸照片导出始终保留原始裁切像素，不按手机或文�
   }
 });
 
+test("手机导出先尝试原始像素，失败后才按稳定上限逐级尝试", async () => {
+  const source = { width: 3375, height: 6000 };
+  const preset = { width: 1080, height: 1920 };
+  const expectedMobile = [
+    { width: 3375, height: 6000 },
+    { width: 2121, height: 3771 },
+    { width: 1837, height: 3266 },
+    { width: 1500, height: 2667 },
+    { width: 1087, height: 1932 },
+  ];
+  for (const layout of await loadImplementations()) {
+    assert.equal(typeof layout.getExportAttemptSizes, "function");
+    assert.deepEqual(
+      plain(layout.getExportAttemptSizes(source, preset, "jpeg", true)),
+      expectedMobile,
+    );
+    assert.deepEqual(
+      plain(layout.getExportAttemptSizes(source, preset, "jpeg", false)),
+      [{ width: 3375, height: 6000 }],
+    );
+  }
+});
+
 test("JPG 保留原始像素时仍按旧规则尝试压到 19.9MB", async () => {
   for (const layout of await loadImplementations()) {
     assert.equal(typeof layout.getOriginalPixelJpegQualities, "function");

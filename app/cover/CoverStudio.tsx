@@ -35,7 +35,7 @@ import {
   getComparisonFadeStops,
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
-  getOriginalPixelExportPlan,
+  getExportAttemptSizes,
   getOriginalPixelJpegMaxBytes,
   getOriginalPixelJpegQualities,
   getAdjustmentPanelVisibility,
@@ -99,6 +99,8 @@ type ExportAsset = {
   blob: Blob;
   file: File;
   outputSize: { width: number; height: number };
+  originalOutputSize: { width: number; height: number };
+  usedMobileFallback: boolean;
 };
 
 type RetouchPoint = { x: number; y: number };
@@ -147,6 +149,16 @@ function releaseCoverCanvas(canvas: HTMLCanvasElement) {
     coverScratch.delete(canvas);
   }
   canvas.width = canvas.height = 1;
+}
+
+function isMobileExportDevice() {
+  return /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+}
+
+function canShareExportFile(file: File) {
+  if (typeof navigator.share !== "function") return false;
+  return typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] });
 }
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
@@ -1112,6 +1124,7 @@ export default function CoverStudio() {
   const [dragging, setDragging] = useState(false);
   const [beforeDragging, setBeforeDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
+  const [exportFeedback, setExportFeedback] = useState("手机导出后会打开成品预览，可长按存储到照片");
   const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
@@ -1710,12 +1723,13 @@ export default function CoverStudio() {
     generation = exportGenerationRef.current,
   ): Promise<ExportAsset | null> => {
     if (!image || generation !== exportGenerationRef.current) return null;
-    const exportPlan = getOriginalPixelExportPlan(
+    const attempts = getExportAttemptSizes(
       { width: image.naturalWidth, height: image.naturalHeight },
       preset,
       format,
+      isMobileExportDevice(),
     );
-    const outputSize = { width: exportPlan.width, height: exportPlan.height };
+    const originalOutputSize = attempts[0];
     const exportCanvas = document.createElement("canvas");
     const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => {
       try {
@@ -1725,19 +1739,33 @@ export default function CoverStudio() {
       }
     });
     let blob: Blob | null = null;
-    try {
-      drawCover(exportCanvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize, photoOnly, retouchStrokes, beforeRetouchStrokes);
-      if (format === "jpeg") {
-        for (const quality of getOriginalPixelJpegQualities()) {
-          blob = await toBlob(quality);
-          if (!blob || blob.size <= getOriginalPixelJpegMaxBytes()) break;
-        }
-        if (blob && blob.size > getOriginalPixelJpegMaxBytes()) blob = null;
-      } else {
-        blob = await toBlob();
+    let outputSize = originalOutputSize;
+    for (const candidate of attempts) {
+      if (generation !== exportGenerationRef.current) {
+        releaseCoverCanvas(exportCanvas);
+        return null;
       }
-    } catch {
+      try {
+        drawCover(exportCanvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, false, candidate, photoOnly, retouchStrokes, beforeRetouchStrokes);
+        if (format === "jpeg") {
+          for (const quality of getOriginalPixelJpegQualities()) {
+            blob = await toBlob(quality);
+            if (!blob || blob.size <= getOriginalPixelJpegMaxBytes()) break;
+          }
+          if (blob && blob.size > getOriginalPixelJpegMaxBytes()) blob = null;
+        } else {
+          blob = await toBlob();
+        }
+      } catch {
+        blob = null;
+      }
+      if (blob) {
+        outputSize = candidate;
+        break;
+      }
       blob = null;
+      releaseCoverCanvas(exportCanvas);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     }
     if (generation !== exportGenerationRef.current) {
       releaseCoverCanvas(exportCanvas);
@@ -1753,7 +1781,13 @@ export default function CoverStudio() {
     }
     const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
     const exportName = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-    const asset = { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
+    const asset = {
+      blob,
+      file: new File([blob], exportName, { type: blob.type }),
+      outputSize,
+      originalOutputSize,
+      usedMobileFallback: outputSize.width !== originalOutputSize.width || outputSize.height !== originalOutputSize.height,
+    };
     releaseCoverCanvas(exportCanvas);
     return asset;
   }, [beforeImage, beforeRetouchStrokes, fileName, image, preset, retouchStrokes, settings, watermark]);
@@ -2060,33 +2094,44 @@ export default function CoverStudio() {
     nextWatermark.src = url;
   }, [updateSetting]);
 
+  const setExportMessage = (message: string) => {
+    setNotice(message);
+    setExportFeedback(message);
+  };
+
+  const describeExportResolution = (asset: ExportAsset) => asset.usedMobileFallback
+    ? `原始像素超出当前手机可用内存，已采用可稳定导出的最高像素 ${asset.outputSize.width}×${asset.outputSize.height}`
+    : `已保留原始裁切像素 ${asset.outputSize.width}×${asset.outputSize.height}`;
+
   const exportCover = async (format: "jpeg" | "png", photoOnly = false) => {
     if (!image || !canvasRef.current) {
-      setNotice("请先上传一张照片");
+      setExportMessage("请先上传一张照片");
       return;
     }
     const comparisonError = getComparisonExportError(settings.compareEnabled, Boolean(beforeImage));
     if (!photoOnly && comparisonError) {
-      setNotice(comparisonError);
+      setExportMessage(comparisonError);
       return;
     }
     const generation = exportGenerationRef.current;
     const cached = exportCacheRef.current;
     let asset = photoOnly || cached.generation !== generation ? null : cached[format];
     if (photoOnly) {
-      setNotice(`正在生成无文字、无水印的${format === "png" ? " PNG" : " JPG"}…`);
+      setExportMessage(`正在生成无文字、无水印的${format === "png" ? " PNG" : " JPG"}…`);
       try {
         asset = await buildExportAsset(format, true, generation);
       } catch {
         asset = null;
       }
       if (generation !== exportGenerationRef.current) return;
-      if (!asset) return setNotice(format === "jpeg"
-        ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
-        : "浏览器无法按原始像素导出；系统没有缩小图片，请换电脑浏览器或关闭其他页面后再试");
+      if (!asset) return setExportMessage(isMobileExportDevice()
+        ? `手机仍无法生成这张${format === "png" ? " PNG" : " JPG"}，请关闭其他页面后再试${format === "jpeg" ? "，或改用 PNG" : ""}`
+        : format === "jpeg"
+          ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
+          : "浏览器无法按原始像素导出，请关闭其他页面后再试");
     } else if (!asset) {
       setExportReady((current) => ({ ...current, [format]: false }));
-      setNotice(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
+      setExportMessage(`正在尝试生成原始像素 ${format === "png" ? "PNG" : "JPG"}…`);
       let prepared: ExportAsset | null = null;
       try {
         prepared = await buildExportAsset(format, false, generation);
@@ -2096,15 +2141,19 @@ export default function CoverStudio() {
       if (generation !== exportGenerationRef.current) return;
       exportCacheRef.current = { ...exportCacheRef.current, generation, [format]: prepared };
       setExportReady((current) => ({ ...current, [format]: true }));
-      if (!prepared) return setNotice(format === "jpeg"
-        ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
-        : "浏览器无法按原始像素导出；系统没有缩小图片，请换电脑浏览器或关闭其他页面后再试");
+      if (!prepared) return setExportMessage(isMobileExportDevice()
+        ? `手机仍无法生成这张${format === "png" ? " PNG" : " JPG"}，请关闭其他页面后再试${format === "jpeg" ? "，或改用 PNG" : ""}`
+        : format === "jpeg"
+          ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
+          : "浏览器无法按原始像素导出，请关闭其他页面后再试");
       asset = prepared;
     }
     const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
     const exportName = `${safeName}_${photoOnly ? "原图" : "设计"}_${preset.label}_${preset.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;
     const namedAsset = { ...asset, file: new File([asset.blob], exportName, { type: asset.blob.type }) };
-    const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
+    const isMobile = isMobileExportDevice();
+    const resolutionMessage = describeExportResolution(namedAsset);
+    setExportMessage(`${resolutionMessage}，成品已生成`);
     if (isMobile) {
       const url = URL.createObjectURL(asset.blob);
       setSavePreview((current) => {
@@ -2112,14 +2161,16 @@ export default function CoverStudio() {
         return { url, asset: namedAsset };
       });
       try {
-        if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
+        if (!canShareExportFile(namedAsset.file)) throw new Error("当前浏览器未开放文件分享");
         await navigator.share({ files: [namedAsset.file], title: "南铂封面" });
         if (generation !== exportGenerationRef.current) return;
-        setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
+        setExportMessage(`${resolutionMessage}；已打开手机分享面板，请点击“存储图像”`);
         return;
       } catch (error) {
         if (generation !== exportGenerationRef.current) return;
-        return setNotice(error instanceof DOMException && error.name === "AbortError" ? "已取消系统分享，也可以长按成品图保存" : "系统分享未打开，请点击“打开手机分享”或长按成品图保存");
+        return setExportMessage(error instanceof DOMException && error.name === "AbortError"
+          ? `${resolutionMessage}；已取消系统分享，也可以长按成品图保存`
+          : `${resolutionMessage}；请在成品预览里长按图片保存`);
       }
     }
     const picker = (window as typeof window & {
@@ -2144,11 +2195,11 @@ export default function CoverStudio() {
         }
         await writable.close();
         if (generation !== exportGenerationRef.current) return;
-        setNotice(`已保存高清图片 · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
+        setExportMessage(`已保存高清图片 · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
         return;
       } catch (error) {
         if (generation !== exportGenerationRef.current) return;
-        if (error instanceof DOMException && error.name === "AbortError") return setNotice("已取消保存，可再次点击导出");
+        if (error instanceof DOMException && error.name === "AbortError") return setExportMessage("已取消保存，可再次点击导出");
       }
     }
     if (generation !== exportGenerationRef.current) return;
@@ -2157,7 +2208,7 @@ export default function CoverStudio() {
       if (current) URL.revokeObjectURL(current.url);
       return { url, asset: namedAsset };
     });
-    setNotice(`高清成品已生成 ${asset.outputSize.width}×${asset.outputSize.height}，请长按图片存储到照片`);
+    setExportMessage(`${resolutionMessage}，请长按图片存储到照片`);
   };
 
   return (
@@ -2166,16 +2217,16 @@ export default function CoverStudio() {
         <div className="save-preview">
           <div className="save-preview-card">
             <strong>高清成品已生成</strong>
-            <p>请长按下面的图片，选择“存储到照片”</p>
+            <p>{describeExportResolution(savePreview.asset)}；请长按下面的图片，选择“存储到照片”</p>
             {/* Blob 预览是用户本机刚生成的成品，不能交给 next/image 远程优化。 */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={savePreview.url} alt="高清封面成品" />
             <div>
               <button type="button" onClick={async () => {
                 try {
-                  if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
+                  if (!canShareExportFile(savePreview.asset.file)) throw new Error("当前浏览器未开放文件分享");
                   await navigator.share({ files: [savePreview.asset.file], title: "南铂封面" });
-                  setNotice("已打开手机分享面板，请点击“存储图像”保存到相册");
+                  setExportMessage("已打开手机分享面板，请点击“存储图像”保存到相册");
                 } catch (error) {
                   if (!(error instanceof DOMException && error.name === "AbortError")) window.location.href = savePreview.url;
                 }
@@ -2465,6 +2516,7 @@ export default function CoverStudio() {
               {comparisonOverlapWarning ? <p className="studio-compare-warning">{comparisonOverlapWarning}</p> : null}
             </div>
             <div className="studio-export-row">
+              <p className="studio-export-feedback" role="status" aria-live="polite">{exportFeedback}</p>
               <button type="button" className="export-original" onClick={() => exportCover("png", true)}>导出原图 PNG</button>
               <button type="button" className="export-original" onClick={() => exportCover("jpeg", true)}>导出原图 JPG</button>
               <button type="button" className="export-secondary" disabled={Boolean(image) && !exportReady.png} onClick={() => exportCover("png")}>

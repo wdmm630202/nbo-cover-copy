@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#202020" />
     <meta name="robots" content="noindex,nofollow" />
     <title>NBO南铂封面制作台</title>
-    <link rel="stylesheet" href="./cover.css?v=20260831-compare-memory-scroll" />
+    <link rel="stylesheet" href="./cover.css?v=20260831-mobile-export" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -137,6 +137,7 @@
                 <p class="compare-overlap-warning" id="compareOverlapWarning" hidden></p>
               </div>
               <div class="export-row">
+                <p class="export-feedback" id="exportFeedback" role="status" aria-live="polite">手机导出后会打开成品预览，可长按存储到照片</p>
                 <button type="button" class="original" id="exportOriginalPng">导出原图 PNG</button>
                 <button type="button" class="original" id="exportOriginalJpg">导出原图 JPG</button>
                 <button type="button" class="secondary" id="exportPng">导出设计 PNG</button>
@@ -210,13 +211,13 @@
     <div class="save-preview" id="savePreview" hidden>
       <div class="save-preview-card">
         <strong>高清成品已生成</strong>
-        <p>请长按下面的图片，选择“存储到照片”</p>
+        <p id="savePreviewText">请长按下面的图片，选择“存储到照片”</p>
         <img id="savePreviewImage" alt="高清封面成品" />
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./compare-layout.js?v=20260830-finder-drag-upload"></script>
+    <script src="./compare-layout.js?v=20260831-mobile-export"></script>
     <script src="./drop-upload.js?v=20260830-finder-drag-upload"></script>
-    <script src="./cover.js?v=20260830-finder-drag-upload"></script>
+    <script src="./cover.js?v=20260831-mobile-export"></script>
   </body>
 </html>

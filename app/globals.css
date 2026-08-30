@@ -905,6 +905,19 @@ body {
   align-items: center;
 }
 
+.studio-export-feedback {
+  grid-column: 1 / -1;
+  margin: 0;
+  min-height: 30px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .72);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .studio-export-row > div {
   display: flex;
   flex-direction: column;
@@ -1500,6 +1513,8 @@ body {
 
   .studio-export-row {
     grid-template-columns: 1fr 1fr;
+    order: -1;
+    margin: 0 0 4px;
   }
 
   .studio-export-row > div {
@@ -1508,6 +1523,8 @@ body {
 
   .studio-export-row button {
     width: 100%;
+    height: 48px;
+    font-size: 12px;
   }
 }
 

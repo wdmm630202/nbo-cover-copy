@@ -28,7 +28,7 @@ const {
   getComparisonFadeStops,
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
-  getOriginalPixelExportPlan,
+  getExportAttemptSizes,
   getOriginalPixelJpegMaxBytes,
   getOriginalPixelJpegQualities,
   getAdjustmentPanelVisibility,
@@ -39,6 +39,16 @@ const {
   resolveRetouchTarget,
   resolveRetouchTargetFromPoint,
 } = window.NBOCompareLayout;
+
+function isMobileExportDevice() {
+  return /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+}
+
+function canShareExportFile(file) {
+  if (typeof navigator.share !== "function") return false;
+  return typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] });
+}
 const {
   createImageDropController,
   getImageDropHint,
@@ -1392,6 +1402,17 @@ function setStatus(message) {
   $("#statusText").textContent = message;
 }
 
+function setExportStatus(message) {
+  setStatus(message);
+  $("#exportFeedback").textContent = message;
+}
+
+function describeExportResolution(asset) {
+  return asset.usedMobileFallback
+    ? `原始像素超出当前手机可用内存，已采用可稳定导出的最高像素 ${asset.outputSize.width}×${asset.outputSize.height}`
+    : `已保留原始裁切像素 ${asset.outputSize.width}×${asset.outputSize.height}`;
+}
+
 function roundedRectPath(ctx, x, y, width, height, radius) {
   const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
   ctx.beginPath();
@@ -1974,12 +1995,13 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
   const output = document.createElement("canvas");
   const mimeType = format === "png" ? "image/png" : "image/jpeg";
   const current = preset();
-  const exportPlan = getOriginalPixelExportPlan(
+  const attempts = getExportAttemptSizes(
     { width: state.image.naturalWidth, height: state.image.naturalHeight },
     current,
     format,
+    isMobileExportDevice(),
   );
-  const outputSize = { width: exportPlan.width, height: exportPlan.height };
+  const originalOutputSize = attempts[0];
   const toBlob = (quality) => new Promise((resolve) => {
     try {
       output.toBlob(resolve, mimeType, quality);
@@ -1988,19 +2010,33 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
     }
   });
   let blob = null;
-  try {
-    draw(false, output, outputSize, photoOnly);
-    if (format === "jpeg") {
-      for (const quality of getOriginalPixelJpegQualities()) {
-        blob = await toBlob(quality);
-        if (!blob || blob.size <= getOriginalPixelJpegMaxBytes()) break;
-      }
-      if (blob && blob.size > getOriginalPixelJpegMaxBytes()) blob = null;
-    } else {
-      blob = await toBlob();
+  let outputSize = originalOutputSize;
+  for (const candidate of attempts) {
+    if (generation !== exportGeneration) {
+      output.width = output.height = 1;
+      return null;
     }
-  } catch {
+    try {
+      draw(false, output, candidate, photoOnly);
+      if (format === "jpeg") {
+        for (const quality of getOriginalPixelJpegQualities()) {
+          blob = await toBlob(quality);
+          if (!blob || blob.size <= getOriginalPixelJpegMaxBytes()) break;
+        }
+        if (blob && blob.size > getOriginalPixelJpegMaxBytes()) blob = null;
+      } else {
+        blob = await toBlob();
+      }
+    } catch {
+      blob = null;
+    }
+    if (blob) {
+      outputSize = candidate;
+      break;
+    }
     blob = null;
+    output.width = output.height = 1;
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
   if (generation !== exportGeneration) {
     output.width = output.height = 1;
@@ -2016,32 +2052,40 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
   }
   const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
   const exportName = `${name}_${current.label}_${current.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-  const asset = { blob, file: new File([blob], exportName, { type: blob.type }), outputSize };
+  const asset = {
+    blob,
+    file: new File([blob], exportName, { type: blob.type }),
+    outputSize,
+    originalOutputSize,
+    usedMobileFallback: outputSize.width !== originalOutputSize.width || outputSize.height !== originalOutputSize.height,
+  };
   output.width = output.height = 1;
   return asset;
 }
 
 async function exportCover(format, photoOnly = false) {
-  if (!state.image) return setStatus("请先上传一张照片");
+  if (!state.image) return setExportStatus("请先上传一张照片");
   const comparisonError = getComparisonExportError(state.compareEnabled, Boolean(state.beforeImage));
-  if (!photoOnly && comparisonError) return setStatus(comparisonError);
+  if (!photoOnly && comparisonError) return setExportStatus(comparisonError);
   const generation = exportGeneration;
   const cached = exportCache;
   let asset = photoOnly || cached.generation !== generation ? null : cached[format];
   if (photoOnly) {
-    setStatus(`正在生成无文字、无水印的${format === "png" ? " PNG" : " JPG"}…`);
+    setExportStatus(`正在生成无文字、无水印的${format === "png" ? " PNG" : " JPG"}…`);
     try {
       asset = await buildExportAsset(format, true, generation);
     } catch {
       asset = null;
     }
     if (generation !== exportGeneration) return;
-    if (!asset) return setStatus(format === "jpeg"
-      ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
-      : "浏览器无法按原始像素导出；系统没有缩小图片，请换电脑浏览器或关闭其他页面后再试");
+    if (!asset) return setExportStatus(isMobileExportDevice()
+      ? `手机仍无法生成这张${format === "png" ? " PNG" : " JPG"}，请关闭其他页面后再试${format === "jpeg" ? "，或改用 PNG" : ""}`
+      : format === "jpeg"
+        ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
+        : "浏览器无法按原始像素导出，请关闭其他页面后再试");
   } else if (!asset) {
     setExportReady(format, false);
-    setStatus(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
+    setExportStatus(`正在尝试生成原始像素 ${format === "png" ? "PNG" : "JPG"}…`);
     try {
       asset = await buildExportAsset(format, false, generation);
     } catch {
@@ -2050,28 +2094,34 @@ async function exportCover(format, photoOnly = false) {
     if (generation !== exportGeneration) return;
     exportCache = { ...exportCache, generation, [format]: asset };
     setExportReady(format, true);
-    if (!asset) return setStatus(format === "jpeg"
-      ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
-      : "浏览器无法按原始像素导出；系统没有缩小图片，请换电脑浏览器或关闭其他页面后再试");
+    if (!asset) return setExportStatus(isMobileExportDevice()
+      ? `手机仍无法生成这张${format === "png" ? " PNG" : " JPG"}，请关闭其他页面后再试${format === "jpeg" ? "，或改用 PNG" : ""}`
+      : format === "jpeg"
+        ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
+        : "浏览器无法按原始像素导出，请关闭其他页面后再试");
   }
   if (generation !== exportGeneration) return;
   const current = preset();
   const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
   const exportName = `${name}_${photoOnly ? "原图" : "设计"}_${current.label}_${current.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;
   asset = { ...asset, file: new File([asset.blob], exportName, { type: asset.blob.type }) };
-  const isMobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent);
+  const isMobile = isMobileExportDevice();
+  const resolutionMessage = describeExportResolution(asset);
+  setExportStatus(`${resolutionMessage}，成品已生成`);
   if (isMobile) {
     if (generation !== exportGeneration) return;
     showSavePreview(asset);
     try {
-      if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
+      if (!canShareExportFile(asset.file)) throw new Error("当前浏览器未开放文件分享");
       await navigator.share({ files: [asset.file], title: "南铂封面" });
       if (generation !== exportGeneration) return;
-      setStatus("已打开手机分享面板，请点击“存储图像”保存到相册");
+      setExportStatus(`${resolutionMessage}；已打开手机分享面板，请点击“存储图像”`);
       return;
     } catch (error) {
       if (generation !== exportGeneration) return;
-      return setStatus(error instanceof DOMException && error.name === "AbortError" ? "已取消系统分享，也可以长按成品图保存" : "系统分享未打开，请点击“打开手机分享”或长按成品图保存");
+      return setExportStatus(error instanceof DOMException && error.name === "AbortError"
+        ? `${resolutionMessage}；已取消系统分享，也可以长按成品图保存`
+        : `${resolutionMessage}；请在成品预览里长按图片保存`);
     }
   }
   if (!isMobile && window.showSaveFilePicker) {
@@ -2094,10 +2144,10 @@ async function exportCover(format, photoOnly = false) {
       }
       await writable.close();
       if (generation !== exportGeneration) return;
-      return setStatus(`已保存高清图片 · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
+      return setExportStatus(`已保存高清图片 · ${(asset.blob.size / 1024 / 1024).toFixed(1)}MB`);
     } catch (error) {
       if (generation !== exportGeneration) return;
-      if (error instanceof DOMException && error.name === "AbortError") return setStatus("已取消保存，可再次点击导出");
+      if (error instanceof DOMException && error.name === "AbortError") return setExportStatus("已取消保存，可再次点击导出");
     }
   }
   if (generation !== exportGeneration) return;
@@ -2120,18 +2170,19 @@ function showSavePreview(asset) {
   savePreviewUrl = URL.createObjectURL(asset.blob);
   savePreviewAsset = asset;
   $("#savePreviewImage").src = savePreviewUrl;
+  $("#savePreviewText").textContent = `${describeExportResolution(asset)}；请长按下面的图片，选择“存储到照片”`;
   $("#savePreview").hidden = false;
   document.body.style.overflow = "hidden";
-  setStatus(`高清成品已生成 ${asset.outputSize.width}×${asset.outputSize.height}，请长按图片存储到照片`);
+  setExportStatus(`${describeExportResolution(asset)}，请长按图片存储到照片`);
 }
 
 $("#closeSavePreview").addEventListener("click", clearSavePreview);
 $("#openPreviewImage").addEventListener("click", async () => {
   if (!savePreviewAsset) return;
   try {
-    if (typeof navigator.share !== "function") throw new Error("当前浏览器未开放系统分享");
+    if (!canShareExportFile(savePreviewAsset.file)) throw new Error("当前浏览器未开放文件分享");
     await navigator.share({ files: [savePreviewAsset.file], title: "南铂封面" });
-    setStatus("已打开手机分享面板，请点击“存储图像”保存到相册");
+    setExportStatus("已打开手机分享面板，请点击“存储图像”保存到相册");
   } catch (error) {
     if (!(error instanceof DOMException && error.name === "AbortError") && savePreviewUrl) window.location.href = savePreviewUrl;
   }

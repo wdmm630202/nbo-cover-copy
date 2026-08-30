@@ -198,7 +198,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /compare-layout\.js/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /cover\.css\?v=20260831-compare-memory-scroll/);
+  assert.match(publicCover, /cover\.css\?v=20260831-mobile-export/);
   assert.match(publicCover, /id="mobileTouchZone"/);
   assert.match(publicCoverScript, /mobileGesture/);
   assert.match(publicCoverScript, /mode: "rotate"/);
@@ -242,10 +242,11 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /navigator\.hardwareConcurrency/);
   assert.match(publicCoverScript, /requestAnimationFrame/);
   assert.match(publicCoverScript, /pagehide/);
-  assert.match(publicCoverScript, /系统没有缩小图片/);
   assert.match(publicCoverScript, /JPG 控制在 19\.9MB 内/);
-  assert.doesNotMatch(publicCoverScript, /8_000_000/);
-  assert.match(publicCoverScript, /正在生成原图尺寸/);
+  assert.match(publicCoverScript, /getExportAttemptSizes/);
+  assert.match(publicCompareLayout, /8_000_000/);
+  assert.match(publicCoverScript, /正在尝试生成原始像素/);
+  assert.match(publicCover, /id="exportFeedback"/);
   assert.doesNotMatch(publicCoverScript, /请再次点击导出/);
   assert.match(publicCoverScript, /eraseShadeWithBrush/);
   assert.match(publicCoverScript, /quadraticCurveTo/);
