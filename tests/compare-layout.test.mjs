@@ -223,10 +223,32 @@ test("前后对比装饰层只绘制前后胶囊，不再写入多余品牌字",
     const context = {
       save() {}, restore() {}, scale() {}, beginPath() {}, rect() {}, clip() {},
       setLineDash() {}, stroke() {}, fill() {}, arc() {},
+      createLinearGradient() { return { addColorStop() {} }; },
       fillText(value) { text.push(value); },
     };
     layout.drawComparisonEditorialOverlay(context, { width: 1080, height: 1920 }, () => {});
     assert.deepEqual(text, ["拍摄", "后", "拍摄", "前"]);
+  }
+});
+
+test("前后胶囊使用原版的深色高光与亮面圆钮材质", async () => {
+  for (const layout of await loadImplementations()) {
+    const gradients = [];
+    let strokes = 0;
+    const context = {
+      save() {}, restore() {}, scale() {}, beginPath() {}, rect() {}, clip() {},
+      setLineDash() {}, fill() {}, arc() {}, fillText() {},
+      stroke() { strokes += 1; },
+      createLinearGradient() {
+        const stops = [];
+        gradients.push(stops);
+        return { addColorStop(offset, color) { stops.push([offset, color]); } };
+      },
+    };
+    layout.drawComparisonEditorialOverlay(context, { width: 1080, height: 1920 }, () => {});
+    assert.equal(gradients.length, 4, "两个胶囊各需要深色底和亮面圆钮两层渐变");
+    assert.deepEqual(gradients.map((stops) => stops.length), [4, 3, 4, 3]);
+    assert.equal(strokes, 5, "虚线框之外，每个胶囊和圆钮都应有细高光描边");
   }
 });
 
