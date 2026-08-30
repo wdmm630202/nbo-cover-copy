@@ -1307,6 +1307,8 @@ body {
   .studio-panel { padding: 13px; overflow: hidden; }
   .studio-controls { display: flex; flex-direction: column; }
   .cover-studio-grid.is-comparing .studio-controls { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c8c2bc transparent; }
+  .cover-studio-grid.is-comparing .studio-memory { flex: 0 0 auto; grid-template-rows: repeat(3, auto); }
+  .cover-studio-grid.is-comparing .studio-memory > div { height: auto; }
   .cover-studio-grid.is-comparing .studio-design { overflow: hidden; }
   .studio-panel-heading { margin-bottom: 8px; }
   .studio-panel-heading > span { width: 30px; height: 30px; }
