@@ -227,7 +227,7 @@ test("前后对比装饰层只绘制前后胶囊，不再写入多余品牌字",
       fillText(value) { text.push(value); },
     };
     layout.drawComparisonEditorialOverlay(context, { width: 1080, height: 1920 }, () => {});
-    assert.deepEqual(text, ["拍摄", "后", "拍摄", "前"]);
+    assert.deepEqual(text, ["拍", "摄", "后", "拍", "摄", "前"]);
   }
 });
 
@@ -249,6 +249,53 @@ test("前后胶囊使用原版的深色高光与亮面圆钮材质", async () =>
     assert.equal(gradients.length, 4, "两个胶囊各需要深色底和亮面圆钮两层渐变");
     assert.deepEqual(gradients.map((stops) => stops.length), [4, 3, 4, 3]);
     assert.equal(strokes, 5, "虚线框之外，每个胶囊和圆钮都应有细高光描边");
+  }
+});
+
+test("胶囊缩小时仍保持整圆角、透明材质和三字协调间距", async () => {
+  for (const layout of await loadImplementations()) {
+    const gradients = [];
+    const capsulePaths = [];
+    const arcs = [];
+    const text = [];
+    const strokes = [];
+    const context = {
+      save() {}, restore() {}, scale() {}, beginPath() {}, rect() {}, clip() {},
+      setLineDash() {}, fill() {}, stroke() { strokes.push(this.lineWidth); },
+      arc(x, y, radius) { arcs.push({ x, y, radius }); },
+      fillText(value, x, y) { text.push({ value, x, y, font: this.font }); },
+      createLinearGradient() {
+        const stops = [];
+        gradients.push(stops);
+        return { addColorStop(offset, color) { stops.push([offset, color]); } };
+      },
+    };
+    layout.drawComparisonEditorialOverlay(
+      context,
+      { width: 540, height: 960 },
+      (_context, _x, _y, _width, height, radius) => capsulePaths.push({ height, radius }),
+    );
+
+    assert.deepEqual(capsulePaths.slice(-2), [
+      { height: 54, radius: 27 },
+      { height: 54, radius: 27 },
+    ]);
+    assert.deepEqual(text.map((item) => item.value), ["拍", "摄", "后", "拍", "摄", "前"]);
+
+    for (let index = 0; index < text.length; index += 3) {
+      const [first, second, third] = text.slice(index, index + 3);
+      const fontSize = Number(first.font.match(/(\d+)px/)[1]);
+      const circle = arcs[index / 3];
+      const firstGap = second.x - first.x - fontSize;
+      const secondGap = third.x - circle.radius - (second.x + fontSize / 2);
+      assert.ok(Math.abs(firstGap - secondGap) < 0.01);
+    }
+
+    const alpha = (color) => Number(color.match(/,([.\d]+)\)$/)[1]);
+    for (const stops of [gradients[0], gradients[2]]) {
+      assert.ok(stops.every(([, color]) => alpha(color) <= 0.78));
+    }
+    assert.ok(strokes.slice(1).every((lineWidth) => lineWidth >= 2));
   }
 });
 

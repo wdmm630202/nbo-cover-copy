@@ -125,29 +125,30 @@
 
   function drawComparisonCapsule(context, capsule, word, roundedRectPath, outputScale) {
     const x = capsule.right - capsule.width;
+    const onePhysicalPixel = 1 / Math.max(.01, outputScale);
     context.save();
-    context.shadowColor = "rgba(0,0,0,.32)";
-    context.shadowBlur = 13 * outputScale;
-    context.shadowOffsetY = 3 * outputScale;
+    context.shadowColor = "rgba(0,0,0,.24)";
+    context.shadowBlur = Math.max(3, 8 * outputScale);
+    context.shadowOffsetY = Math.max(1, 2 * outputScale);
     roundedRectPath(context, x, capsule.y, capsule.width, capsule.height, capsule.radius);
     const shellGradient = context.createLinearGradient(0, capsule.y, 0, capsule.y + capsule.height);
-    shellGradient.addColorStop(0, "rgba(126,126,130,.64)");
-    shellGradient.addColorStop(.1, "rgba(79,79,82,.94)");
-    shellGradient.addColorStop(.58, "rgba(50,50,53,.92)");
-    shellGradient.addColorStop(1, "rgba(31,31,34,.88)");
+    shellGradient.addColorStop(0, "rgba(126,126,130,.52)");
+    shellGradient.addColorStop(.1, "rgba(79,79,82,.76)");
+    shellGradient.addColorStop(.58, "rgba(50,50,53,.72)");
+    shellGradient.addColorStop(1, "rgba(31,31,34,.68)");
     context.fillStyle = shellGradient;
     context.fill();
     context.shadowColor = "transparent";
-    context.lineWidth = 1.4;
+    context.lineWidth = Math.max(1.4, onePhysicalPixel);
     context.strokeStyle = "rgba(255,255,255,.52)";
     context.stroke();
 
-    const circleRadius = capsule.height * .37;
+    const circleRadius = capsule.height * .39;
     const circleX = x + capsule.width - capsule.height / 2;
     const circleY = capsule.y + capsule.height / 2;
-    context.shadowColor = "rgba(0,0,0,.24)";
-    context.shadowBlur = 6 * outputScale;
-    context.shadowOffsetY = 1 * outputScale;
+    context.shadowColor = "rgba(0,0,0,.2)";
+    context.shadowBlur = Math.max(2, 4 * outputScale);
+    context.shadowOffsetY = Math.max(.5, outputScale);
     context.beginPath();
     context.arc(circleX, circleY, circleRadius, 0, Math.PI * 2);
     const buttonGradient = context.createLinearGradient(0, circleY - circleRadius, 0, circleY + circleRadius);
@@ -157,16 +158,21 @@
     context.fillStyle = buttonGradient;
     context.fill();
     context.shadowColor = "transparent";
-    context.lineWidth = 1.2;
+    context.lineWidth = Math.max(1.2, onePhysicalPixel);
     context.strokeStyle = "rgba(255,255,255,.9)";
     context.stroke();
 
     context.textBaseline = "middle";
     context.textAlign = "center";
-    context.font = `700 ${Math.round(capsule.height * .34)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    const labelFontSize = Math.round(capsule.height * .34);
+    const opticalGap = capsule.height * .074;
+    const secondCharacterX = circleX - circleRadius - opticalGap - labelFontSize / 2;
+    const firstCharacterX = secondCharacterX - labelFontSize - opticalGap;
+    context.font = `700 ${labelFontSize}px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
     context.fillStyle = "rgba(248,248,250,.96)";
-    context.fillText("拍摄", x + (capsule.width - capsule.height) * .48, circleY);
-    context.font = `800 ${Math.round(capsule.height * .48)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    context.fillText("拍", firstCharacterX, circleY);
+    context.fillText("摄", secondCharacterX, circleY);
+    context.font = `800 ${Math.round(capsule.height * .48)}px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
     context.fillStyle = "#252527";
     context.fillText(word, circleX, circleY + .5);
     context.restore();
