@@ -29,6 +29,7 @@ import {
 } from "../workspace-sync";
 import {
   drawComparisonEditorialOverlay,
+  getComparisonAlignmentPlan,
   getComparisonEvidenceLayout,
   getComparisonExportError,
   getComparisonFadeStops,
@@ -81,6 +82,7 @@ type StudioSettings = {
   beforeBrightness: number;
   beforeShade: number;
   beforeBottomShade: number;
+  beforeFrameScale: number;
   watermarkScale: number;
   watermarkAlign: "left" | "center" | "right";
   watermarkOpacity: number;
@@ -191,6 +193,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   beforeBrightness: 100,
   beforeShade: 0,
   beforeBottomShade: 100,
+  beforeFrameScale: 100,
   watermarkScale: 100,
   watermarkAlign: "left",
   watermarkOpacity: 50,
@@ -311,6 +314,7 @@ function normalizeStudioSettings(value: unknown): StudioSettings {
     beforeBrightness: numberValue("beforeBrightness", 0, 200),
     beforeShade: numberValue("beforeShade", 0, 100),
     beforeBottomShade: numberValue("beforeBottomShade", 0, 100),
+    beforeFrameScale: numberValue("beforeFrameScale", 100, 120),
     watermarkScale: numberValue("watermarkScale", 0, 300),
     watermarkAlign,
     watermarkOpacity: numberValue("watermarkOpacity", 0, 100),
@@ -363,8 +367,8 @@ function getBeforeOffsetLimits(
   };
 }
 
-function getBeforeImageFrame(canvas: { width: number; height: number }) {
-  const { frame, imageInset } = getComparisonEvidenceLayout(canvas);
+function getBeforeImageFrame(canvas: { width: number; height: number }, frameScale = 100) {
+  const { frame, imageInset } = getComparisonEvidenceLayout(canvas, frameScale);
   const inset = Math.max(2, Math.round(imageInset * canvas.width / 1080));
   return {
     x: frame.x + inset,
@@ -403,8 +407,8 @@ function drawComparisonEvidence(
   height: number,
   beforeRetouchStrokes: RetouchStroke[],
 ) {
-  const { frame } = getComparisonEvidenceLayout({ width, height });
-  const imageFrame = getBeforeImageFrame({ width, height });
+  const { frame } = getComparisonEvidenceLayout({ width, height }, settings.beforeFrameScale);
+  const imageFrame = getBeforeImageFrame({ width, height }, settings.beforeFrameScale);
 
   if (!beforeImage) {
     context.save();
@@ -554,7 +558,7 @@ function drawCover(
     }
     drawTemplateText(context, settings, width, height, watermark);
     if (settings.compareEnabled) {
-      drawComparisonEditorialOverlay(context, { width, height }, roundedRectPath);
+      drawComparisonEditorialOverlay(context, { width, height }, roundedRectPath, settings.beforeFrameScale);
     }
     if (watermark) drawWatermark(context, watermark, settings, width, height);
   }
@@ -814,7 +818,22 @@ function drawTemplateText(
     );
   }
 
+  context.font = `900 ${topFontSize}px sans-serif`;
+  const topWidth = Math.min(maxWidth, context.measureText(settings.topText || "上行标题").width);
+  context.font = `900 ${bottomFontSize}px sans-serif`;
+  const bottomWidth = hasBottomText ? Math.min(maxWidth, context.measureText(settings.bottomText).width) : 0;
+  context.font = `400 ${subtitleFontSize}px sans-serif`;
+  const subtitleWidth = getWrappedTextWidth(context, settings.subtitle, maxWidth);
+  const contentWidth = Math.max(topWidth, bottomWidth, settings.showDivider ? activeHeadlineFontSize : 0, subtitleWidth);
+  const left = isRight ? x - contentWidth : isCenter ? x - contentWidth / 2 : x;
+  const bounds = {
+    left,
+    right: left + contentWidth,
+    top: y + blockTop,
+    bottom: y + blockBottom,
+  };
   context.restore();
+  return bounds;
 }
 
 function drawWatermark(
@@ -957,6 +976,15 @@ function drawWrappedText(
 function countWrappedLines(text: string) {
   if (!text.trim()) return 0;
   return Math.min(Math.ceil(Array.from(text).length / 12), 2);
+}
+
+function getWrappedTextWidth(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  if (!text.trim()) return 0;
+  const characters = Array.from(text);
+  return Math.max(...Array.from({ length: Math.min(2, Math.ceil(characters.length / 12)) }, (_, index) => {
+    const line = characters.slice(index * 12, index * 12 + 12).join("");
+    return line.length === 12 ? maxWidth : Math.min(maxWidth, context.measureText(line).width);
+  }));
 }
 
 const ROTATION_SNAP_ANGLES = [-180, -90, 0, 90, 180];
@@ -1143,10 +1171,10 @@ export default function CoverStudio() {
     [settings.compareEnabled, settings.templateId],
   );
   const beforeOffsetLimits = useMemo(() => {
-    const frame = getBeforeImageFrame(preset);
+    const frame = getBeforeImageFrame(preset, settings.beforeFrameScale);
     const limits = getBeforeOffsetLimits(beforeImage, frame, settings.beforeZoom, settings.beforeRotation);
     return { x: Math.floor(limits.x), y: Math.floor(limits.y) };
-  }, [beforeImage, preset, settings.beforeRotation, settings.beforeZoom]);
+  }, [beforeImage, preset, settings.beforeFrameScale, settings.beforeRotation, settings.beforeZoom]);
   const activeRetouchTarget = resolveRetouchTarget(retouchTarget, settings.compareEnabled, Boolean(beforeImage));
   const activeRetouchStrokes = activeRetouchTarget === "before" ? beforeRetouchStrokes : retouchStrokes;
   const adjustmentPanels = getAdjustmentPanelVisibility(settings.compareEnabled, adjustmentTarget);
@@ -1240,6 +1268,7 @@ export default function CoverStudio() {
           { width: canvas.width, height: canvas.height },
           settingsRef.current.compareEnabled,
           Boolean(beforeImageRef.current),
+          settingsRef.current.beforeFrameScale,
         );
         const brush = brushSettingsRef.current;
         brushPointer = { pointerId: event.pointerId, target };
@@ -1260,6 +1289,7 @@ export default function CoverStudio() {
         { width: canvas.width, height: canvas.height },
         current.compareEnabled,
         Boolean(beforeImageRef.current),
+        current.beforeFrameScale,
       );
       setAdjustmentTarget(target);
       drag = {
@@ -1296,7 +1326,7 @@ export default function CoverStudio() {
       }
       if (!drag || drag.pointerId !== event.pointerId) return;
       const rect = canvas.getBoundingClientRect();
-      const beforeFrame = getBeforeImageFrame({ width: canvas.width, height: canvas.height });
+      const beforeFrame = getBeforeImageFrame({ width: canvas.width, height: canvas.height }, settingsRef.current.beforeFrameScale);
       const interactionWidth = drag.target === "before" ? rect.width * beforeFrame.width / canvas.width : rect.width;
       const interactionHeight = drag.target === "before" ? rect.height * beforeFrame.height / canvas.height : rect.height;
       if (rotationModeRef.current) {
@@ -1361,12 +1391,13 @@ export default function CoverStudio() {
         { width: canvas.width, height: canvas.height },
         settingsRef.current.compareEnabled,
         Boolean(beforeImageRef.current),
+        settingsRef.current.beforeFrameScale,
       );
       setAdjustmentTarget(target);
       setSettings((current) => {
         if (target === "before") {
           const beforeZoom = clamp(Math.round((current.beforeZoom + amount) * 10) / 10, 100, 300);
-          const frame = getBeforeImageFrame({ width: canvas.width, height: canvas.height });
+          const frame = getBeforeImageFrame({ width: canvas.width, height: canvas.height }, current.beforeFrameScale);
           const limits = getBeforeOffsetLimits(beforeImageRef.current, frame, beforeZoom, current.beforeRotation);
           showTransformHint(`拍摄前 ${beforeZoom}%`);
           return {
@@ -1391,6 +1422,7 @@ export default function CoverStudio() {
         { width: canvas.width, height: canvas.height },
         settingsRef.current.compareEnabled,
         Boolean(beforeImageRef.current),
+        settingsRef.current.beforeFrameScale,
       );
       setAdjustmentTarget(target);
       setRotationMode((current) => {
@@ -1732,6 +1764,50 @@ export default function CoverStudio() {
     [],
   );
 
+  const alignBeforeFrame = useCallback(() => {
+    if (!settings.compareEnabled || !beforeImage) {
+      setNotice("请先开启前后对比并添加拍摄前素颜照");
+      return;
+    }
+    const scratch = document.createElement("canvas");
+    scratch.width = preset.width;
+    scratch.height = preset.height;
+    const context = scratch.getContext("2d");
+    if (!context) {
+      setNotice("暂时无法计算对齐，请刷新后重试");
+      return;
+    }
+    const textBounds = drawTemplateText(
+      context,
+      settings,
+      preset.width,
+      preset.height,
+      settings.watermarkEnabled ? watermark : null,
+    );
+    const plan = getComparisonAlignmentPlan(preset, textBounds, { currentScale: settings.beforeFrameScale });
+    scratch.width = scratch.height = 1;
+    if (!plan.ok) {
+      const message = plan.reason === "overlap"
+        ? "文字与对比图间距不足，已保留原构图"
+        : plan.reason === "too-large"
+          ? "需要放大超过120%，已保留原构图"
+          : "对齐需要缩小照片，已保留原构图";
+      setNotice(message);
+      return;
+    }
+    setSettings((current) => {
+      const frame = getBeforeImageFrame(preset, plan.scale);
+      const limits = getBeforeOffsetLimits(beforeImage, frame, current.beforeZoom, current.beforeRotation);
+      return {
+        ...current,
+        beforeFrameScale: plan.scale,
+        beforeOffsetX: Math.max(-Math.floor(limits.x), Math.min(Math.floor(limits.x), current.beforeOffsetX)),
+        beforeOffsetY: Math.max(-Math.floor(limits.y), Math.min(Math.floor(limits.y), current.beforeOffsetY)),
+      };
+    });
+    setNotice("已与左侧文字顶部对齐");
+  }, [beforeImage, preset, settings, watermark]);
+
   const updateTopTextScale = useCallback((value: number) => {
     setSettings((current) => ({
       ...current,
@@ -1907,7 +1983,7 @@ export default function CoverStudio() {
       setBeforeRetouchStrokes([]);
       setShowRetouchBefore(false);
       setSettings((current) => {
-        const rawLimits = getBeforeOffsetLimits(nextImage, getBeforeImageFrame(preset), current.beforeZoom, current.beforeRotation);
+        const rawLimits = getBeforeOffsetLimits(nextImage, getBeforeImageFrame(preset, current.beforeFrameScale), current.beforeZoom, current.beforeRotation);
         const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
         return {
           ...current,
@@ -2465,7 +2541,15 @@ export default function CoverStudio() {
                   beforeBrightness: 100,
                   beforeShade: 0,
                   beforeBottomShade: 100,
+                  beforeFrameScale: 100,
                 }))}>恢复默认</button>
+              </div>
+              <div className="studio-before-align-actions">
+                <button type="button" onClick={alignBeforeFrame} disabled={!beforeImage}>尝试对齐</button>
+                <button type="button" onClick={() => {
+                  setSettings((current) => ({ ...current, beforeFrameScale: 100 }));
+                  setNotice("已恢复对比图默认尺寸");
+                }}>恢复对比图默认尺寸</button>
               </div>
               <Slider
                 label="拍摄前照片缩放"
@@ -2474,7 +2558,7 @@ export default function CoverStudio() {
                 max={300}
                 suffix="%"
                 onReset={() => setSettings((current) => {
-                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), 100, current.beforeRotation);
+                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset, current.beforeFrameScale), 100, current.beforeRotation);
                   const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
                   return {
                     ...current,
@@ -2484,7 +2568,7 @@ export default function CoverStudio() {
                   };
                 })}
                 onChange={(value) => setSettings((current) => {
-                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), value, current.beforeRotation);
+                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset, current.beforeFrameScale), value, current.beforeRotation);
                   const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
                   return {
                     ...current,
@@ -2519,7 +2603,7 @@ export default function CoverStudio() {
                 max={180}
                 suffix="°"
                 onReset={() => setSettings((current) => {
-                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), current.beforeZoom, 0);
+                  const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset, current.beforeFrameScale), current.beforeZoom, 0);
                   const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
                   return {
                     ...current,
@@ -2531,7 +2615,7 @@ export default function CoverStudio() {
                 onChange={(value) => {
                   const snapped = snapRotation(value);
                   setSettings((current) => {
-                    const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset), current.beforeZoom, snapped.value);
+                    const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset, current.beforeFrameScale), current.beforeZoom, snapped.value);
                     const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
                     return {
                       ...current,

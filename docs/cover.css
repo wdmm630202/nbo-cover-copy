@@ -185,6 +185,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .before-controls > div b { color: #33302d; font-size: 10px; }
 .before-controls > div small { color: #8e8882; font-size: 8px; }
 .before-reset { min-height: 32px; border: 1px solid #6d6965; border-radius: 9px; background: #6d6965; color: #fff; font-size: 9px; font-weight: 800; cursor: pointer; }
+.before-align-actions { display: grid !important; grid-template-columns: .82fr 1.18fr; gap: 6px !important; }
+.before-align-actions button { min-height: 32px; padding: 0 7px; border: 1px solid #d2cbc4; border-radius: 9px; background: #fff; color: #4f4944; font-size: 8px; font-weight: 800; cursor: pointer; }
+.before-align-actions button:first-child { border-color: #202020; background: #202020; color: #fff; }
+.before-align-actions button:disabled { cursor: not-allowed; opacity: .42; }
 .retouch-panel { padding: 12px; display: grid; gap: 11px; border: 1px dashed #c9a77a; border-radius: 12px; background: #fffaf3; }
 .retouch-panel > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .retouch-panel > div b { color: #28231f; font-size: 10px; }
@@ -284,7 +288,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .design.compare-active { overflow: hidden; }
   .design.compare-active .adjustment-target { margin-top: 8px; flex: 0 0 auto; }
   .design.compare-active .sliders { min-height: 0; margin-top: 8px; flex: 1; grid-template-rows: repeat(12, minmax(0, 1fr)); gap: 0; }
-  .design.compare-active .before-controls { min-height: 0; margin-top: 8px; padding: 8px; flex: 1; grid-template-rows: auto repeat(7, minmax(0, 1fr)) auto; align-items: center; gap: 0; }
+  .design.compare-active .before-controls { min-height: 0; margin-top: 8px; padding: 8px; flex: 1; grid-template-rows: auto auto repeat(7, minmax(0, 1fr)) auto; align-items: center; gap: 0; }
   .sliders label > span, .before-controls label > span { margin-bottom: 3px; font-size: 9px; }
   .sliders input[type="range"], .before-controls input[type="range"] { height: 15px; }
   .retouch-panel { height: 210px; padding: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px 8px; }

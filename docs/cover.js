@@ -22,6 +22,7 @@ const PRESETS = {
 };
 const {
   drawComparisonEditorialOverlay,
+  getComparisonAlignmentPlan,
   getComparisonEvidenceLayout,
   getComparisonExportError,
   getComparisonFadeStops,
@@ -33,6 +34,7 @@ const {
   getAdjustmentPanelVisibility,
   getVisibleRetouchStrokes,
   normalizeComparisonPhotoAdjustments,
+  normalizeComparisonFrameScale,
   resolvePhotoInteractionTargetFromPoint,
   resolveRetouchTarget,
   resolveRetouchTargetFromPoint,
@@ -73,6 +75,7 @@ const state = {
   beforeBrightness: 100,
   beforeShade: 0,
   beforeBottomShade: 100,
+  beforeFrameScale: 100,
   watermarkScale: 100,
   watermarkAlign: "left",
   watermarkOpacity: 50,
@@ -175,6 +178,7 @@ const normalizeComparisonSettings = (value = {}) => {
     beforeBrightness: adjustments.brightness,
     beforeShade: adjustments.shade,
     beforeBottomShade: adjustments.bottomShade,
+    beforeFrameScale: normalizeComparisonFrameScale(value.beforeFrameScale),
   };
 };
 const isMobileTouch = (event) => event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches;
@@ -220,7 +224,7 @@ canvas.addEventListener("pointerdown", (event) => {
     retouch.compareBefore = false;
     const rect = canvas.getBoundingClientRect();
     const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-    const target = resolveRetouchTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+    const target = resolveRetouchTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage), state.beforeFrameScale);
     retouch.target = target;
     retouch.pointerId = event.pointerId;
     retouch.pointerTarget = target;
@@ -240,7 +244,7 @@ canvas.addEventListener("pointerdown", (event) => {
   if (isMobileTouch(event)) return;
   const rect = canvas.getBoundingClientRect();
   const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage), state.beforeFrameScale);
   if (state.compareEnabled && adjustmentTarget !== target) { adjustmentTarget = target; updateUi(); }
   imageInteraction.drag = {
     pointerId: event.pointerId,
@@ -458,7 +462,7 @@ canvas.addEventListener("wheel", (event) => {
   const amount = clamp(-event.deltaY * .02, -2, 2);
   const rect = canvas.getBoundingClientRect();
   const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage), state.beforeFrameScale);
   if (state.compareEnabled && adjustmentTarget !== target) { adjustmentTarget = target; updateUi(); }
   if (target === "before") {
     state.beforeZoom = clamp(Math.round((state.beforeZoom + amount) * 10) / 10, 100, 300);
@@ -480,7 +484,7 @@ canvas.addEventListener("dblclick", (event) => {
   event.preventDefault();
   const rect = canvas.getBoundingClientRect();
   const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage));
+  const target = resolvePhotoInteractionTargetFromPoint(point, { width: canvas.width, height: canvas.height }, state.compareEnabled, Boolean(state.beforeImage), state.beforeFrameScale);
   if (state.compareEnabled && adjustmentTarget !== target) { adjustmentTarget = target; updateUi(); }
   imageInteraction.rotationMode = !imageInteraction.rotationMode;
   $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
@@ -759,8 +763,8 @@ function preset() {
   return PRESETS[state.platform];
 }
 
-function getBeforeImageFrame(canvasSize) {
-  const { frame, imageInset } = getComparisonEvidenceLayout(canvasSize);
+function getBeforeImageFrame(canvasSize, frameScale = state.beforeFrameScale) {
+  const { frame, imageInset } = getComparisonEvidenceLayout(canvasSize, frameScale);
   const inset = Math.max(2, Math.round(imageInset * canvasSize.width / 1080));
   return {
     x: frame.x + inset,
@@ -874,6 +878,7 @@ function updateUi() {
   $("#adjustmentTargetBefore").classList.toggle("active", adjustmentTarget === "before");
   $("#beforeUploadTitle").textContent = state.beforeImage ? "更换照片" : "请添加拍摄前素颜照";
   $("#beforeFileName").textContent = state.beforeFileName || "支持 JPG、PNG、WEBP";
+  $("#alignBeforeFrame").disabled = !state.beforeImage;
   $(".controls").classList.toggle("compare-active", state.compareEnabled);
   $(".design").classList.toggle("compare-active", state.compareEnabled);
   const overlapWarning = getComparisonOverlapWarning(state.compareEnabled, state.template);
@@ -1166,10 +1171,44 @@ $("#resetBeforeControls").addEventListener("click", () => {
   state.beforeBrightness = 100;
   state.beforeShade = 0;
   state.beforeBottomShade = 100;
+  state.beforeFrameScale = 100;
   updateUi();
   saveSettings();
   draw();
   setStatus("拍摄前照片构图已恢复默认");
+});
+$("#alignBeforeFrame").addEventListener("click", () => {
+  if (!state.compareEnabled || !state.beforeImage) return setStatus("请先开启前后对比并添加拍摄前素颜照");
+  const current = preset();
+  const scratch = document.createElement("canvas");
+  scratch.width = current.width;
+  scratch.height = current.height;
+  const context = scratch.getContext("2d");
+  if (!context) return setStatus("暂时无法计算对齐，请刷新后重试");
+  const textBounds = drawText(context, current.width, current.height);
+  const plan = getComparisonAlignmentPlan(current, textBounds, { currentScale: state.beforeFrameScale });
+  scratch.width = scratch.height = 1;
+  if (!plan.ok) {
+    return setStatus(plan.reason === "overlap"
+      ? "文字与对比图间距不足，已保留原构图"
+      : plan.reason === "too-large"
+        ? "需要放大超过120%，已保留原构图"
+        : "对齐需要缩小照片，已保留原构图");
+  }
+  state.beforeFrameScale = plan.scale;
+  clampBeforeOffsets();
+  updateUi();
+  saveSettings();
+  draw();
+  setStatus("已与左侧文字顶部对齐");
+});
+$("#resetBeforeFrame").addEventListener("click", () => {
+  state.beforeFrameScale = 100;
+  clampBeforeOffsets();
+  updateUi();
+  saveSettings();
+  draw();
+  setStatus("已恢复对比图默认尺寸");
 });
 $("#useWatermark").addEventListener("click", () => {
   state.watermarkEnabled = true;
@@ -1228,7 +1267,7 @@ $("#resetSettings").addEventListener("click", () => {
     subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
     dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100, brightness: 100,
     zoom: 100, offsetX: 0, offsetXRangeVersion: 2, offsetY: 0, rotation: 0, textScale: 100, bottomTextScale: 100, textScaleLinked: true, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 3, shade: 0, bottomShade: 100,
-    safe: true, compareEnabled: false, beforeZoom: 100, beforeOffsetX: 0, beforeOffsetY: 0, beforeRotation: 0, beforeBrightness: 100, beforeShade: 0, beforeBottomShade: 100,
+    safe: true, compareEnabled: false, beforeZoom: 100, beforeOffsetX: 0, beforeOffsetY: 0, beforeRotation: 0, beforeBrightness: 100, beforeShade: 0, beforeBottomShade: 100, beforeFrameScale: 100,
     watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: false, watermarkDefaultVersion: 1,
   });
   retouch.active = false;
@@ -1361,8 +1400,8 @@ function applyComparisonFadeMask(ctx, frame) {
 }
 
 function drawComparisonEvidence(ctx, ownerCanvas, width, height, beforeRetouchStrokes) {
-  const { frame } = getComparisonEvidenceLayout({ width, height });
-  const imageFrame = getBeforeImageFrame({ width, height });
+  const { frame } = getComparisonEvidenceLayout({ width, height }, state.beforeFrameScale);
+  const imageFrame = getBeforeImageFrame({ width, height }, state.beforeFrameScale);
 
   if (!state.beforeImage) {
     ctx.save();
@@ -1525,7 +1564,7 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
     }
     if (state.compareEnabled) drawComparisonEvidence(targetContext, targetCanvas, width, height, visibleBeforeStrokes);
     drawText(targetContext, width, height);
-    if (state.compareEnabled) drawComparisonEditorialOverlay(targetContext, { width, height }, roundedRectPath);
+    if (state.compareEnabled) drawComparisonEditorialOverlay(targetContext, { width, height }, roundedRectPath, state.beforeFrameScale);
     if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
   }
   if (!photoOnly && includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);
@@ -1720,7 +1759,17 @@ function drawText(ctx, width, height) {
     const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
     drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleLineHeight, align);
   }
+  ctx.font = `900 ${topFontSize}px sans-serif`;
+  const topWidth = Math.min(maxWidth, ctx.measureText(state.topText || "上行标题").width);
+  ctx.font = `900 ${bottomFontSize}px sans-serif`;
+  const bottomWidth = hasBottomText ? Math.min(maxWidth, ctx.measureText(state.bottomText).width) : 0;
+  ctx.font = `400 ${subtitleFontSize}px sans-serif`;
+  const subtitleWidth = getWrappedTextWidth(ctx, state.subtitle, maxWidth);
+  const contentWidth = Math.max(topWidth, bottomWidth, state.divider ? activeHeadlineFontSize : 0, subtitleWidth);
+  const left = right ? x - contentWidth : center ? x - contentWidth / 2 : x;
+  const bounds = { left, right: left + contentWidth, top: y + blockTop, bottom: y + blockBottom };
   ctx.restore();
+  return bounds;
 }
 
 function fitText(ctx, text, start, maxWidth) {
@@ -1781,6 +1830,15 @@ function drawWrapped(ctx, text, x, y, maxWidth, lineHeight, align) {
 function countWrappedLines(ctx, text) {
   if (!text.trim()) return 0;
   return Math.min(Math.ceil(Array.from(text).length / 12), 2);
+}
+
+function getWrappedTextWidth(ctx, text, maxWidth) {
+  if (!text.trim()) return 0;
+  const characters = Array.from(text);
+  return Math.max(...Array.from({ length: Math.min(2, Math.ceil(characters.length / 12)) }, (_, index) => {
+    const line = characters.slice(index * 12, index * 12 + 12).join("");
+    return line.length === 12 ? maxWidth : Math.min(maxWidth, ctx.measureText(line).width);
+  }));
 }
 
 function drawWatermark(ctx, width, height) {

@@ -24,7 +24,7 @@ const cases = [
     frame: { x: 630, y: 807, width: 421, height: 605, radius: 30 },
     labels: {
       after: { right: 1032, y: 48, width: 104, height: 54, radius: 27 },
-      before: { right: 1032, y: 831, width: 104, height: 54, radius: 27 },
+      before: { right: 1031, y: 827, width: 104, height: 54, radius: 27 },
     },
   },
   {
@@ -34,7 +34,7 @@ const cases = [
     frame: { x: 630, y: 1047, width: 421, height: 605, radius: 30 },
     labels: {
       after: { right: 1032, y: 288, width: 104, height: 54, radius: 27 },
-      before: { right: 1032, y: 1071, width: 104, height: 54, radius: 27 },
+      before: { right: 1031, y: 1067, width: 104, height: 54, radius: 27 },
     },
   },
 ];
@@ -63,10 +63,104 @@ test("四周溶图从透明进入完整照片再回到透明", async () => {
 test("胶囊尺寸和边距随预览宽度同比缩放", async () => {
   const expected = {
     after: { right: 516, y: 24, width: 52, height: 27, radius: 13.5 },
-    before: { right: 516, y: 416, width: 52, height: 27, radius: 13.5 },
+    before: { right: 515, y: 414, width: 52, height: 27, radius: 13.5 },
   };
   for (const layout of await loadImplementations()) {
     assert.deepEqual(plain(layout.getComparisonLabelLayout({ width: 540, height: 720 })), expected);
+  }
+});
+
+test("拍摄前版块固定右下角并只向左上放大", async () => {
+  const canvas = { width: 1080, height: 1920 };
+  for (const layout of await loadImplementations()) {
+    assert.equal(typeof layout.normalizeComparisonFrameScale, "function");
+    assert.equal(layout.normalizeComparisonFrameScale(90), 100);
+    assert.equal(layout.normalizeComparisonFrameScale(130), 120);
+    const original = layout.getComparisonEvidenceLayout(canvas, 100).frame;
+    const enlarged = layout.getComparisonEvidenceLayout(canvas, 110).frame;
+    assert.deepEqual(plain(enlarged), { x: 588, y: 986, width: 463, height: 666, radius: 33 });
+    assert.equal(enlarged.x + enlarged.width, original.x + original.width);
+    assert.equal(enlarged.y + enlarged.height, original.y + original.height);
+  }
+});
+
+test("尝试对齐只在100% 到120% 内放大，且保留36px文字间距", async () => {
+  const canvas = { width: 1080, height: 1920 };
+  for (const layout of await loadImplementations()) {
+    assert.equal(typeof layout.getComparisonAlignmentPlan, "function");
+    const success = layout.getComparisonAlignmentPlan(canvas, {
+      left: 80,
+      right: 520,
+      top: 986,
+      bottom: 1240,
+    });
+    assert.equal(success.ok, true);
+    assert.equal(success.frame.y, 986);
+    assert.equal(success.frame.x + success.frame.width, 1051);
+    assert.ok(success.frame.x - 520 >= 36);
+    assert.ok(success.scale >= 100 && success.scale <= 120);
+
+    const overlap = layout.getComparisonAlignmentPlan(canvas, {
+      left: 80,
+      right: 560,
+      top: 986,
+      bottom: 1240,
+    });
+    assert.equal(overlap.ok, false);
+    assert.equal(overlap.reason, "overlap");
+
+    const tooLarge = layout.getComparisonAlignmentPlan(canvas, {
+      left: 80,
+      right: 520,
+      top: 900,
+      bottom: 1240,
+    });
+    assert.equal(tooLarge.ok, false);
+    assert.equal(tooLarge.reason, "too-large");
+
+    const needsShrink = layout.getComparisonAlignmentPlan(canvas, {
+      left: 80,
+      right: 520,
+      top: 1100,
+      bottom: 1240,
+    });
+    assert.equal(needsShrink.ok, false);
+    assert.equal(needsShrink.reason, "needs-shrink");
+  }
+});
+
+test("已放大版块不会被再次对齐操作缩小", async () => {
+  const canvas = { width: 1080, height: 1920 };
+  for (const layout of await loadImplementations()) {
+    const result = layout.getComparisonAlignmentPlan(
+      canvas,
+      { left: 80, right: 520, top: 1017, bottom: 1240 },
+      { currentScale: 115 },
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "needs-shrink");
+  }
+});
+
+test("胶囊不随对比框放大，并与右上两条边保持相同间距", async () => {
+  const canvas = { width: 1080, height: 1920 };
+  for (const layout of await loadImplementations()) {
+    const frame = layout.getComparisonEvidenceLayout(canvas, 110).frame;
+    const labels = layout.getComparisonLabelLayout(canvas, 110);
+    assert.deepEqual(plain(labels.before), { right: 1031, y: 1006, width: 104, height: 54, radius: 27 });
+    assert.equal(frame.x + frame.width - labels.before.right, 20);
+    assert.equal(labels.before.y - frame.y, 20);
+    assert.deepEqual(plain(labels.after), { right: 1032, y: 288, width: 104, height: 54, radius: 27 });
+  }
+});
+
+test("放大后的虚线框与拍摄前照片鼠标命中区共用同一几何", async () => {
+  const canvas = { width: 1080, height: 1920 };
+  const newlyCoveredPoint = { x: 600 / 1080, y: 1000 / 1920 };
+  for (const layout of await loadImplementations()) {
+    assert.equal(layout.isPointInComparisonPhotoFrame(newlyCoveredPoint, canvas, 100), false);
+    assert.equal(layout.isPointInComparisonPhotoFrame(newlyCoveredPoint, canvas, 110), true);
+    assert.equal(layout.resolvePhotoInteractionTargetFromPoint(newlyCoveredPoint, canvas, true, true, 110), "before");
   }
 });
 
@@ -292,17 +386,17 @@ test("胶囊按参考图的主体、内圆和三字像素锚点等比缩放", as
       { x: 1005, y: 315, radius: 27, start: -Math.PI / 2, end: Math.PI / 2 },
       { x: 955, y: 315, radius: 27, start: Math.PI / 2, end: Math.PI * 1.5 },
       { x: 1004.5, y: 315, radius: 19, start: 0, end: Math.PI * 2 },
-      { x: 1005, y: 1098, radius: 27, start: -Math.PI / 2, end: Math.PI / 2 },
-      { x: 955, y: 1098, radius: 27, start: Math.PI / 2, end: Math.PI * 1.5 },
-      { x: 1004.5, y: 1098, radius: 19, start: 0, end: Math.PI * 2 },
+      { x: 1004, y: 1094, radius: 27, start: -Math.PI / 2, end: Math.PI / 2 },
+      { x: 954, y: 1094, radius: 27, start: Math.PI / 2, end: Math.PI * 1.5 },
+      { x: 1003.5, y: 1094, radius: 19, start: 0, end: Math.PI * 2 },
     ]);
     assert.deepEqual(text.map(({ x, y }) => ({ x, y })), [
       { x: 948.5, y: 314.5 },
       { x: 968.35, y: 314.5 },
       { x: 1004.5, y: 314.5 },
-      { x: 948.5, y: 1097.5 },
-      { x: 968.35, y: 1097.5 },
-      { x: 1004.5, y: 1097.5 },
+      { x: 947.5, y: 1093.5 },
+      { x: 967.35, y: 1093.5 },
+      { x: 1003.5, y: 1093.5 },
     ]);
     assert.ok(text.filter((_, index) => index % 3 !== 2).every((item) => item.font.includes("18px")));
     assert.ok(text.filter((_, index) => index % 3 === 2).every((item) => item.font.includes("22px")));

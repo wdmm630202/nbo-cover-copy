@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex,nofollow" />
     <!-- Cache lineage: mobile-123-gestures → 20260830-capsule-true-arcs. -->
     <title>NBO南铂封面制作台</title>
-    <link rel="stylesheet" href="./cover.css?v=20260830-compare-panel-tabs" />
+    <link rel="stylesheet" href="./cover.css?v=20260830-before-frame-align" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -167,6 +167,7 @@
             </section>
             <section class="before-controls" id="beforeControls" hidden>
               <div><b>拍摄前照片构图</b><small>与主照片独立调整</small></div>
+              <div class="before-align-actions"><button id="alignBeforeFrame" type="button">尝试对齐</button><button id="resetBeforeFrame" type="button">恢复对比图默认尺寸</button></div>
               <label><span>拍摄前照片缩放 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeZoomValue" data-value-control="beforeZoom" type="number" inputmode="decimal" min="100" max="300" value="100" aria-label="拍摄前照片缩放准确数值" /><i>%</i></span><button type="button" class="slider-reset" data-reset-control="beforeZoom">复位</button></span></span><input id="beforeZoom" type="range" min="100" max="300" value="100" /></label>
               <label><span>拍摄前左右位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeOffsetXValue" data-value-control="beforeOffsetX" type="number" inputmode="decimal" min="-100" max="100" value="0" aria-label="拍摄前左右位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="beforeOffsetX">复位</button></span></span><input id="beforeOffsetX" type="range" min="-100" max="100" value="0" /></label>
               <label><span>拍摄前上下位置 <span class="slider-value-control"><span class="slider-number-wrap"><input id="beforeOffsetYValue" data-value-control="beforeOffsetY" type="number" inputmode="decimal" min="-100" max="100" value="0" aria-label="拍摄前上下位置准确数值" /></span><button type="button" class="slider-reset" data-reset-control="beforeOffsetY">复位</button></span></span><input id="beforeOffsetY" type="range" min="-100" max="100" value="0" /></label>
@@ -215,7 +216,7 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
-    <script src="./compare-layout.js?v=20260830-capsule-true-arcs"></script>
-    <script src="./cover.js?v=20260830-original-pixels"></script>
+    <script src="./compare-layout.js?v=20260830-before-frame-align"></script>
+    <script src="./cover.js?v=20260830-before-frame-align"></script>
   </body>
 </html>

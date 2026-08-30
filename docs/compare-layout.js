@@ -56,8 +56,8 @@
     return showBefore ? [] : strokes[target];
   }
 
-  function isPointInComparisonPhotoFrame(point, canvas) {
-    const { frame, imageInset } = getComparisonEvidenceLayout(canvas);
+  function isPointInComparisonPhotoFrame(point, canvas, frameScale = 100) {
+    const { frame, imageInset } = getComparisonEvidenceLayout(canvas, frameScale);
     const inset = Math.max(2, Math.round(imageInset * canvas.width / 1080));
     const x = point.x * canvas.width;
     const y = point.y * canvas.height;
@@ -67,14 +67,14 @@
       && y <= frame.y + frame.height - inset;
   }
 
-  function resolveRetouchTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage) {
-    return comparisonEnabled && hasBeforeImage && isPointInComparisonPhotoFrame(point, canvas)
+  function resolveRetouchTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage, frameScale = 100) {
+    return comparisonEnabled && hasBeforeImage && isPointInComparisonPhotoFrame(point, canvas, frameScale)
       ? "before"
       : "after";
   }
 
-  function resolvePhotoInteractionTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage) {
-    return resolveRetouchTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage);
+  function resolvePhotoInteractionTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage, frameScale = 100) {
+    return resolveRetouchTargetFromPoint(point, canvas, comparisonEnabled, hasBeforeImage, frameScale);
   }
 
   function getAdjustmentPanelVisibility(comparisonEnabled, target) {
@@ -92,25 +92,34 @@
     };
   }
 
-  function getComparisonEvidenceLayout(canvas) {
+  function normalizeComparisonFrameScale(value) {
+    return comparisonNumber(value, 100, 100, 120);
+  }
+
+  function getComparisonEvidenceLayout(canvas, frameScale = 100) {
     const safe = getComparisonSafeRect(canvas);
-    const width = Math.round(safe.width * 0.39);
-    const height = Math.round(safe.height * 0.42);
+    const scale = normalizeComparisonFrameScale(frameScale) / 100;
+    const defaultWidth = Math.round(safe.width * 0.39);
+    const defaultHeight = Math.round(safe.height * 0.42);
+    const defaultRight = safe.x + safe.width - Math.round(safe.width * 0.027);
+    const defaultBottom = safe.y + safe.height - Math.round(safe.height * 0.0194);
+    const width = Math.round(defaultWidth * scale);
+    const height = Math.round(defaultHeight * scale);
     return {
       safe,
       frame: {
-        x: safe.x + safe.width - width - Math.round(safe.width * 0.027),
-        y: safe.y + safe.height - height - Math.round(safe.height * 0.0194),
+        x: defaultRight - width,
+        y: defaultBottom - height,
         width,
         height,
-        radius: Math.round(safe.width * 0.0278),
+        radius: Math.round(safe.width * 0.0278 * scale),
       },
       imageInset: 4,
     };
   }
 
-  function getComparisonLabelLayout(canvas) {
-    const { safe, frame } = getComparisonEvidenceLayout(canvas);
+  function getComparisonLabelLayout(canvas, frameScale = 100) {
+    const { safe, frame } = getComparisonEvidenceLayout(canvas, frameScale);
     const scale = canvas.width / 1080;
     const width = 104 * scale;
     const height = 54 * scale;
@@ -120,11 +129,42 @@
       radius: height / 2,
     };
     const afterCenterY = safe.y + 75 * scale;
-    const beforeCenterY = frame.y + 51 * scale;
+    const beforeInset = 20 * scale;
     return {
       after: { right: safe.x + safe.width - Math.round(48 * scale), y: afterCenterY - height / 2, ...capsule },
-      before: { right: safe.x + safe.width - Math.round(48 * scale), y: beforeCenterY - height / 2, ...capsule },
+      before: { right: frame.x + frame.width - beforeInset, y: frame.y + beforeInset, ...capsule },
     };
+  }
+
+  function getComparisonAlignmentPlan(canvas, textBounds, options = {}) {
+    const currentScale = normalizeComparisonFrameScale(options.currentScale ?? 100);
+    const current = getComparisonEvidenceLayout(canvas, currentScale);
+    const original = getComparisonEvidenceLayout(canvas, 100);
+    const originalBottom = original.frame.y + original.frame.height;
+    const requiredScale = (originalBottom - textBounds.top) / original.frame.height * 100;
+    if (requiredScale < currentScale - .05) {
+      return { ok: false, scale: currentScale, frame: current.frame, reason: "needs-shrink" };
+    }
+    if (requiredScale > 120.05) {
+      return { ok: false, scale: currentScale, frame: current.frame, reason: "too-large" };
+    }
+    const proposedScale = normalizeComparisonFrameScale(Math.round(requiredScale * 10) / 10);
+    const proposed = getComparisonEvidenceLayout(canvas, proposedScale);
+    const minimumGap = options.minGap ?? 36 * canvas.width / 1080;
+    if (proposed.frame.x - textBounds.right < minimumGap) {
+      return { ok: false, scale: currentScale, frame: current.frame, reason: "overlap" };
+    }
+    const safeRight = proposed.safe.x + proposed.safe.width;
+    const safeBottom = proposed.safe.y + proposed.safe.height;
+    if (
+      proposed.frame.x < proposed.safe.x
+      || proposed.frame.y < proposed.safe.y
+      || proposed.frame.x + proposed.frame.width > safeRight
+      || proposed.frame.y + proposed.frame.height > safeBottom
+    ) {
+      return { ok: false, scale: currentScale, frame: current.frame, reason: "outside-safe" };
+    }
+    return { ok: true, scale: proposedScale, frame: proposed.frame };
   }
 
   function capsulePath(context, x, y, width, height) {
@@ -198,12 +238,12 @@
     context.restore();
   }
 
-  function drawComparisonEditorialOverlay(context, canvas, roundedRectPath) {
+  function drawComparisonEditorialOverlay(context, canvas, roundedRectPath, frameScale = 100) {
     const scale = canvas.width / 1080;
     const baseCanvas = { width: 1080, height: canvas.height / scale };
     const safe = getComparisonSafeRect(baseCanvas);
-    const { frame } = getComparisonEvidenceLayout(baseCanvas);
-    const labels = getComparisonLabelLayout(baseCanvas);
+    const { frame } = getComparisonEvidenceLayout(baseCanvas, frameScale);
+    const labels = getComparisonLabelLayout(baseCanvas, frameScale);
     context.save();
     context.scale(scale, scale);
     context.beginPath();
@@ -263,8 +303,10 @@
     resolvePhotoInteractionTargetFromPoint,
     getAdjustmentPanelVisibility,
     getComparisonSafeRect,
+    normalizeComparisonFrameScale,
     getComparisonEvidenceLayout,
     getComparisonLabelLayout,
+    getComparisonAlignmentPlan,
     drawComparisonEditorialOverlay,
     getComparisonFadeStops,
     getComparisonExportError,

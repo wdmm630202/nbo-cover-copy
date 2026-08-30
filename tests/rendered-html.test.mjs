@@ -96,6 +96,10 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /拍摄前亮度/);
   assert.match(coverStudio, /拍摄前压暗强度/);
   assert.match(coverStudio, /拍摄前底部向上压暗/);
+  assert.match(coverStudio, /尝试对齐/);
+  assert.match(coverStudio, /恢复对比图默认尺寸/);
+  assert.match(coverStudio, /getComparisonAlignmentPlan/);
+  assert.match(coverStudio, /beforeFrameScale/);
   assert.match(coverStudio, /getComparisonEvidenceLayout/);
   assert.match(coverStudio, /getComparisonExportError/);
   assert.match(coverStudio, /photoOnly/);
@@ -174,10 +178,12 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /id="beforeBrightness"/);
   assert.match(publicCover, /id="beforeShade"/);
   assert.match(publicCover, /id="beforeBottomShade"/);
+  assert.match(publicCover, /id="alignBeforeFrame"/);
+  assert.match(publicCover, /id="resetBeforeFrame"/);
   assert.match(publicCover, /compare-layout\.js/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /cover\.css\?v=20260830-compare-panel-tabs/);
+  assert.match(publicCover, /cover\.css\?v=20260830-before-frame-align/);
   assert.match(publicCover, /id="mobileTouchZone"/);
   assert.match(publicCoverScript, /mobileGesture/);
   assert.match(publicCoverScript, /mode: "rotate"/);
@@ -237,6 +243,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /id="retouchTargetBefore"/);
   assert.match(publicCoverScript, /getVisibleRetouchStrokes/);
   assert.match(publicCoverScript, /beforeStrokes/);
+  assert.match(publicCoverScript, /getComparisonAlignmentPlan/);
+  assert.match(publicCoverScript, /beforeFrameScale/);
   assert.match(publicCoverScript, /strokes\.push\([\s\S]*?canvas\.setPointerCapture\([\s\S]*?updateUi\(\);[\s\S]*?draw\(\);/);
   assert.match(publicCoverScript, /BracketLeft/);
   assert.match(publicCoverScript, /BracketRight/);
