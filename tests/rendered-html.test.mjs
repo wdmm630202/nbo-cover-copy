@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
+async function renderWithEnvironment(environment) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
@@ -11,16 +11,20 @@ async function render() {
     new Request("http://localhost/", {
       headers: { accept: "text/html" },
     }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
+    environment,
     {
       waitUntil() {},
       passThroughOnException() {},
     },
   );
+}
+
+async function render() {
+  return renderWithEnvironment({
+    ASSETS: {
+      fetch: async () => new Response("Not found", { status: 404 }),
+    },
+  });
 }
 
 test("公开入口显示中文密码验证页并记住登录状态", async () => {
@@ -35,6 +39,12 @@ test("公开入口显示中文密码验证页并记住登录状态", async () =>
   assert.match(html, /name="password"/);
   assert.match(html, /首次输入后，这台设备将自动记住180天/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site|codex-preview/i);
+});
+
+test("本机生产服务器缺少 Worker 环境时仍显示验证页", async () => {
+  const response = await renderWithEnvironment(undefined);
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /请输入访问密码/);
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
@@ -150,7 +160,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /studio-slider-number/);
   assert.match(coverStudio, /准确数值/);
   assert.match(coverStudio, /恢复默认/);
-  assert.match(coverStudio, /window\.caches\?\.keys/);
+  assert.doesNotMatch(coverStudio, /window\.caches\?\.keys/);
   assert.match(coverStudio, /COVER_COPY_SYNC_KEY/);
   assert.match(coverStudio, /同步文案/);
   assert.match(coverStudio, /同步封面/);
@@ -215,7 +225,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /BroadcastChannel/);
   assert.match(publicCoverScript, /applySyncedCopy/);
   assert.match(publicCoverScript, /applySyncedImage/);
-  assert.match(publicCoverScript, /window\.caches\?\.keys/);
+  assert.doesNotMatch(publicCoverScript, /window\.caches\?\.keys/);
   assert.match(publicCoverScript, /localStorage\.removeItem/);
   assert.match(publicCoverScript, /NBO_COVER_IMAGE_REQUEST/);
   assert.match(publicEntry, /NBO_COVER_COPY_SELECTED/);

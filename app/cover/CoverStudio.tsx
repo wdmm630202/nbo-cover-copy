@@ -1333,14 +1333,15 @@ export default function CoverStudio() {
         return;
       }
       if (!drag || drag.pointerId !== event.pointerId) return;
+      const activeDrag = drag;
       const rect = canvas.getBoundingClientRect();
       const beforeFrame = getBeforeImageFrame({ width: canvas.width, height: canvas.height }, settingsRef.current.beforeFrameScale);
-      const interactionWidth = drag.target === "before" ? rect.width * beforeFrame.width / canvas.width : rect.width;
-      const interactionHeight = drag.target === "before" ? rect.height * beforeFrame.height / canvas.height : rect.height;
+      const interactionWidth = activeDrag.target === "before" ? rect.width * beforeFrame.width / canvas.width : rect.width;
+      const interactionHeight = activeDrag.target === "before" ? rect.height * beforeFrame.height / canvas.height : rect.height;
       if (rotationModeRef.current) {
-        const rawRotation = clamp(Math.round(drag.rotation + (event.clientX - drag.x) / interactionWidth * 180), -180, 180);
+        const rawRotation = clamp(Math.round(activeDrag.rotation + (event.clientX - activeDrag.x) / interactionWidth * 180), -180, 180);
         const snapped = snapRotation(rawRotation);
-        if (drag.target === "before") {
+        if (activeDrag.target === "before") {
           setSettings((current) => {
             const limits = getBeforeOffsetLimits(beforeImageRef.current, beforeFrame, current.beforeZoom, snapped.value);
             return {
@@ -1356,16 +1357,16 @@ export default function CoverStudio() {
           showTransformHint(`${snapped.value}°`, snapped.guide);
         }
       } else {
-        if (drag.target === "before") {
+        if (activeDrag.target === "before") {
           setSettings((current) => {
             const limits = getBeforeOffsetLimits(beforeImageRef.current, beforeFrame, current.beforeZoom, current.beforeRotation);
-            const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / interactionWidth * 100), -Math.floor(limits.x), Math.floor(limits.x));
-            const offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / interactionHeight * 100), -Math.floor(limits.y), Math.floor(limits.y));
+            const offsetX = clamp(Math.round(activeDrag.offsetX + (event.clientX - activeDrag.x) / interactionWidth * 100), -Math.floor(limits.x), Math.floor(limits.x));
+            const offsetY = clamp(Math.round(activeDrag.offsetY + (event.clientY - activeDrag.y) / interactionHeight * 100), -Math.floor(limits.y), Math.floor(limits.y));
             return { ...current, beforeOffsetX: offsetX, beforeOffsetY: offsetY };
           });
         } else {
-          const offsetX = clamp(Math.round(drag.offsetX + (event.clientX - drag.x) / interactionWidth * 100), -200, 200);
-          const offsetY = clamp(Math.round(drag.offsetY + (event.clientY - drag.y) / interactionHeight * 100), -200, 200);
+          const offsetX = clamp(Math.round(activeDrag.offsetX + (event.clientX - activeDrag.x) / interactionWidth * 100), -200, 200);
+          const offsetY = clamp(Math.round(activeDrag.offsetY + (event.clientY - activeDrag.y) / interactionHeight * 100), -200, 200);
           setSettings((current) => ({ ...current, offsetX, offsetY }));
         }
       }
@@ -1841,15 +1842,11 @@ export default function CoverStudio() {
     setNotice("已恢复默认构图和颜色");
   }, []);
 
-  const factoryReset = useCallback(async () => {
+  const factoryReset = useCallback(() => {
     if (!window.confirm("确定彻底重置吗？\n\n将清空本工具的照片、封面设置、记忆方案和同步记录，登录状态会保留。")) return;
 
     [STORAGE_KEY, MEMORY_NAMES_KEY, COVER_COPY_SYNC_KEY, ...[1, 2, 3].map((slot) => `${MEMORY_KEY_PREFIX}${slot}`)]
       .forEach((key) => window.localStorage.removeItem(key));
-    try {
-      const keys = await window.caches?.keys();
-      await Promise.all((keys ?? []).map((key) => window.caches.delete(key)));
-    } catch {}
     window.location.replace(`${window.location.pathname}?reset=${Date.now()}`);
   }, []);
 

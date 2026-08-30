@@ -6,7 +6,6 @@ interface Env {
   ASSETS: Fetcher;
   ACCESS_PASSWORD: string;
   ACCESS_TOKEN: string;
-  DB: D1Database;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -28,20 +27,21 @@ interface ExecutionContext {
 // const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
 
 const worker = {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env | undefined, ctx: ExecutionContext): Promise<Response> {
+    const runtimeEnv: Partial<Env> = env ?? {};
     const url = new URL(request.url);
 
     if (url.pathname === "/__nbo_unlock" && request.method === "POST") {
       const form = await request.formData();
       const submittedPassword = String(form.get("password") ?? "");
 
-      if (safeEqual(submittedPassword, env.ACCESS_PASSWORD ?? "")) {
+      if (safeEqual(submittedPassword, runtimeEnv.ACCESS_PASSWORD ?? "")) {
         return new Response(null, {
           status: 303,
           headers: {
             Location: "/",
             "Set-Cookie": [
-              `nbo_access=${encodeURIComponent(env.ACCESS_TOKEN)}`,
+              `nbo_access=${encodeURIComponent(runtimeEnv.ACCESS_TOKEN ?? "")}`,
               "Path=/",
               "HttpOnly",
               "Secure",
@@ -56,22 +56,27 @@ const worker = {
       return passwordPage(true);
     }
 
-    if (!hasValidAccessCookie(request, env.ACCESS_TOKEN)) {
+    if (!hasValidAccessCookie(request, runtimeEnv.ACCESS_TOKEN ?? "")) {
       return passwordPage(false);
     }
 
     if (url.pathname === "/_vinext/image") {
+      const assets = runtimeEnv.ASSETS;
+      const images = runtimeEnv.IMAGES;
+      if (!assets || !images) {
+        return new Response("图片处理服务暂不可用", { status: 503 });
+      }
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {
-        fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
+        fetchAsset: (path) => assets.fetch(new Request(new URL(path, request.url))),
         transformImage: async (body, { width, format, quality }) => {
-          const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
+          const result = await images.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
           return result.response();
         },
       }, allowedWidths);
     }
 
-    return handler.fetch(request, env, ctx);
+    return handler.fetch(request, runtimeEnv as Env, ctx);
   },
 };
 
