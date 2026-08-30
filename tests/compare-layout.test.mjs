@@ -23,8 +23,8 @@ const cases = [
     safe: { x: 0, y: 0, width: 1080, height: 1440 },
     frame: { x: 630, y: 807, width: 421, height: 605, radius: 30 },
     labels: {
-      after: { right: 1032, y: 43.5, width: 104, height: 63, radius: 31.5 },
-      before: { right: 1032, y: 826.5, width: 104, height: 63, radius: 31.5 },
+      after: { right: 1032, y: 48, width: 104, height: 54, radius: 27 },
+      before: { right: 1032, y: 831, width: 104, height: 54, radius: 27 },
     },
   },
   {
@@ -33,8 +33,8 @@ const cases = [
     safe: { x: 0, y: 240, width: 1080, height: 1440 },
     frame: { x: 630, y: 1047, width: 421, height: 605, radius: 30 },
     labels: {
-      after: { right: 1032, y: 283.5, width: 104, height: 63, radius: 31.5 },
-      before: { right: 1032, y: 1066.5, width: 104, height: 63, radius: 31.5 },
+      after: { right: 1032, y: 288, width: 104, height: 54, radius: 27 },
+      before: { right: 1032, y: 1071, width: 104, height: 54, radius: 27 },
     },
   },
 ];
@@ -62,8 +62,8 @@ test("四周溶图从透明进入完整照片再回到透明", async () => {
 
 test("胶囊尺寸和边距随预览宽度同比缩放", async () => {
   const expected = {
-    after: { right: 516, y: 21.75, width: 52, height: 31.5, radius: 15.75 },
-    before: { right: 516, y: 413.75, width: 52, height: 31.5, radius: 15.75 },
+    after: { right: 516, y: 24, width: 52, height: 27, radius: 13.5 },
+    before: { right: 516, y: 416, width: 52, height: 27, radius: 13.5 },
   };
   for (const layout of await loadImplementations()) {
     assert.deepEqual(plain(layout.getComparisonLabelLayout({ width: 540, height: 720 })), expected);
@@ -248,11 +248,11 @@ test("前后胶囊使用原版的深色高光与亮面圆钮材质", async () =>
     layout.drawComparisonEditorialOverlay(context, { width: 1080, height: 1920 }, () => {});
     assert.equal(gradients.length, 4, "两个胶囊各需要深色底和亮面圆钮两层渐变");
     assert.deepEqual(gradients.map((stops) => stops.length), [4, 3, 4, 3]);
-    assert.equal(strokes, 5, "虚线框之外，每个胶囊和圆钮都应有细高光描边");
+    assert.equal(strokes, 7, "虚线框之外，每个胶囊应有独立外层高光，主体和圆钮也各有描边");
   }
 });
 
-test("胶囊缩小时仍保持整圆角、透明材质和三字协调间距", async () => {
+test("胶囊按参考图的主体、内圆和三字像素锚点等比缩放", async () => {
   for (const layout of await loadImplementations()) {
     const gradients = [];
     const capsulePaths = [];
@@ -282,21 +282,24 @@ test("胶囊缩小时仍保持整圆角、透明材质和三字协调间距", as
     );
 
     assert.deepEqual(capsulePaths.slice(-2), [
-      { height: 63, radius: 31.5 },
-      { height: 63, radius: 31.5 },
+      { height: 54, radius: 27 },
+      { height: 54, radius: 27 },
     ]);
     assert.deepEqual(text.map((item) => item.value), ["拍", "摄", "后", "拍", "摄", "前"]);
-    assert.ok(arcs.every((circle) => circle.radius === 16.5 && circle.x === 1002.5));
-    assert.ok(text.filter((_, index) => index % 3 !== 2).every((item) => item.font.includes("16px")));
-    assert.ok(text.filter((_, index) => index % 3 === 2).every((item) => item.font.includes("21px")));
-
-    for (let index = 0; index < text.length; index += 3) {
-      const [first, second, third] = text.slice(index, index + 3);
-      const circle = arcs[index / 3];
-      const firstGap = second.x - 8 - (first.x + 8);
-      const secondGap = third.x - circle.radius - (second.x + 7.5);
-      assert.ok(Math.abs(firstGap - secondGap) < 0.01);
-    }
+    assert.deepEqual(arcs, [
+      { x: 1004.5, y: 315, radius: 19 },
+      { x: 1004.5, y: 1098, radius: 19 },
+    ]);
+    assert.deepEqual(text.map(({ x, y }) => ({ x, y })), [
+      { x: 948.5, y: 314.5 },
+      { x: 968.35, y: 314.5 },
+      { x: 1004.5, y: 314.5 },
+      { x: 948.5, y: 1097.5 },
+      { x: 968.35, y: 1097.5 },
+      { x: 1004.5, y: 1097.5 },
+    ]);
+    assert.ok(text.filter((_, index) => index % 3 !== 2).every((item) => item.font.includes("18px")));
+    assert.ok(text.filter((_, index) => index % 3 === 2).every((item) => item.font.includes("22px")));
 
     const alpha = (color) => Number(color.match(/,([.\d]+)\)$/)[1]);
     for (const stops of [gradients[0], gradients[2]]) {
