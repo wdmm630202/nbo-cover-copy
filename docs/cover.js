@@ -39,6 +39,10 @@ const {
   resolveRetouchTarget,
   resolveRetouchTargetFromPoint,
 } = window.NBOCompareLayout;
+const {
+  createImageDropController,
+  getImageDropHint,
+} = window.NBODropUpload;
 const state = {
   platform: "douyin",
   template: "middle-left",
@@ -869,6 +873,8 @@ function updateUi() {
   $("#shadeValue").value = state.shade;
   $("#bottomShadeValue").value = state.bottomShade;
   $("#watermarkOpacityValue").textContent = `${state.watermarkOpacity}%`;
+  $("#uploadTitle").textContent = state.image ? "更换照片" : "上传照片";
+  $("#fileName").textContent = state.fileName || "支持 JPG、PNG、WEBP";
   $("#compareUploadPanel").hidden = !state.compareEnabled;
   const adjustmentPanels = getAdjustmentPanelVisibility(state.compareEnabled, adjustmentTarget);
   $("#adjustmentTarget").hidden = !adjustmentPanels.selector;
@@ -921,29 +927,51 @@ updateUi();
 loadDefaultWatermark();
 
 $("#fileInput").addEventListener("change", (event) => loadFile(event.target.files[0]));
-["dragenter", "dragover"].forEach((name) => $("#uploadBox").addEventListener(name, (event) => {
-  event.preventDefault();
-  $("#uploadBox").classList.add("dragging");
-}));
-["dragleave", "drop"].forEach((name) => $("#uploadBox").addEventListener(name, (event) => {
-  event.preventDefault();
-  $("#uploadBox").classList.remove("dragging");
-}));
-$("#uploadBox").addEventListener("drop", (event) => loadFile(event.dataTransfer.files[0]));
 $("#beforeFileInput").addEventListener("change", (event) => {
   loadBeforeFile(event.target.files[0]);
   event.target.value = "";
 });
 $("#beforeUploadButton").addEventListener("click", () => $("#beforeFileInput").click());
-["dragenter", "dragover"].forEach((name) => $("#beforeUploadBox").addEventListener(name, (event) => {
-  event.preventDefault();
-  $("#beforeUploadBox").classList.add("dragging");
-}));
-["dragleave", "drop"].forEach((name) => $("#beforeUploadBox").addEventListener(name, (event) => {
-  event.preventDefault();
-  $("#beforeUploadBox").classList.remove("dragging");
-}));
-$("#beforeUploadBox").addEventListener("drop", (event) => loadBeforeFile(event.dataTransfer.files[0]));
+
+function setImageDropActive(target, active) {
+  const main = target === "main";
+  const box = main ? $("#uploadBox") : $("#beforeUploadBox");
+  box.classList.toggle("dragging", active);
+  if (main) {
+    $("#uploadTitle").textContent = active ? getImageDropHint("main") : state.image ? "更换照片" : "上传照片";
+    $("#fileName").textContent = active ? "支持单张 JPG、PNG、WEBP" : state.fileName || "支持 JPG、PNG、WEBP";
+    return;
+  }
+  $("#beforeUploadTitle").textContent = active ? getImageDropHint("before") : state.beforeImage ? "更换照片" : "请添加拍摄前素颜照";
+  $("#beforeFileName").textContent = active ? "支持单张 JPG、PNG、WEBP" : state.beforeFileName || "支持 JPG、PNG、WEBP";
+}
+
+function bindImageDropZone(box, target, loadImage) {
+  const controller = createImageDropController(target);
+  box.addEventListener("dragenter", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setImageDropActive(target, controller.enter().active);
+  });
+  box.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  });
+  box.addEventListener("dragleave", (event) => {
+    event.preventDefault();
+    setImageDropActive(target, controller.leave().active);
+  });
+  box.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const result = controller.drop(event.dataTransfer.files);
+    setImageDropActive(target, result.active);
+    if (!result.selection.ok) return setStatus(result.selection.message);
+    loadImage(result.selection.file);
+  });
+}
+
+bindImageDropZone($("#uploadBox"), "main", loadFile);
+bindImageDropZone($("#beforeUploadBox"), "before", loadBeforeFile);
 
 function loadFile(file) {
   if (!file) return;

@@ -91,6 +91,9 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /导出设计 JPG/);
   assert.match(coverStudio, /前后对比/);
   assert.match(coverStudio, /拍摄前素颜照/);
+  assert.match(coverStudio, /getImageDropHint\("main"\)/);
+  assert.match(coverStudio, /getImageDropHint\("before"\)/);
+  assert.match(coverStudio, /createImageDropController/);
   assert.match(coverStudio, /拍摄前照片缩放/);
   assert.match(coverStudio, /拍摄前自由旋转/);
   assert.match(coverStudio, /拍摄前亮度/);
@@ -173,6 +176,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /南铂封面制作台/);
   assert.match(publicCover, /前后对比/);
   assert.match(publicCover, /拍摄前素颜照/);
+  assert.match(publicCover, /drop-upload\.js/);
+  assert.match(publicCoverScript, /createImageDropController/);
   assert.match(publicCover, /拍摄前照片缩放/);
   assert.match(publicCover, /id="beforeRotation"/);
   assert.match(publicCover, /id="beforeBrightness"/);
@@ -183,7 +188,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /compare-layout\.js/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /cover\.css\?v=20260830-before-frame-align/);
+  assert.match(publicCover, /cover\.css\?v=20260830-finder-drag-upload/);
   assert.match(publicCover, /id="mobileTouchZone"/);
   assert.match(publicCoverScript, /mobileGesture/);
   assert.match(publicCoverScript, /mode: "rotate"/);

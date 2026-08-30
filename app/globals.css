@@ -466,6 +466,13 @@ body {
   border: 1px dashed #aaa6a2;
   border-radius: 14px;
   background: #f4f3f1;
+  transition: border-color 120ms ease-out, background-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+.studio-before-upload.is-dragging {
+  border-color: var(--red);
+  background: var(--red-soft);
+  box-shadow: inset 0 0 0 1px rgba(255, 36, 66, .16);
 }
 
 .studio-before-upload > input {
@@ -502,6 +509,12 @@ body {
   border-radius: 11px;
   background: rgba(255, 255, 255, .9);
   cursor: pointer;
+  transition: border-color 120ms ease-out, background-color 120ms ease-out;
+}
+
+.studio-before-upload.is-dragging > button {
+  border-color: rgba(255, 36, 66, .46);
+  background: rgba(255, 255, 255, .96);
 }
 
 .studio-before-upload > button b {
@@ -572,11 +585,13 @@ body {
   border-radius: 15px;
   background: #faf8f5;
   cursor: pointer;
+  transition: border-color 120ms ease-out, background-color 120ms ease-out, box-shadow 120ms ease-out;
 }
 
 .studio-upload.is-dragging .studio-upload-main {
   border-color: var(--red);
   background: var(--red-soft);
+  box-shadow: inset 0 0 0 1px rgba(255, 36, 66, .16);
 }
 
 .studio-upload-main b {

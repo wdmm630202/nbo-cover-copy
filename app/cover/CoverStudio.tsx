@@ -45,6 +45,11 @@ import {
   resolveRetouchTargetFromPoint,
   RetouchTarget,
 } from "./compare-layout";
+import {
+  createImageDropController,
+  getImageDropHint,
+  type ImageDropTarget,
+} from "./drop-upload";
 
 type StudioSettings = {
   platformId: PlatformPreset["id"];
@@ -1092,6 +1097,8 @@ export default function CoverStudio() {
   const beforeFileInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
   const defaultWatermarkRef = useRef<HTMLImageElement | null>(null);
+  const mainDropControllerRef = useRef(createImageDropController("main"));
+  const beforeDropControllerRef = useRef(createImageDropController("before"));
   const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fileName, setFileName] = useState("");
@@ -1103,6 +1110,7 @@ export default function CoverStudio() {
   const exportGenerationRef = useRef(0);
   const exportCacheRef = useRef<{ generation: number; jpeg: ExportAsset | null; png: ExportAsset | null }>({ generation: 0, jpeg: null, png: null });
   const [dragging, setDragging] = useState(false);
+  const [beforeDragging, setBeforeDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
@@ -1964,12 +1972,6 @@ export default function CoverStudio() {
     event.target.value = "";
   };
 
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setDragging(false);
-    loadFile(event.dataTransfer.files?.[0]);
-  };
-
   const loadBeforeFile = useCallback((file: File | undefined) => {
     if (!file) return;
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
@@ -2001,6 +2003,43 @@ export default function CoverStudio() {
     };
     nextImage.src = url;
   }, [preset]);
+
+  const dropControllerFor = (target: ImageDropTarget) => (
+    target === "main" ? mainDropControllerRef.current : beforeDropControllerRef.current
+  );
+
+  const setDropActive = (target: ImageDropTarget, active: boolean) => {
+    if (target === "main") setDragging(active);
+    else setBeforeDragging(active);
+  };
+
+  const handleImageDragEnter = (event: DragEvent<HTMLDivElement>, target: ImageDropTarget) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setDropActive(target, dropControllerFor(target).enter().active);
+  };
+
+  const handleImageDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleImageDragLeave = (event: DragEvent<HTMLDivElement>, target: ImageDropTarget) => {
+    event.preventDefault();
+    setDropActive(target, dropControllerFor(target).leave().active);
+  };
+
+  const handleImageDrop = (event: DragEvent<HTMLDivElement>, target: ImageDropTarget) => {
+    event.preventDefault();
+    const result = dropControllerFor(target).drop(event.dataTransfer.files);
+    setDropActive(target, result.active);
+    if (!result.selection.ok) {
+      setNotice(result.selection.message);
+      return;
+    }
+    if (target === "main") loadFile(result.selection.file);
+    else loadBeforeFile(result.selection.file);
+  };
 
   const loadWatermark = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -2184,12 +2223,10 @@ export default function CoverStudio() {
 
           <div
             className={`studio-upload ${dragging ? "is-dragging" : ""}`}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
+            onDragEnter={(event) => handleImageDragEnter(event, "main")}
+            onDragOver={handleImageDragOver}
+            onDragLeave={(event) => handleImageDragLeave(event, "main")}
+            onDrop={(event) => handleImageDrop(event, "main")}
           >
             <input
               ref={fileInputRef}
@@ -2198,8 +2235,8 @@ export default function CoverStudio() {
               onChange={handleFile}
             />
             <button className="studio-upload-main" type="button" onClick={() => fileInputRef.current?.click()}>
-              <b>{image ? "更换照片" : "上传照片"}</b>
-              <span>{fileName || "支持 JPG、PNG、WEBP"}</span>
+              <b>{dragging ? getImageDropHint("main") : image ? "更换照片" : "上传照片"}</b>
+              <span>{dragging ? "支持单张 JPG、PNG、WEBP" : fileName || "支持 JPG、PNG、WEBP"}</span>
             </button>
             <button
               className="studio-image-sync"
@@ -2212,7 +2249,13 @@ export default function CoverStudio() {
           </div>
 
           {settings.compareEnabled ? (
-            <div className="studio-before-upload">
+            <div
+              className={`studio-before-upload ${beforeDragging ? "is-dragging" : ""}`}
+              onDragEnter={(event) => handleImageDragEnter(event, "before")}
+              onDragOver={handleImageDragOver}
+              onDragLeave={(event) => handleImageDragLeave(event, "before")}
+              onDrop={(event) => handleImageDrop(event, "before")}
+            >
               <input
                 ref={beforeFileInputRef}
                 type="file"
@@ -2227,8 +2270,8 @@ export default function CoverStudio() {
                 <small>照片只存在本机内存，刷新后自动清除</small>
               </div>
               <button type="button" onClick={() => beforeFileInputRef.current?.click()}>
-                <b>{beforeImage ? "更换照片" : "请添加拍摄前素颜照"}</b>
-                <span>{beforeFileName || "支持 JPG、PNG、WEBP"}</span>
+                <b>{beforeDragging ? getImageDropHint("before") : beforeImage ? "更换照片" : "请添加拍摄前素颜照"}</b>
+                <span>{beforeDragging ? "支持单张 JPG、PNG、WEBP" : beforeFileName || "支持 JPG、PNG、WEBP"}</span>
               </button>
             </div>
           ) : null}
