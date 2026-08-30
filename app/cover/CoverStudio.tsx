@@ -34,6 +34,9 @@ import {
   getComparisonFadeStops,
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
+  getOriginalPixelExportPlan,
+  getOriginalPixelJpegMaxBytes,
+  getOriginalPixelJpegQualities,
   getAdjustmentPanelVisibility,
   getVisibleRetouchStrokes,
   resolvePhotoInteractionTargetFromPoint,
@@ -137,34 +140,6 @@ function releaseCoverCanvas(canvas: HTMLCanvasElement) {
     coverScratch.delete(canvas);
   }
   canvas.width = canvas.height = 1;
-}
-
-function constrainExportSize(
-  size: { width: number; height: number },
-  maxPixels: number,
-  maxSide: number,
-) {
-  const scale = Math.min(
-    1,
-    Math.sqrt(maxPixels / (size.width * size.height)),
-    maxSide / size.width,
-    maxSide / size.height,
-  );
-  return {
-    width: Math.max(1, Math.round(size.width * scale)),
-    height: Math.max(1, Math.round(size.height * scale)),
-  };
-}
-
-function exportSizeCandidates(size: { width: number; height: number }) {
-  const mobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent)
-    || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
-  const limits = mobile
-    ? [[8_000_000, 4096], [6_000_000, 4096], [4_000_000, 4096], [2_100_000, 4096]]
-    : [[Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY], [24_000_000, 8192], [16_000_000, 8192], [10_000_000, 6144], [6_000_000, 4096]];
-  const candidates = limits.map(([maxPixels, maxSide]) => constrainExportSize(size, maxPixels, maxSide));
-  return candidates.filter((candidate, index) =>
-    index === candidates.findIndex((item) => item.width === candidate.width && item.height === candidate.height));
 }
 
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
@@ -1694,11 +1669,12 @@ export default function CoverStudio() {
     generation = exportGenerationRef.current,
   ): Promise<ExportAsset | null> => {
     if (!image || generation !== exportGenerationRef.current) return null;
-    const sourceRatio = image.naturalWidth / image.naturalHeight;
-    const targetRatio = preset.width / preset.height;
-    const originalOutputSize = sourceRatio >= targetRatio
-      ? { width: Math.round(image.naturalHeight * targetRatio), height: image.naturalHeight }
-      : { width: image.naturalWidth, height: Math.round(image.naturalWidth / targetRatio) };
+    const exportPlan = getOriginalPixelExportPlan(
+      { width: image.naturalWidth, height: image.naturalHeight },
+      preset,
+      format,
+    );
+    const outputSize = { width: exportPlan.width, height: exportPlan.height };
     const exportCanvas = document.createElement("canvas");
     const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => {
       try {
@@ -1707,37 +1683,24 @@ export default function CoverStudio() {
         resolve(null);
       }
     });
-    const maxBytes = 19.9 * 1024 * 1024;
-    let outputSize = originalOutputSize;
     let blob: Blob | null = null;
-    for (const candidate of exportSizeCandidates(originalOutputSize)) {
-      let quality = format === "jpeg" ? 0.98 : undefined;
-      try {
-        drawCover(exportCanvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, false, candidate, photoOnly, retouchStrokes, beforeRetouchStrokes);
-        blob = await toBlob(quality);
-        if (generation !== exportGenerationRef.current) {
-          releaseCoverCanvas(exportCanvas);
-          return null;
-        }
-        while (blob && blob.size > maxBytes && format === "jpeg" && (quality ?? 0) > 0.56) {
-          quality = Math.max(0.56, (quality ?? 0.98) - 0.07);
+    try {
+      drawCover(exportCanvas, image, beforeImage, settings.watermarkEnabled ? watermark : null, settings, preset, false, outputSize, photoOnly, retouchStrokes, beforeRetouchStrokes);
+      if (format === "jpeg") {
+        for (const quality of getOriginalPixelJpegQualities()) {
           blob = await toBlob(quality);
-          if (generation !== exportGenerationRef.current) {
-            releaseCoverCanvas(exportCanvas);
-            return null;
-          }
+          if (!blob || blob.size <= getOriginalPixelJpegMaxBytes()) break;
         }
-      } catch {
-        blob = null;
+        if (blob && blob.size > getOriginalPixelJpegMaxBytes()) blob = null;
+      } else {
+        blob = await toBlob();
       }
-      if (blob && blob.size <= maxBytes) {
-        outputSize = candidate;
-        break;
-      }
+    } catch {
       blob = null;
+    }
+    if (generation !== exportGenerationRef.current) {
       releaseCoverCanvas(exportCanvas);
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-      if (generation !== exportGenerationRef.current) return null;
+      return null;
     }
     if (!blob) {
       releaseCoverCanvas(exportCanvas);
@@ -2006,7 +1969,9 @@ export default function CoverStudio() {
         asset = null;
       }
       if (generation !== exportGenerationRef.current) return;
-      if (!asset) return setNotice("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
+      if (!asset) return setNotice(format === "jpeg"
+        ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
+        : "浏览器无法按原始像素导出；系统没有缩小图片，请换电脑浏览器或关闭其他页面后再试");
     } else if (!asset) {
       setExportReady((current) => ({ ...current, [format]: false }));
       setNotice(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
@@ -2019,7 +1984,9 @@ export default function CoverStudio() {
       if (generation !== exportGenerationRef.current) return;
       exportCacheRef.current = { ...exportCacheRef.current, generation, [format]: prepared };
       setExportReady((current) => ({ ...current, [format]: true }));
-      if (!prepared) return setNotice("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
+      if (!prepared) return setNotice(format === "jpeg"
+        ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
+        : "浏览器无法按原始像素导出；系统没有缩小图片，请换电脑浏览器或关闭其他页面后再试");
       asset = prepared;
     }
     const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";

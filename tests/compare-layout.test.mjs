@@ -229,3 +229,31 @@ test("前后对比装饰层只绘制前后胶囊，不再写入多余品牌字",
     assert.deepEqual(text, ["拍摄", "后", "拍摄", "前"]);
   }
 });
+
+test("大尺寸照片导出始终保留原始裁切像素，不按手机或文件大小降级", async () => {
+  const source = { width: 6000, height: 9000 };
+  const preset = { width: 1080, height: 1920 };
+  for (const layout of await loadImplementations()) {
+    assert.equal(typeof layout.getOriginalPixelExportPlan, "function");
+    assert.deepEqual(
+      plain(layout.getOriginalPixelExportPlan(source, preset, "png")),
+      { width: 5063, height: 9000, quality: null },
+    );
+    assert.deepEqual(
+      plain(layout.getOriginalPixelExportPlan(source, preset, "jpeg")),
+      { width: 5063, height: 9000, quality: 0.98 },
+    );
+  }
+});
+
+test("JPG 保留原始像素时仍按旧规则尝试压到 19.9MB", async () => {
+  for (const layout of await loadImplementations()) {
+    assert.equal(typeof layout.getOriginalPixelJpegQualities, "function");
+    assert.equal(typeof layout.getOriginalPixelJpegMaxBytes, "function");
+    assert.deepEqual(
+      plain(layout.getOriginalPixelJpegQualities()),
+      [0.98, 0.91, 0.84, 0.77, 0.7, 0.63, 0.56],
+    );
+    assert.equal(layout.getOriginalPixelJpegMaxBytes(), 19.9 * 1024 * 1024);
+  }
+});

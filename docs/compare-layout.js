@@ -187,6 +187,25 @@
     return "当前版式可能与右侧对比照重叠，建议选择左侧版式";
   }
 
+  function getOriginalPixelExportPlan(source, preset, format) {
+    const sourceWidth = Math.max(1, Math.round(source.width));
+    const sourceHeight = Math.max(1, Math.round(source.height));
+    const targetRatio = Math.max(1, preset.width) / Math.max(1, preset.height);
+    const sourceRatio = sourceWidth / sourceHeight;
+    const output = sourceRatio >= targetRatio
+      ? { width: Math.max(1, Math.round(sourceHeight * targetRatio)), height: sourceHeight }
+      : { width: sourceWidth, height: Math.max(1, Math.round(sourceWidth / targetRatio)) };
+    return { ...output, quality: format === "jpeg" ? .98 : null };
+  }
+
+  function getOriginalPixelJpegQualities() {
+    return [.98, .91, .84, .77, .7, .63, .56];
+  }
+
+  function getOriginalPixelJpegMaxBytes() {
+    return 19.9 * 1024 * 1024;
+  }
+
   global.NBOCompareLayout = {
     normalizeComparisonPhotoAdjustments,
     getComparisonPhotoTransform,
@@ -203,5 +222,8 @@
     getComparisonFadeStops,
     getComparisonExportError,
     getComparisonOverlapWarning,
+    getOriginalPixelExportPlan,
+    getOriginalPixelJpegQualities,
+    getOriginalPixelJpegMaxBytes,
   };
 })(window);

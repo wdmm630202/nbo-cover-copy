@@ -1,6 +1,7 @@
 export type CompareCanvasSize = { width: number; height: number };
 export type CompareRect = { x: number; y: number; width: number; height: number };
 export type RetouchTarget = "after" | "before";
+export type CoverExportFormat = "jpeg" | "png";
 export type ComparisonPhotoAdjustments = {
   zoom: number;
   offsetX: number;
@@ -238,4 +239,27 @@ export function getComparisonExportError(enabled: boolean, hasBeforeImage: boole
 export function getComparisonOverlapWarning(enabled: boolean, templateId: string) {
   if (!enabled || templateId.endsWith("-left")) return "";
   return "当前版式可能与右侧对比照重叠，建议选择左侧版式";
+}
+
+export function getOriginalPixelExportPlan(
+  source: CompareCanvasSize,
+  preset: CompareCanvasSize,
+  format: CoverExportFormat,
+) {
+  const sourceWidth = Math.max(1, Math.round(source.width));
+  const sourceHeight = Math.max(1, Math.round(source.height));
+  const targetRatio = Math.max(1, preset.width) / Math.max(1, preset.height);
+  const sourceRatio = sourceWidth / sourceHeight;
+  const output = sourceRatio >= targetRatio
+    ? { width: Math.max(1, Math.round(sourceHeight * targetRatio)), height: sourceHeight }
+    : { width: sourceWidth, height: Math.max(1, Math.round(sourceWidth / targetRatio)) };
+  return { ...output, quality: format === "jpeg" ? 0.98 : null };
+}
+
+export function getOriginalPixelJpegQualities() {
+  return [0.98, 0.91, 0.84, 0.77, 0.7, 0.63, 0.56];
+}
+
+export function getOriginalPixelJpegMaxBytes() {
+  return 19.9 * 1024 * 1024;
 }

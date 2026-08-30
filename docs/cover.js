@@ -15,20 +15,6 @@ const formatExportTimestamp = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, "0");
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 };
-const constrainExportSize = (size, maxPixels, maxSide) => {
-  const scale = Math.min(1, Math.sqrt(maxPixels / (size.width * size.height)), maxSide / size.width, maxSide / size.height);
-  return { width: Math.max(1, Math.round(size.width * scale)), height: Math.max(1, Math.round(size.height * scale)) };
-};
-const exportSizeCandidates = (size) => {
-  const mobile = /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent)
-    || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
-  const limits = mobile
-    ? [[8_000_000, 4096], [6_000_000, 4096], [4_000_000, 4096], [2_100_000, 4096]]
-    : [[Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY], [24_000_000, 8192], [16_000_000, 8192], [10_000_000, 6144], [6_000_000, 4096]];
-  const candidates = limits.map(([maxPixels, maxSide]) => constrainExportSize(size, maxPixels, maxSide));
-  return candidates.filter((candidate, index) =>
-    index === candidates.findIndex((item) => item.width === candidate.width && item.height === candidate.height));
-};
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -41,6 +27,9 @@ const {
   getComparisonFadeStops,
   getComparisonOverlapWarning,
   getComparisonPhotoTransform,
+  getOriginalPixelExportPlan,
+  getOriginalPixelJpegMaxBytes,
+  getOriginalPixelJpegQualities,
   getAdjustmentPanelVisibility,
   getVisibleRetouchStrokes,
   normalizeComparisonPhotoAdjustments,
@@ -1903,11 +1892,12 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
   const output = document.createElement("canvas");
   const mimeType = format === "png" ? "image/png" : "image/jpeg";
   const current = preset();
-  const sourceRatio = state.image.naturalWidth / state.image.naturalHeight;
-  const targetRatio = current.width / current.height;
-  const originalOutputSize = sourceRatio >= targetRatio
-    ? { width: Math.round(state.image.naturalHeight * targetRatio), height: state.image.naturalHeight }
-    : { width: state.image.naturalWidth, height: Math.round(state.image.naturalWidth / targetRatio) };
+  const exportPlan = getOriginalPixelExportPlan(
+    { width: state.image.naturalWidth, height: state.image.naturalHeight },
+    current,
+    format,
+  );
+  const outputSize = { width: exportPlan.width, height: exportPlan.height };
   const toBlob = (quality) => new Promise((resolve) => {
     try {
       output.toBlob(resolve, mimeType, quality);
@@ -1915,37 +1905,24 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
       resolve(null);
     }
   });
-  const maxBytes = 19.9 * 1024 * 1024;
-  let outputSize = originalOutputSize;
   let blob = null;
-  for (const candidate of exportSizeCandidates(originalOutputSize)) {
-    let quality = format === "jpeg" ? .98 : undefined;
-    try {
-      draw(false, output, candidate, photoOnly);
-      blob = await toBlob(quality);
-      if (generation !== exportGeneration) {
-        output.width = output.height = 1;
-        return null;
-      }
-      while (blob && blob.size > maxBytes && format === "jpeg" && quality > .56) {
-        quality = Math.max(.56, quality - .07);
+  try {
+    draw(false, output, outputSize, photoOnly);
+    if (format === "jpeg") {
+      for (const quality of getOriginalPixelJpegQualities()) {
         blob = await toBlob(quality);
-        if (generation !== exportGeneration) {
-          output.width = output.height = 1;
-          return null;
-        }
+        if (!blob || blob.size <= getOriginalPixelJpegMaxBytes()) break;
       }
-    } catch {
-      blob = null;
+      if (blob && blob.size > getOriginalPixelJpegMaxBytes()) blob = null;
+    } else {
+      blob = await toBlob();
     }
-    if (blob && blob.size <= maxBytes) {
-      outputSize = candidate;
-      break;
-    }
+  } catch {
     blob = null;
+  }
+  if (generation !== exportGeneration) {
     output.width = output.height = 1;
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-    if (generation !== exportGeneration) return null;
+    return null;
   }
   if (!blob) {
     output.width = output.height = 1;
@@ -1977,7 +1954,9 @@ async function exportCover(format, photoOnly = false) {
       asset = null;
     }
     if (generation !== exportGeneration) return;
-    if (!asset) return setStatus("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
+    if (!asset) return setStatus(format === "jpeg"
+      ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
+      : "浏览器无法按原始像素导出；系统没有缩小图片，请换电脑浏览器或关闭其他页面后再试");
   } else if (!asset) {
     setExportReady(format, false);
     setStatus(`正在生成原图尺寸 ${format === "png" ? "PNG" : "JPG"}…`);
@@ -1989,7 +1968,9 @@ async function exportCover(format, photoOnly = false) {
     if (generation !== exportGeneration) return;
     exportCache = { ...exportCache, generation, [format]: asset };
     setExportReady(format, true);
-    if (!asset) return setStatus("当前照片像素较大，浏览器未能完成导出，请关闭其他页面后再点一次");
+    if (!asset) return setStatus(format === "jpeg"
+      ? "无法在保留原始像素的同时把 JPG 控制在 19.9MB 内，请改用 PNG 导出"
+      : "浏览器无法按原始像素导出；系统没有缩小图片，请换电脑浏览器或关闭其他页面后再试");
   }
   if (generation !== exportGeneration) return;
   const current = preset();
