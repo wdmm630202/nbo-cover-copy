@@ -127,14 +127,26 @@
     };
   }
 
-  function drawComparisonCapsule(context, capsule, word, roundedRectPath, outputScale) {
+  function capsulePath(context, x, y, width, height) {
+    const radius = Math.min(height / 2, width / 2);
+    const centerY = y + height / 2;
+    context.beginPath();
+    context.moveTo(x + radius, y);
+    context.lineTo(x + width - radius, y);
+    context.arc(x + width - radius, centerY, radius, -Math.PI / 2, Math.PI / 2);
+    context.lineTo(x + radius, y + height);
+    context.arc(x + radius, centerY, radius, Math.PI / 2, Math.PI * 1.5);
+    context.closePath();
+  }
+
+  function drawComparisonCapsule(context, capsule, word, outputScale) {
     const x = capsule.right - capsule.width;
     const onePhysicalPixel = 1 / Math.max(.01, outputScale);
     context.save();
     context.shadowColor = "rgba(0,0,0,.24)";
     context.shadowBlur = Math.max(3, 8 * outputScale);
     context.shadowOffsetY = Math.max(1, 2 * outputScale);
-    roundedRectPath(context, x, capsule.y, capsule.width, capsule.height, capsule.radius);
+    capsulePath(context, x, capsule.y, capsule.width, capsule.height);
     const shellGradient = context.createLinearGradient(0, capsule.y, 0, capsule.y + capsule.height);
     shellGradient.addColorStop(0, "rgba(120,120,124,.58)");
     shellGradient.addColorStop(.14, "rgba(70,70,74,.78)");
@@ -204,8 +216,8 @@
     roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
     context.stroke();
     context.restore();
-    drawComparisonCapsule(context, labels.after, "后", roundedRectPath, scale);
-    drawComparisonCapsule(context, labels.before, "前", roundedRectPath, scale);
+    drawComparisonCapsule(context, labels.after, "后", scale);
+    drawComparisonCapsule(context, labels.before, "前", scale);
     context.restore();
   }
 

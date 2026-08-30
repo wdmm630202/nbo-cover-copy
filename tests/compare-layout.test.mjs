@@ -222,6 +222,7 @@ test("前后对比装饰层只绘制前后胶囊，不再写入多余品牌字",
     const text = [];
     const context = {
       save() {}, restore() {}, scale() {}, beginPath() {}, rect() {}, clip() {},
+      moveTo() {}, lineTo() {}, closePath() {},
       setLineDash() {}, stroke() {}, fill() {}, arc() {},
       createLinearGradient() { return { addColorStop() {} }; },
       fillText(value) { text.push(value); },
@@ -237,6 +238,7 @@ test("前后胶囊使用原版的深色高光与亮面圆钮材质", async () =>
     let strokes = 0;
     const context = {
       save() {}, restore() {}, scale() {}, beginPath() {}, rect() {}, clip() {},
+      moveTo() {}, lineTo() {}, closePath() {},
       setLineDash() {}, fill() {}, arc() {}, fillText() {},
       stroke() { strokes += 1; },
       createLinearGradient() {
@@ -261,8 +263,9 @@ test("胶囊按参考图的主体、内圆和三字像素锚点等比缩放", as
     const strokes = [];
     const context = {
       save() {}, restore() {}, scale() {}, beginPath() {}, rect() {}, clip() {},
+      moveTo() {}, lineTo() {}, closePath() {},
       setLineDash() {}, fill() {}, stroke() { strokes.push(this.lineWidth); },
-      arc(x, y, radius) { arcs.push({ x, y, radius }); },
+      arc(x, y, radius, start, end) { arcs.push({ x, y, radius, start, end }); },
       fillText(value, x, y) { text.push({ value, x, y, font: this.font }); },
       measureText(value) {
         return value === "拍"
@@ -278,17 +281,20 @@ test("胶囊按参考图的主体、内圆和三字像素锚点等比缩放", as
     layout.drawComparisonEditorialOverlay(
       context,
       { width: 540, height: 960 },
-      (_context, _x, _y, _width, height, radius) => capsulePaths.push({ height, radius }),
+      (_context, x, y, width, height, radius) => capsulePaths.push({ x, y, width, height, radius }),
     );
 
-    assert.deepEqual(capsulePaths.slice(-2), [
-      { height: 54, radius: 27 },
-      { height: 54, radius: 27 },
+    assert.deepEqual(capsulePaths, [
+      { x: 630, y: 1047, width: 421, height: 605, radius: 30 },
     ]);
     assert.deepEqual(text.map((item) => item.value), ["拍", "摄", "后", "拍", "摄", "前"]);
     assert.deepEqual(arcs, [
-      { x: 1004.5, y: 315, radius: 19 },
-      { x: 1004.5, y: 1098, radius: 19 },
+      { x: 1005, y: 315, radius: 27, start: -Math.PI / 2, end: Math.PI / 2 },
+      { x: 955, y: 315, radius: 27, start: Math.PI / 2, end: Math.PI * 1.5 },
+      { x: 1004.5, y: 315, radius: 19, start: 0, end: Math.PI * 2 },
+      { x: 1005, y: 1098, radius: 27, start: -Math.PI / 2, end: Math.PI / 2 },
+      { x: 955, y: 1098, radius: 27, start: Math.PI / 2, end: Math.PI * 1.5 },
+      { x: 1004.5, y: 1098, radius: 19, start: 0, end: Math.PI * 2 },
     ]);
     assert.deepEqual(text.map(({ x, y }) => ({ x, y })), [
       { x: 948.5, y: 314.5 },
