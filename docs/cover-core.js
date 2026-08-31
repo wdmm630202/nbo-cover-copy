@@ -8,7 +8,17 @@ var NBOCoverCore = (function(exports) {
 	}
 	//#endregion
 	//#region app/cover/core/tool-registry.ts
-	var PRIMARY_TOOLS = [
+	function deepFreeze(value) {
+		if (value && typeof value === "object") {
+			for (const child of Object.values(value)) deepFreeze(child);
+			Object.freeze(value);
+		}
+		return value;
+	}
+	function immutableTools(tools) {
+		return deepFreeze(tools.map((tool) => ({ ...tool })));
+	}
+	var PRIMARY_TOOLS = deepFreeze([
 		{
 			id: "photo",
 			label: "照片"
@@ -37,8 +47,8 @@ var NBOCoverCore = (function(exports) {
 			id: "more",
 			label: "更多"
 		}
-	];
-	var SECONDARY_TOOLS = {
+	]);
+	var SECONDARY_TOOLS = deepFreeze({
 		photo: [
 			{
 				id: "uploadMain",
@@ -141,7 +151,8 @@ var NBOCoverCore = (function(exports) {
 				label: "拍摄前左右位置",
 				kind: "range",
 				settingKey: "beforeOffsetX",
-				defaultValue: 0
+				defaultValue: 0,
+				dynamicBounds: "beforeOffsetLimits.x"
 			},
 			{
 				id: "beforeOffsetY",
@@ -149,7 +160,8 @@ var NBOCoverCore = (function(exports) {
 				label: "拍摄前上下位置",
 				kind: "range",
 				settingKey: "beforeOffsetY",
-				defaultValue: 0
+				defaultValue: 0,
+				dynamicBounds: "beforeOffsetLimits.y"
 			},
 			{
 				id: "beforeRotation",
@@ -501,7 +513,7 @@ var NBOCoverCore = (function(exports) {
 				kind: "action"
 			}
 		]
-	};
+	});
 	var beforeComposeIds = new Set([
 		"beforeZoom",
 		"beforeOffsetX",
@@ -516,25 +528,25 @@ var NBOCoverCore = (function(exports) {
 		bottomShade: "beforeBottomShade"
 	};
 	function getSecondaryTools(primary, context) {
-		if (primary === "photo") return context.comparisonEnabled ? SECONDARY_TOOLS.photo : SECONDARY_TOOLS.photo.filter((tool) => tool.id !== "uploadBefore");
+		if (primary === "photo") return immutableTools(context.comparisonEnabled ? SECONDARY_TOOLS.photo : SECONDARY_TOOLS.photo.filter((tool) => tool.id !== "uploadBefore"));
 		if (primary === "compose") {
 			if (context.target === "before") {
 				if (!context.comparisonEnabled) return [];
-				return SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || beforeComposeIds.has(tool.id));
+				return immutableTools(SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || beforeComposeIds.has(tool.id)));
 			}
-			return SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || !beforeComposeIds.has(tool.id));
+			return immutableTools(SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || !beforeComposeIds.has(tool.id)));
 		}
 		if (primary === "image") {
 			if (context.target === "before") {
 				if (!context.comparisonEnabled) return [];
-				return SECONDARY_TOOLS.image.map((tool) => ({
+				return immutableTools(SECONDARY_TOOLS.image.map((tool) => ({
 					...tool,
 					settingKey: beforeImageSettingKeys[tool.id]
-				}));
+				})));
 			}
-			return SECONDARY_TOOLS.image;
+			return immutableTools(SECONDARY_TOOLS.image);
 		}
-		return SECONDARY_TOOLS[primary];
+		return immutableTools(primary === "retouch" && !context.comparisonEnabled ? SECONDARY_TOOLS.retouch.filter((tool) => tool.id !== "retouchTarget") : SECONDARY_TOOLS[primary]);
 	}
 	//#endregion
 	exports.PRIMARY_TOOLS = PRIMARY_TOOLS;

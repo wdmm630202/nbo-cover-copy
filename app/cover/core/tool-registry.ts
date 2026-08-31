@@ -1,7 +1,8 @@
 export type PrimaryToolId = "photo" | "compose" | "text" | "image" | "retouch" | "layout" | "more";
 export type ToolKind = "action" | "range" | "text" | "color" | "toggle" | "choice";
 export type ToolContext = { comparisonEnabled: boolean; target: "after" | "before" };
-export type ToolDefinition = {
+export type DynamicBounds = "beforeOffsetLimits.x" | "beforeOffsetLimits.y";
+export type ToolDefinition = Readonly<{
   id: string;
   primary: PrimaryToolId;
   label: string;
@@ -11,16 +12,31 @@ export type ToolDefinition = {
   max?: number;
   defaultValue?: number | boolean | string;
   suffix?: string;
-};
+  dynamicBounds?: DynamicBounds;
+}>;
 
-export const PRIMARY_TOOLS = [
+type ToolRegistry = Readonly<Record<PrimaryToolId, readonly ToolDefinition[]>>;
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object") {
+    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+function immutableTools(tools: readonly ToolDefinition[]): readonly ToolDefinition[] {
+  return deepFreeze(tools.map((tool) => ({ ...tool })));
+}
+
+export const PRIMARY_TOOLS = deepFreeze([
   { id: "photo", label: "照片" }, { id: "compose", label: "构图" },
   { id: "text", label: "文字" }, { id: "image", label: "画面" },
   { id: "retouch", label: "涂抹" }, { id: "layout", label: "版式" },
   { id: "more", label: "更多" },
-] as const;
+] as const);
 
-export const SECONDARY_TOOLS: Record<PrimaryToolId, readonly ToolDefinition[]> = {
+export const SECONDARY_TOOLS = deepFreeze({
   photo: [
     { id: "uploadMain", primary: "photo", label: "精修图上传/更换", kind: "action" },
     { id: "uploadBefore", primary: "photo", label: "拍摄前照片上传/更换", kind: "action" },
@@ -35,9 +51,8 @@ export const SECONDARY_TOOLS: Record<PrimaryToolId, readonly ToolDefinition[]> =
     { id: "offsetY", primary: "compose", label: "上下位置", kind: "range", settingKey: "offsetY", min: -200, max: 200, defaultValue: 0 },
     { id: "rotation", primary: "compose", label: "自由旋转", kind: "range", settingKey: "rotation", min: -180, max: 180, defaultValue: 0, suffix: "°" },
     { id: "beforeZoom", primary: "compose", label: "拍摄前照片缩放", kind: "range", settingKey: "beforeZoom", min: 100, max: 300, defaultValue: 100, suffix: "%" },
-    // These two bounds are intentionally omitted: each render derives them from getBeforeOffsetLimits().
-    { id: "beforeOffsetX", primary: "compose", label: "拍摄前左右位置", kind: "range", settingKey: "beforeOffsetX", defaultValue: 0 },
-    { id: "beforeOffsetY", primary: "compose", label: "拍摄前上下位置", kind: "range", settingKey: "beforeOffsetY", defaultValue: 0 },
+    { id: "beforeOffsetX", primary: "compose", label: "拍摄前左右位置", kind: "range", settingKey: "beforeOffsetX", defaultValue: 0, dynamicBounds: "beforeOffsetLimits.x" },
+    { id: "beforeOffsetY", primary: "compose", label: "拍摄前上下位置", kind: "range", settingKey: "beforeOffsetY", defaultValue: 0, dynamicBounds: "beforeOffsetLimits.y" },
     { id: "beforeRotation", primary: "compose", label: "拍摄前自由旋转", kind: "range", settingKey: "beforeRotation", min: -180, max: 180, defaultValue: 0, suffix: "°" },
     { id: "alignBefore", primary: "compose", label: "尝试对齐", kind: "action" },
     { id: "resetBeforeFrame", primary: "compose", label: "恢复对比图默认尺寸", kind: "action" },
@@ -93,7 +108,7 @@ export const SECONDARY_TOOLS: Record<PrimaryToolId, readonly ToolDefinition[]> =
     { id: "factoryReset", primary: "more", label: "彻底重置", kind: "action" },
     { id: "coverRules", primary: "more", label: "长期规范", kind: "action" },
   ],
-};
+} as const satisfies ToolRegistry);
 
 const beforeComposeIds = new Set([
   "beforeZoom", "beforeOffsetX", "beforeOffsetY", "beforeRotation", "alignBefore", "resetBeforeFrame",
@@ -107,29 +122,33 @@ const beforeImageSettingKeys: Record<string, string> = {
 
 export function getSecondaryTools(primary: PrimaryToolId, context: ToolContext): readonly ToolDefinition[] {
   if (primary === "photo") {
-    return context.comparisonEnabled
+    return immutableTools(context.comparisonEnabled
       ? SECONDARY_TOOLS.photo
-      : SECONDARY_TOOLS.photo.filter((tool) => tool.id !== "uploadBefore");
+      : SECONDARY_TOOLS.photo.filter((tool) => tool.id !== "uploadBefore"));
   }
 
   if (primary === "compose") {
     if (context.target === "before") {
       if (!context.comparisonEnabled) return [];
-      return SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || beforeComposeIds.has(tool.id));
+      return immutableTools(SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || beforeComposeIds.has(tool.id)));
     }
-    return SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || !beforeComposeIds.has(tool.id));
+    return immutableTools(SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || !beforeComposeIds.has(tool.id)));
   }
 
   if (primary === "image") {
     if (context.target === "before") {
       if (!context.comparisonEnabled) return [];
-      return SECONDARY_TOOLS.image.map((tool) => ({
+      return immutableTools(SECONDARY_TOOLS.image.map((tool) => ({
         ...tool,
         settingKey: beforeImageSettingKeys[tool.id],
-      }));
+      })));
     }
-    return SECONDARY_TOOLS.image;
+    return immutableTools(SECONDARY_TOOLS.image);
   }
 
-  return SECONDARY_TOOLS[primary];
+  return immutableTools(
+    primary === "retouch" && !context.comparisonEnabled
+      ? SECONDARY_TOOLS.retouch.filter((tool) => tool.id !== "retouchTarget")
+      : SECONDARY_TOOLS[primary],
+  );
 }
