@@ -26,12 +26,8 @@ export default function CoverCompactShell({
       </header>
       <div className="cover-compact-preview">{canvas}</div>
       <div className="cover-compact-dock" hidden={!open}>
-        <nav id="mobileSecondaryTools" className="mobile-secondary-tools" aria-label="当前工具" hidden={!open}>
-          <span className="mobile-tool-placeholder">预览始终保留在上方</span>
-        </nav>
-        <nav id="mobilePrimaryTools" className="mobile-primary-tools" aria-label="编辑分类" hidden={!open}>
-          {dock}
-        </nav>
+        {/* The registry-driven dock supplies singleToolControl, secondary and primary rows. */}
+        {dock}
       </div>
     </div>
   );

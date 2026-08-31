@@ -17,6 +17,7 @@ import {
 import CoverCanvasSurface from "./CoverCanvasSurface";
 import CoverCompactShell from "./CoverCompactShell";
 import CoverExportSheet from "./CoverExportSheet";
+import CoverMobileToolDock, { type MobileToolPresentation } from "./CoverMobileToolDock";
 import {
   DEFAULT_COVER_SETTINGS,
   normalizeCoverSettings,
@@ -39,6 +40,12 @@ import {
   resolveCoverLayoutMode,
   type CoverLayoutMode,
 } from "./core/responsive-layout";
+import {
+  getSecondaryTools,
+  type PrimaryToolId,
+  type ToolContext,
+  type ToolDefinition,
+} from "./core/tool-registry";
 // The legacy #FEE800 correction now lives in the shared settings normalizer.
 import {
   COVER_COPY_SYNC_CHANNEL,
@@ -218,6 +225,8 @@ export default function CoverStudio() {
   const [layoutMode, setLayoutMode] = useState<CoverLayoutMode>("desktop");
   const [isCompactEditorOpen, setIsCompactEditorOpen] = useState(false);
   const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
+  const [activePrimaryTool, setActivePrimaryTool] = useState<PrimaryToolId>("compose");
+  const [activeSecondaryTool, setActiveSecondaryTool] = useState<string | null>("target");
   const settingsRef = useRef(settings);
   const beforeImageRef = useRef(beforeImage);
   const rotationModeRef = useRef(rotationMode);
@@ -277,6 +286,23 @@ export default function CoverStudio() {
   const activeRetouchTarget = resolveRetouchTarget(retouchTarget, settings.compareEnabled, Boolean(beforeImage));
   const activeRetouchStrokes = activeRetouchTarget === "before" ? beforeRetouchStrokes : retouchStrokes;
   const adjustmentPanels = getAdjustmentPanelVisibility(settings.compareEnabled, adjustmentTarget);
+  const mobileToolContext: ToolContext = useMemo(() => ({
+    comparisonEnabled: settings.compareEnabled,
+    target: adjustmentTarget,
+  }), [adjustmentTarget, settings.compareEnabled]);
+
+  useEffect(() => {
+    const normalizedContext = !settings.compareEnabled && adjustmentTarget === "before"
+      ? { comparisonEnabled: false, target: "after" as const }
+      : mobileToolContext;
+    const available = getSecondaryTools(activePrimaryTool, normalizedContext);
+    if (normalizedContext.target === adjustmentTarget && available.some((tool) => tool.id === activeSecondaryTool)) return;
+    const timer = window.setTimeout(() => {
+      if (normalizedContext.target !== adjustmentTarget) setAdjustmentTarget(normalizedContext.target);
+      setActiveSecondaryTool(available[0]?.id ?? null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activePrimaryTool, activeSecondaryTool, adjustmentTarget, mobileToolContext, settings.compareEnabled]);
 
   useEffect(() => {
     const pointerQuery = window.matchMedia("(pointer: coarse)");
@@ -919,6 +945,155 @@ export default function CoverStudio() {
     setExportMessage(`${resolutionMessage}，请长按图片存储到照片`);
   };
 
+  const changeBeforeZoom = (value: number) => setSettings((current) => {
+    const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset, current.beforeFrameScale), value, current.beforeRotation);
+    const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
+    return {
+      ...current,
+      beforeZoom: value,
+      beforeOffsetX: Math.max(-limits.x, Math.min(limits.x, current.beforeOffsetX)),
+      beforeOffsetY: Math.max(-limits.y, Math.min(limits.y, current.beforeOffsetY)),
+    };
+  });
+
+  const changeBeforeRotation = (value: number) => {
+    const snapped = snapRotation(value);
+    setSettings((current) => {
+      const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset, current.beforeFrameScale), current.beforeZoom, snapped.value);
+      const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
+      return {
+        ...current,
+        beforeRotation: snapped.value,
+        beforeOffsetX: Math.max(-limits.x, Math.min(limits.x, current.beforeOffsetX)),
+        beforeOffsetY: Math.max(-limits.y, Math.min(limits.y, current.beforeOffsetY)),
+      };
+    });
+    showTransformHint(`拍摄前 ${snapped.value}°`, snapped.guide);
+  };
+
+  const mobileValueFor = (tool: ToolDefinition): unknown => {
+    const base = (value: unknown, extra: Partial<MobileToolPresentation> = {}): MobileToolPresentation => ({ value, ...extra });
+    if (tool.id === "watermarkEnabled") return base(settings.watermarkEnabled, { choices: [
+      { value: true, label: "使用水印" },
+      { value: false, label: "不使用水印" },
+    ] });
+    if (tool.id === "watermarkAlign") return base(settings.watermarkAlign, { choices: [
+      { value: "left", label: "左侧对齐" },
+      { value: "center", label: "居中" },
+      { value: "right", label: "右侧对齐" },
+    ] });
+    if (tool.id === "bottomTextScale") return base(settings.bottomTextScale, { disabled: settings.textScaleLinked });
+    if (tool.settingKey) return base(settings[tool.settingKey as keyof CoverSettings], tool.dynamicBounds === "beforeOffsetLimits.x"
+      ? { min: -beforeOffsetLimits.x, max: beforeOffsetLimits.x }
+      : tool.dynamicBounds === "beforeOffsetLimits.y" ? { min: -beforeOffsetLimits.y, max: beforeOffsetLimits.y } : {});
+    switch (tool.id) {
+      case "uploadMain": return base(fileName, { actionLabel: image ? "更换精修图" : "上传精修图" });
+      case "uploadBefore": return base(beforeFileName, { actionLabel: beforeImage ? "更换拍摄前照片" : "上传拍摄前照片" });
+      case "syncCover": return base(null, { disabled: !syncedImage });
+      case "target": return base(adjustmentTarget, { choices: [
+        { value: "after", label: "主照片与文字" },
+        ...(settings.compareEnabled ? [{ value: "before", label: "拍摄前照片" } as const] : []),
+      ] });
+      case "alignBefore": return base(null, { disabled: !beforeImage });
+      case "retouchEnabled": return base(brushMode);
+      case "retouchTarget": return base(activeRetouchTarget, { choices: [
+        { value: "after", label: "主照片记录" },
+        ...(beforeImage ? [{ value: "before", label: "拍摄前记录" } as const] : []),
+      ] });
+      case "brushSize": return base(brushSize);
+      case "brushFeather": return base(brushFeather);
+      case "brushStrength": return base(brushStrength);
+      case "retouchBefore": return base(showRetouchBefore, { disabled: !activeRetouchStrokes.length });
+      case "retouchAfter": return base(!showRetouchBefore);
+      case "undoRetouch": case "clearRetouch": return base(null, { disabled: !activeRetouchStrokes.length });
+      case "template": return base(settings.templateId, { choices: COVER_TEMPLATES.map((item) => ({ value: item.id, label: `${item.number} ${item.name}` })) });
+      case "platform": return base(settings.platformId, { choices: PLATFORM_PRESETS.map((item) => ({ value: item.id, label: `${item.label} ${item.ratio}` })) });
+      case "memory1": case "memory2": case "memory3": return base(memoryNames[Number(tool.id.slice(-1)) - 1]);
+      case "resetSettings": case "factoryReset": case "coverRules": case "resetBeforeFrame": case "syncCopy":
+      case "replaceWatermark": case "removeWatermark": return base(null, { disabled: tool.id === "syncCopy" && !syncedCopy });
+      default: return base(tool.defaultValue ?? null);
+    }
+  };
+
+  const changeMobileTool = (tool: ToolDefinition, value: unknown) => {
+    if (tool.id.startsWith("memory")) {
+      const slot = Number(tool.id.slice(-1));
+      if (value === "save") saveMemory(slot);
+      else if (value === "load") loadMemory(slot);
+      else if (value === "rename") renameMemory(slot);
+      return;
+    }
+    switch (tool.id) {
+      case "comparison": {
+        const enabled = Boolean(value);
+        updateSetting("compareEnabled", enabled);
+        setNotice(enabled ? getComparisonOverlapWarning(true, settings.templateId) || "已开启前后对比，请添加拍摄前素颜照" : "已返回单张封面模式，拍摄前照片仍保留在本机内存");
+        return;
+      }
+      case "target": setAdjustmentTarget(value === "before" ? "before" : "after"); return;
+      case "textScale": updateTopTextScale(Number(value)); return;
+      case "textScaleLinked": toggleTextScaleLink(); return;
+      case "beforeZoom": changeBeforeZoom(Number(value)); return;
+      case "beforeOffsetX": updateSetting("beforeOffsetX", Math.max(-beforeOffsetLimits.x, Math.min(beforeOffsetLimits.x, Number(value)))); return;
+      case "beforeOffsetY": updateSetting("beforeOffsetY", Math.max(-beforeOffsetLimits.y, Math.min(beforeOffsetLimits.y, Number(value)))); return;
+      case "beforeRotation": changeBeforeRotation(Number(value)); return;
+      case "retouchEnabled": setBrushMode(Boolean(value)); setRotationMode(false); setShowRetouchBefore(false); return;
+      case "retouchTarget": setRetouchTarget(value === "before" ? "before" : "after"); setShowRetouchBefore(false); return;
+      case "brushSize": setBrushSize(Math.max(20, Math.min(400, Number(value)))); return;
+      case "brushFeather": setBrushFeather(Math.max(0, Math.min(100, Number(value)))); return;
+      case "brushStrength": setBrushStrength(Math.max(0, Math.min(100, Number(value)))); return;
+      case "template": {
+        const templateId = COVER_TEMPLATES.find((item) => item.id === value)?.id;
+        if (!templateId) return;
+        setSettings((current) => ({ ...current, templateId, watermarkAlign: templateId.endsWith("-left") ? "left" : templateId.endsWith("-right") ? "right" : "center" }));
+        return;
+      }
+      case "platform": {
+        const platformId = PLATFORM_PRESETS.find((item) => item.id === value)?.id;
+        if (platformId) updateSetting("platformId", platformId);
+        return;
+      }
+      default:
+        if (tool.settingKey) updateSetting(tool.settingKey as keyof CoverSettings, value as CoverSettings[keyof CoverSettings]);
+    }
+  };
+
+  const resetMobileTool = (tool: ToolDefinition) => {
+    if (tool.id === "textScale") return updateTopTextScale(100);
+    if (tool.id === "bottomTextScale" && settings.textScaleLinked) return updateTopTextScale(100);
+    if (tool.id === "beforeZoom") return changeBeforeZoom(100);
+    if (tool.id === "beforeRotation") return changeBeforeRotation(0);
+    if (tool.id === "brushSize") return setBrushSize(120);
+    if (tool.id === "brushFeather") return setBrushFeather(70);
+    if (tool.id === "brushStrength") return setBrushStrength(100);
+    if (tool.settingKey && tool.defaultValue !== undefined) updateSetting(tool.settingKey as keyof CoverSettings, tool.defaultValue as CoverSettings[keyof CoverSettings]);
+  };
+
+  const runMobileToolAction = (tool: ToolDefinition) => {
+    switch (tool.id) {
+      case "uploadMain": fileInputRef.current?.click(); break;
+      case "uploadBefore": beforeFileInputRef.current?.click(); break;
+      case "syncCover": applySyncedImage(); break;
+      case "alignBefore": alignBeforeFrame(); break;
+      case "resetBeforeFrame": updateSetting("beforeFrameScale", 100); setNotice("已恢复对比图默认尺寸"); break;
+      case "syncCopy": applySyncedCopy("all"); break;
+      case "retouchBefore": setShowRetouchBefore(true); break;
+      case "retouchAfter": setShowRetouchBefore(false); break;
+      case "undoRetouch": setShowRetouchBefore(false); if (activeRetouchTarget === "before") setBeforeRetouchStrokes((current) => current.slice(0, -1)); else setRetouchStrokes((current) => current.slice(0, -1)); break;
+      case "clearRetouch": setShowRetouchBefore(false); if (activeRetouchTarget === "before") setBeforeRetouchStrokes([]); else setRetouchStrokes([]); break;
+      case "replaceWatermark": watermarkInputRef.current?.click(); break;
+      case "removeWatermark": setWatermark(defaultWatermarkRef.current); setWatermarkKind("default"); updateSetting("watermarkEnabled", true); setNotice("临时水印已移除，已恢复南铂固定水印"); break;
+      case "resetSettings": resetSettings(); break;
+      case "factoryReset": factoryReset(); break;
+      case "coverRules": document.getElementById("coverRules")?.scrollIntoView({ behavior: "smooth", block: "start" }); break;
+    }
+  };
+
+  const selectMobilePrimary = (id: PrimaryToolId) => {
+    setActivePrimaryTool(id);
+    setActiveSecondaryTool(getSecondaryTools(id, mobileToolContext)[0]?.id ?? null);
+  };
+
   const coverCanvas = (
     <CoverCanvasSurface
       canvasRef={canvasRef}
@@ -1235,7 +1410,17 @@ export default function CoverStudio() {
             }}
             onOpenExport={() => setIsMobileExportOpen(true)}
             canvas={coverCanvas}
-            dock={<span className="mobile-tool-placeholder">编辑工具将在下一步接入</span>}
+            dock={<CoverMobileToolDock
+              primary={activePrimaryTool}
+              secondary={activeSecondaryTool}
+              context={mobileToolContext}
+              valueFor={mobileValueFor}
+              onSelectPrimary={selectMobilePrimary}
+              onSelectSecondary={setActiveSecondaryTool}
+              onChange={changeMobileTool}
+              onReset={resetMobileTool}
+              onAction={runMobileToolAction}
+            />}
           />
           <CoverExportSheet
             open={layoutMode === "compact" && isCompactEditorOpen && isMobileExportOpen}
@@ -1612,7 +1797,7 @@ export default function CoverStudio() {
         </aside>
       </div>
 
-      <section className="cover-standard-card">
+      <section id="coverRules" className="cover-standard-card">
         <div>
           <span>长期规范</span>
           <h2>{COVER_RULES_VERSION}</h2>

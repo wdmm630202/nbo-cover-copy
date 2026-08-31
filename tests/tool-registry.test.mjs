@@ -166,3 +166,22 @@ test("静态核心导出同一份不可变工具注册表契约", async () => {
   assert.equal(context.NBOCoverCore.SECONDARY_TOOLS.compose[6].dynamicBounds, "beforeOffsetLimits.x");
   assert.ok(Object.isFrozen(context.NBOCoverCore.SECONDARY_TOOLS));
 });
+
+test("七个一级组在合法上下文均有可达工具", () => {
+  const context = { comparisonEnabled: true, target: "after" };
+  for (const primary of PRIMARY_TOOLS) {
+    assert.ok(getSecondaryTools(primary.id, context).length > 0, `${primary.id} 没有可达工具`);
+  }
+});
+
+test("移动端回调覆盖表覆盖注册表每一个 ID", async () => {
+  const [dock, staticSource] = await Promise.all([
+    readFile(new URL("../app/cover/CoverMobileToolDock.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../docs/cover.js", import.meta.url), "utf8"),
+  ]);
+  const ids = Object.values(SECONDARY_TOOLS).flat().map((item) => item.id);
+  for (const id of ids) {
+    assert.match(dock, new RegExp(`(?:^|\\W)${id}\\s*:`), `React 缺少接线声明：${id}`);
+    assert.match(staticSource, new RegExp(`(?:^|\\W)${id}\\s*:`), `静态页缺少接线：${id}`);
+  }
+});

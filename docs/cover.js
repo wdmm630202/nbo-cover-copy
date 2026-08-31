@@ -14,6 +14,7 @@ const PRESETS = {
 };
 const {
   DEFAULT_COVER_SETTINGS,
+  PRIMARY_TOOLS,
   appendRetouchPoint,
   createCoverExportAsset,
   drawCover,
@@ -21,6 +22,7 @@ const {
   getExportFileName,
   getBeforeImageFrame,
   getBeforeOffsetLimits,
+  getSecondaryTools,
   normalizeCoverSettings,
   releaseCoverScratchCanvases,
   resolveCoverLayoutMode,
@@ -70,6 +72,7 @@ const studioGrid = $(".studio-grid");
 const mobileEditorTopbar = $("#mobileEditorTopbar");
 const mobileSecondaryTools = $("#mobileSecondaryTools");
 const mobilePrimaryTools = $("#mobilePrimaryTools");
+const mobileSingleToolControl = $("#mobileSingleToolControl");
 const mobileExportSheet = $("#mobileExportSheet");
 const mobileEditorLauncher = $("#openMobileEditor");
 const coverPointerQuery = window.matchMedia("(pointer: coarse)");
@@ -87,6 +90,8 @@ let adjustmentTarget = "after";
 let coverLayoutMode = "desktop";
 let compactEditorOpen = false;
 let mobileExportOpen = false;
+let activePrimaryTool = "compose";
+let activeSecondaryTool = "target";
 const mobileGesture = { pointers: new Map(), holdTimer: 0, active: false, anchorId: null, holdOrigin: null, baseline: null };
 const rotationSnapAngles = [-180, -90, 0, 90, 180];
 let transformHintTimer = 0;
@@ -137,10 +142,12 @@ function renderMobileEditorLayout() {
   studioGrid.classList.toggle("is-mobile-editor-open", open);
   document.body.classList.toggle("mobile-editor-open", open);
   mobileEditorTopbar.hidden = !open;
+  mobileSingleToolControl.hidden = !open;
   mobileSecondaryTools.hidden = !open;
   mobilePrimaryTools.hidden = !open;
   mobileExportSheet.hidden = !(open && mobileExportOpen);
   mobileEditorLauncher.hidden = !(coverLayoutMode === "compact" && state.image && !open);
+  if (open) renderMobileToolDock();
 }
 
 function syncMobileEditorLayout() {
@@ -181,6 +188,182 @@ $("#closeMobileExport").addEventListener("click", () => {
 });
 window.addEventListener("resize", syncMobileEditorLayout);
 coverPointerQuery.addEventListener?.("change", syncMobileEditorLayout);
+
+const STATIC_MOBILE_TOOL_DELEGATIONS = Object.freeze({
+  uploadMain: "fileInput", uploadBefore: "beforeFileInput", comparison: "compareToggle", safeArea: "safeToggle", syncCover: "syncCoverImage",
+  target: "adjustmentTarget", zoom: "zoom", offsetX: "offsetX", offsetY: "offsetY", rotation: "rotation",
+  beforeZoom: "beforeZoom", beforeOffsetX: "beforeOffsetX", beforeOffsetY: "beforeOffsetY", beforeRotation: "beforeRotation", alignBefore: "alignBeforeFrame", resetBeforeFrame: "resetBeforeFrame",
+  topText: "topText", bottomText: "bottomText", subtitle: "subtitle", topColor: "topColor", bottomColor: "bottomColor", subtitleColor: "subtitleColor", dividerColor: "dividerColor",
+  textScale: "textScale", bottomTextScale: "bottomTextScale", subtitleScale: "subtitleScale", textScaleLinked: "textScaleLink", showDivider: "dividerToggle", textStroke: "textStroke", textShadow: "textShadow", syncCopy: "syncAllCopy",
+  brightness: "brightness", shade: "shade", bottomShade: "bottomShade",
+  retouchEnabled: "retouchToggle", retouchTarget: "retouchTarget", brushSize: "brushSize", brushFeather: "brushFeather", brushStrength: "brushStrength",
+  retouchBefore: "compareBefore", retouchAfter: "compareAfter", undoRetouch: "undoRetouch", clearRetouch: "clearRetouch",
+  template: "templates", platform: "platforms", watermarkEnabled: "watermarkEnabled", replaceWatermark: "watermarkButton", removeWatermark: "removeWatermark",
+  watermarkAlign: "watermarkAlign", watermarkOpacity: "watermarkOpacity", memory1: "memory1", memory2: "memory2", memory3: "memory3",
+  resetSettings: "resetSettings", factoryReset: "factoryReset", coverRules: "coverRules",
+});
+
+const mobileSettingControlIds = Object.freeze({
+  zoom: "zoom", offsetX: "offsetX", offsetY: "offsetY", rotation: "rotation",
+  beforeZoom: "beforeZoom", beforeOffsetX: "beforeOffsetX", beforeOffsetY: "beforeOffsetY", beforeRotation: "beforeRotation",
+  topText: "topText", bottomText: "bottomText", subtitle: "subtitle", topColor: "topColor", bottomColor: "bottomColor", subtitleColor: "subtitleColor", dividerColor: "dividerColor",
+  textScale: "textScale", bottomTextScale: "bottomTextScale", subtitleScale: "subtitleScale", textStroke: "textStroke", textShadow: "textShadow",
+  brightness: "brightness", shade: "shade", bottomShade: "bottomShade", beforeBrightness: "beforeBrightness", beforeShade: "beforeShade", beforeBottomShade: "beforeBottomShade",
+  watermarkOpacity: "watermarkOpacity",
+});
+
+function mobileToolContext() {
+  return { comparisonEnabled: state.compareEnabled, target: adjustmentTarget };
+}
+
+function availableMobileTools() {
+  if (!state.compareEnabled && adjustmentTarget === "before") adjustmentTarget = "after";
+  return getSecondaryTools(activePrimaryTool, mobileToolContext());
+}
+
+function normalizeActiveMobileTool() {
+  const tools = availableMobileTools();
+  if (!tools.some((tool) => tool.id === activeSecondaryTool)) activeSecondaryTool = tools[0]?.id || null;
+  return tools;
+}
+
+function mobileToolPresentation(tool) {
+  let value = tool.settingKey ? state[tool.settingKey] : tool.defaultValue;
+  let choices;
+  let min = tool.min;
+  let max = tool.max;
+  let disabled = false;
+  let actionLabel = tool.label;
+  if (tool.dynamicBounds === "beforeOffsetLimits.x") { const limits = currentBeforeOffsetLimits(); min = -limits.x; max = limits.x; }
+  if (tool.dynamicBounds === "beforeOffsetLimits.y") { const limits = currentBeforeOffsetLimits(); min = -limits.y; max = limits.y; }
+  if (tool.id === "uploadMain") { value = state.fileName; actionLabel = state.image ? "更换精修图" : "上传精修图"; }
+  if (tool.id === "uploadBefore") { value = state.beforeFileName; actionLabel = state.beforeImage ? "更换拍摄前照片" : "上传拍摄前照片"; }
+  if (tool.id === "syncCover") disabled = !syncedImage;
+  if (tool.id === "syncCopy") disabled = !syncedCopy;
+  if (tool.id === "alignBefore") disabled = !state.beforeImage;
+  if (tool.id === "target") { value = adjustmentTarget; choices = [{ value: "after", label: "主照片与文字" }, ...(state.compareEnabled ? [{ value: "before", label: "拍摄前照片" }] : [])]; }
+  if (tool.id === "retouchEnabled") value = retouch.active;
+  if (tool.id === "retouchTarget") { value = activeRetouchTarget(); choices = [{ value: "after", label: "主照片记录" }, { value: "before", label: "拍摄前记录" }]; }
+  if (tool.id === "brushSize") value = retouch.size;
+  if (tool.id === "brushFeather") value = retouch.feather;
+  if (tool.id === "brushStrength") value = retouch.strength;
+  if (["retouchBefore", "undoRetouch", "clearRetouch"].includes(tool.id)) disabled = !activeRetouchStrokes().length;
+  if (tool.id === "template") {
+    value = state.templateId;
+    choices = [...document.querySelectorAll("#templates [data-template]")].map((button) => ({ value: button.dataset.template, label: `${button.querySelector("i")?.textContent || ""} ${button.querySelector("b")?.textContent || ""}`.trim() }));
+  }
+  if (tool.id === "platform") {
+    value = state.platformId;
+    choices = [...document.querySelectorAll("#platforms [data-platform]")].map((button) => ({ value: button.dataset.platform, label: `${button.querySelector("strong")?.textContent || ""} ${button.querySelector("span")?.textContent || ""}`.trim() }));
+  }
+  if (tool.id === "watermarkEnabled") { value = state.watermarkEnabled; choices = [{ value: true, label: "使用水印" }, { value: false, label: "不使用水印" }]; }
+  if (tool.id === "watermarkAlign") { value = state.watermarkAlign; choices = [{ value: "left", label: "左侧" }, { value: "center", label: "居中" }, { value: "right", label: "右侧" }]; }
+  if (tool.id.startsWith("memory")) value = document.querySelectorAll("[data-memory-name]")[Number(tool.id.slice(-1)) - 1]?.textContent || tool.label;
+  return { value, choices, min, max, disabled, actionLabel };
+}
+
+function mobileButton(label, onClick, active = false) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.classList.toggle("active", active);
+  button.setAttribute("aria-pressed", String(active));
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function delegateMobileValue(controlId, value, eventType = "input") {
+  const control = document.getElementById(controlId);
+  if (!control) return;
+  if (control.type === "checkbox") control.checked = Boolean(value);
+  else control.value = String(value);
+  control.dispatchEvent(new Event(eventType, { bubbles: true }));
+}
+
+function applyMobileToolChange(tool, value) {
+  if (tool.id.startsWith("memory")) {
+    const slot = tool.id.slice(-1);
+    document.querySelector(`[data-${value}-memory="${slot}"]`)?.click();
+    return;
+  }
+  if (tool.id === "comparison") return delegateMobileValue("compareToggle", value, "change");
+  if (tool.id === "safeArea") return delegateMobileValue("safeToggle", value, "change");
+  if (tool.id === "textScaleLinked") return document.getElementById("textScaleLink")?.click();
+  if (tool.id === "showDivider") return delegateMobileValue("dividerToggle", value, "change");
+  if (tool.id === "target") return document.getElementById(value === "before" ? "adjustmentTargetBefore" : "adjustmentTargetAfter")?.click();
+  if (tool.id === "retouchEnabled") return document.getElementById("retouchToggle")?.click();
+  if (tool.id === "retouchTarget") return document.getElementById(value === "before" ? "retouchTargetBefore" : "retouchTargetAfter")?.click();
+  if (tool.id === "brushSize" || tool.id === "brushFeather" || tool.id === "brushStrength") return delegateMobileValue(tool.id, value);
+  if (tool.id === "template") return document.querySelector(`#templates [data-template="${CSS.escape(String(value))}"]`)?.click();
+  if (tool.id === "platform") return document.querySelector(`#platforms [data-platform="${CSS.escape(String(value))}"]`)?.click();
+  if (tool.id === "watermarkEnabled") return document.getElementById(value ? "useWatermark" : "disableWatermark")?.click();
+  if (tool.id === "watermarkAlign") return document.querySelector(`[data-watermark-align="${CSS.escape(String(value))}"]`)?.click();
+  const controlId = mobileSettingControlIds[tool.settingKey];
+  if (controlId) delegateMobileValue(controlId, value);
+}
+
+function resetMobileTool(tool) {
+  const reset = document.querySelector(`[data-reset-control="${CSS.escape(tool.id)}"]`);
+  if (reset) return reset.click();
+  if (tool.defaultValue !== undefined) applyMobileToolChange(tool, tool.defaultValue);
+}
+
+function runMobileToolAction(tool) {
+  const elementId = STATIC_MOBILE_TOOL_DELEGATIONS[tool.id];
+  if (tool.id === "uploadMain" || tool.id === "uploadBefore") return document.getElementById(elementId)?.click();
+  if (tool.id === "coverRules") return document.getElementById("coverRules")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById(elementId)?.click();
+}
+
+function renderMobileSingleTool(tool) {
+  mobileSingleToolControl.replaceChildren();
+  if (!tool) { const empty = document.createElement("p"); empty.textContent = "当前没有可用工具"; mobileSingleToolControl.append(empty); return; }
+  const view = mobileToolPresentation(tool);
+  const panel = document.createElement("div");
+  panel.className = "mobile-tool-panel";
+  panel.dataset.activeTool = tool.id;
+  if (tool.kind === "range") {
+    panel.classList.add("mobile-tool-range");
+    const heading = document.createElement("span");
+    const label = document.createElement("b"); label.textContent = tool.label;
+    const output = document.createElement("output"); output.textContent = `${view.value}${tool.suffix || ""}`;
+    const reset = mobileButton("复位", () => resetMobileTool(tool));
+    heading.append(label, output, reset);
+    const controls = document.createElement("span");
+    const slider = document.createElement("input"); slider.type = "range"; slider.min = view.min; slider.max = view.max; slider.step = 1; slider.value = view.value; slider.ariaLabel = tool.label;
+    const exact = document.createElement("label"); exact.className = "mobile-tool-exact";
+    const number = document.createElement("input"); number.type = "number"; number.inputMode = "decimal"; number.min = view.min; number.max = view.max; number.step = 1; number.value = view.value; number.ariaLabel = `${tool.label}准确数值`;
+    const commit = (raw) => { const next = clamp(Number(raw), Number(view.min), Number(view.max)); applyMobileToolChange(tool, next); };
+    slider.addEventListener("input", () => commit(slider.value)); number.addEventListener("change", () => commit(number.value));
+    exact.append(number); if (tool.suffix) { const unit = document.createElement("i"); unit.textContent = tool.suffix; exact.append(unit); }
+    controls.append(slider, exact); panel.append(heading, controls);
+  } else if (tool.kind === "text") {
+    panel.classList.add("mobile-tool-text"); const label = document.createElement("span"); label.textContent = tool.label;
+    const input = document.createElement(tool.id === "subtitle" ? "textarea" : "input"); if (input.tagName === "INPUT") input.type = "text"; input.maxLength = tool.max; input.value = view.value || ""; input.addEventListener("input", () => applyMobileToolChange(tool, input.value)); panel.append(label, input);
+  } else if (tool.kind === "color") {
+    panel.classList.add("mobile-tool-color"); const label = document.createElement("label"); const text = document.createElement("span"); text.textContent = tool.label; const input = document.createElement("input"); input.type = "color"; input.value = view.value; input.addEventListener("input", () => applyMobileToolChange(tool, input.value)); label.append(text, input); const output = document.createElement("output"); output.textContent = String(view.value).toUpperCase(); panel.append(label, output, mobileButton("复位", () => resetMobileTool(tool)));
+  } else if (tool.kind === "toggle") {
+    const button = mobileButton(`${tool.label} · ${view.value ? "已开启" : "已关闭"}`, () => applyMobileToolChange(tool, !view.value), Boolean(view.value)); button.classList.add("mobile-tool-toggle"); button.setAttribute("role", "switch"); button.setAttribute("aria-checked", String(Boolean(view.value))); panel.append(button);
+  } else if (tool.kind === "choice") {
+    panel.classList.add("mobile-tool-choices"); view.choices?.forEach((choice) => panel.append(mobileButton(choice.label, () => applyMobileToolChange(tool, choice.value), choice.value === view.value)));
+  } else if (tool.id.startsWith("memory")) {
+    panel.classList.add("mobile-tool-memory"); const name = document.createElement("b"); name.textContent = view.value; panel.append(name, mobileButton("重命名", () => applyMobileToolChange(tool, "rename")), mobileButton("保存", () => applyMobileToolChange(tool, "save")), mobileButton("应用", () => applyMobileToolChange(tool, "load")));
+  } else {
+    const button = mobileButton(view.actionLabel, () => runMobileToolAction(tool)); button.classList.add("mobile-tool-action"); button.disabled = view.disabled; panel.append(button);
+  }
+  mobileSingleToolControl.append(panel);
+}
+
+function renderMobileToolDock() {
+  const tools = normalizeActiveMobileTool();
+  mobilePrimaryTools.replaceChildren(...PRIMARY_TOOLS.map((primary) => mobileButton(primary.label, () => {
+    activePrimaryTool = primary.id;
+    activeSecondaryTool = getSecondaryTools(primary.id, mobileToolContext())[0]?.id || null;
+    renderMobileToolDock();
+  }, primary.id === activePrimaryTool)));
+  mobileSecondaryTools.replaceChildren(...tools.map((tool) => mobileButton(tool.label, () => { activeSecondaryTool = tool.id; renderMobileToolDock(); }, tool.id === activeSecondaryTool)));
+  renderMobileSingleTool(tools.find((tool) => tool.id === activeSecondaryTool) || tools[0] || null);
+}
 
 function mobileGestureBaseline() {
   const points = [...mobileGesture.pointers.values()];
@@ -862,6 +1045,7 @@ function updateUi() {
   $("#compareAfter").classList.toggle("active", !retouch.compareBefore);
   $("#brushCursor").style.width = `${retouch.size / 10.8}%`;
   if (!retouch.active) $("#brushCursor").classList.remove("visible");
+  if (coverLayoutMode === "compact" && compactEditorOpen) renderMobileToolDock();
 }
 updateUi();
 loadDefaultWatermark();

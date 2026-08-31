@@ -441,6 +441,56 @@ body.mobile-editor-open {
   white-space: nowrap;
 }
 
+.mobile-single-tool-control {
+  min-height: 106px;
+  max-height: 132px;
+  padding: 10px 8px 6px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid rgba(255, 255, 255, .1);
+  background: rgba(28, 28, 27, .94);
+}
+.mobile-single-tool-control button,
+.mobile-secondary-tools button,
+.mobile-primary-tools button { min-width: 44px; min-height: 44px; border: 1px solid rgba(255,255,255,.13); border-radius: 13px; background: rgba(255,255,255,.06); color: rgba(255,255,255,.78); font: inherit; font-weight: 700; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.mobile-secondary-tools button,
+.mobile-primary-tools button { padding: 0 15px; flex: 0 0 auto; white-space: nowrap; }
+.mobile-secondary-tools button.active,
+.mobile-primary-tools button.active,
+.mobile-tool-choices button.active,
+.mobile-tool-toggle.active { border-color: rgba(255,82,106,.72); background: rgba(255,36,66,.2); color: #fff; }
+.mobile-single-tool-control button:active,
+.mobile-secondary-tools button:active,
+.mobile-primary-tools button:active { transform: scale(.97); background: rgba(255,255,255,.14); }
+.mobile-single-tool-control button:focus-visible,
+.mobile-secondary-tools button:focus-visible,
+.mobile-primary-tools button:focus-visible,
+.mobile-single-tool-control input:focus-visible,
+.mobile-single-tool-control textarea:focus-visible { outline: 2px solid #ff526a; outline-offset: 2px; }
+.mobile-tool-panel { min-height: 86px; display: grid; align-items: center; }
+.mobile-tool-range { display: grid; gap: 8px; }
+.mobile-tool-range > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mobile-tool-range output { color: #fff; font-variant-numeric: tabular-nums; }
+.mobile-tool-range input[type="range"] { min-width: 0; flex: 1; accent-color: #ff2442; }
+.mobile-tool-exact { min-width: 78px; display: flex; align-items: center; gap: 3px; }
+.mobile-tool-exact input,
+.mobile-tool-text input,
+.mobile-tool-text textarea { min-width: 0; width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 11px; background: rgba(255,255,255,.08); color: #fff; font-size: 16px; }
+.mobile-tool-text { display: grid; gap: 7px; font-size: 13px; }
+.mobile-tool-text textarea { height: 58px; resize: none; }
+.mobile-tool-color,
+.mobile-tool-color label,
+.mobile-tool-memory { display: flex; align-items: center; gap: 8px; }
+.mobile-tool-color label { flex: 1; justify-content: space-between; }
+.mobile-tool-color input[type="color"] { width: 54px; min-height: 44px; padding: 4px; border: 0; border-radius: 10px; background: transparent; }
+.mobile-tool-choices { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; }
+.mobile-tool-choices button { padding: 0 14px; flex: 0 0 auto; }
+.mobile-tool-toggle,
+.mobile-tool-action { width: 100%; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; }
+.mobile-tool-action { justify-content: center; }
+.mobile-single-tool-control button:disabled { opacity: .42; }
+.mobile-tool-memory b { min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .mobile-editor-launcher {
   border: 1px solid rgba(255, 255, 255, .2);
   background: rgba(255, 255, 255, .08);

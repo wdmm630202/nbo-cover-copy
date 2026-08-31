@@ -1531,6 +1531,73 @@ body.mobile-editor-open {
   white-space: nowrap;
 }
 
+.mobile-single-tool-control {
+  min-height: 106px;
+  max-height: 132px;
+  padding: 10px 8px 6px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid rgba(255, 255, 255, .1);
+  background: rgba(28, 28, 27, .94);
+}
+
+.mobile-single-tool-control button,
+.mobile-secondary-tools button,
+.mobile-primary-tools button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .78);
+  font: inherit;
+  font-weight: 700;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-secondary-tools button,
+.mobile-primary-tools button { padding: 0 15px; flex: 0 0 auto; white-space: nowrap; }
+.mobile-secondary-tools button.is-active,
+.mobile-primary-tools button.is-active,
+.mobile-choice-control button.is-active,
+.mobile-toggle-control.is-active { border-color: rgba(255, 82, 106, .72); background: rgba(255, 36, 66, .2); color: #fff; }
+.mobile-single-tool-control button:active,
+.mobile-secondary-tools button:active,
+.mobile-primary-tools button:active { transform: scale(.97); background: rgba(255, 255, 255, .14); }
+.mobile-single-tool-control button:focus-visible,
+.mobile-secondary-tools button:focus-visible,
+.mobile-primary-tools button:focus-visible,
+.mobile-single-tool-control input:focus-visible,
+.mobile-single-tool-control textarea:focus-visible { outline: 2px solid #ff526a; outline-offset: 2px; }
+.mobile-tool-panel { min-height: 86px; display: grid; align-items: center; }
+.mobile-tool-panel > p { margin: 0; color: rgba(255,255,255,.6); font-size: 13px; }
+.mobile-range-control { display: grid; gap: 8px; }
+.mobile-range-control > span { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mobile-range-control > span:first-child > span { display: flex; align-items: center; gap: 5px; }
+.mobile-range-control output { min-width: 36px; color: #fff; font-variant-numeric: tabular-nums; text-align: right; }
+.mobile-range-control input[type="range"] { min-width: 0; flex: 1; accent-color: #ff2442; }
+.mobile-exact-value { min-width: 78px; display: flex; align-items: center; gap: 3px; }
+.mobile-exact-value input,
+.mobile-text-control input,
+.mobile-text-control textarea { min-width: 0; width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 11px; background: rgba(255,255,255,.08); color: #fff; font-size: 16px; }
+.mobile-exact-value i { font-style: normal; color: rgba(255,255,255,.65); }
+.mobile-text-control { display: grid; gap: 7px; font-size: 13px; }
+.mobile-text-control textarea { height: 58px; resize: none; }
+.mobile-color-control,
+.mobile-color-control label,
+.mobile-memory-actions { display: flex; align-items: center; gap: 8px; }
+.mobile-color-control label { flex: 1; justify-content: space-between; }
+.mobile-color-control input[type="color"] { width: 54px; min-height: 44px; padding: 4px; border: 0; border-radius: 10px; background: transparent; }
+.mobile-choice-control { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; }
+.mobile-choice-control button { padding: 0 14px; flex: 0 0 auto; }
+.mobile-toggle-control,
+.mobile-action-control { width: 100%; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; }
+.mobile-action-control { justify-content: center; }
+.mobile-single-tool-control button:disabled { opacity: .42; }
+.mobile-memory-actions b { min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+
 .studio-preview-panel.is-compact-open > .studio-preview-toolbar,
 .studio-preview-panel.is-compact-open > .studio-preview-tools { display: none; }
 

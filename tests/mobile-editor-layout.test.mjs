@@ -24,20 +24,66 @@ test("静态页提供可访问的手机顶栏、两级工具栏与导出根节�
   assert.match(html, /<button id="openMobileExport" type="button">导出<\/button>/);
   assert.match(html, /<nav id="mobileSecondaryTools"[^>]*aria-label="当前工具" hidden>/);
   assert.match(html, /<nav id="mobilePrimaryTools"[^>]*aria-label="编辑分类" hidden>/);
+  assert.match(html, /<section id="mobileSingleToolControl"[^>]*aria-live="polite" hidden>/);
   assert.match(html, /<section id="mobileExportSheet"[^>]*aria-label="选择导出格式" hidden>/);
 });
 
+test("A1 一次只展示一个参数并由唯一注册表驱动", async () => {
+  const [dock, shell, studio, staticSource] = await Promise.all([
+    read("../app/cover/CoverMobileToolDock.tsx"),
+    read("../app/cover/CoverCompactShell.tsx"),
+    read("../app/cover/CoverStudio.tsx"),
+    read("../docs/cover.js"),
+  ]);
+
+  assert.match(dock, /export type MobileToolDockProps/);
+  assert.match(dock, /PRIMARY_TOOLS\.map/);
+  assert.match(dock, /getSecondaryTools\(primary, context\)/);
+  assert.match(dock, /id="mobileSingleToolControl"/);
+  assert.match(dock, /准确数值/);
+  assert.match(dock, /复位/);
+  assert.equal((dock.match(/className="mobile-single-tool-control"/g) || []).length, 1);
+  assert.match(shell, /singleToolControl/);
+  assert.match(studio, /activePrimaryTool/);
+  assert.match(studio, /activeSecondaryTool/);
+  assert.match(staticSource, /PRIMARY_TOOLS/);
+  assert.match(staticSource, /getSecondaryTools/);
+  assert.match(staticSource, /activePrimaryTool/);
+  assert.match(staticSource, /activeSecondaryTool/);
+  assert.doesNotMatch(staticSource, /\[\s*["']photo["']\s*,\s*["']compose["']/);
+});
+
+test("单项面板支持 range text color toggle choice action 且触控目标足够大", async () => {
+  const [dock, appCss, staticCss] = await Promise.all([
+    read("../app/cover/CoverMobileToolDock.tsx"),
+    read("../app/globals.css"),
+    read("../docs/cover.css"),
+  ]);
+  for (const kind of ["range", "text", "color", "toggle", "choice", "action"]) {
+    assert.match(dock, new RegExp(`activeTool\\.kind === ["']${kind}["']`));
+  }
+  assert.match(dock, /type="range"/);
+  assert.match(dock, /type="number"/);
+  assert.match(dock, /aria-pressed/);
+  for (const css of [appCss, staticCss]) {
+    assert.match(css, /mobile-single-tool-control[\s\S]{0,1200}min-height:\s*44px/);
+    assert.match(css, /mobile-single-tool-control[\s\S]{0,1800}font-size:\s*16px/);
+    assert.match(css, /mobile-(?:secondary|primary)-tools[\s\S]{0,500}overscroll-behavior-(?:x|inline):\s*contain/);
+  }
+});
+
 test("React Compact 壳层保留单一画布并由 CoverStudio 拥有开关状态", async () => {
-  const [studio, shell, exportSheet] = await Promise.all([
+  const [studio, shell, dock, exportSheet] = await Promise.all([
     read("../app/cover/CoverStudio.tsx"),
     read("../app/cover/CoverCompactShell.tsx"),
+    read("../app/cover/CoverMobileToolDock.tsx"),
     read("../app/cover/CoverExportSheet.tsx"),
   ]);
 
   assert.match(shell, /export type CoverCompactShellProps = \{/);
   assert.match(shell, /id="mobileEditorTopbar"/);
-  assert.match(shell, /id="mobileSecondaryTools"/);
-  assert.match(shell, /id="mobilePrimaryTools"/);
+  assert.match(dock, /id="mobileSecondaryTools"/);
+  assert.match(dock, /id="mobilePrimaryTools"/);
   assert.doesNotMatch(shell, /\buseState\b/);
   assert.match(exportSheet, /export type CoverExportSheetProps = \{/);
   assert.match(exportSheet, /id="mobileExportSheet"/);
