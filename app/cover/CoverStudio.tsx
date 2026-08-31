@@ -41,6 +41,12 @@ import {
   type CoverLayoutMode,
 } from "./core/responsive-layout";
 import {
+  applyMobileSyncedCopy,
+  getMobileRetouchTargetChoices,
+  isMobileToolDisabled,
+  revealCoverRules,
+} from "./core/mobile-tool-behavior";
+import {
   getSecondaryTools,
   type PrimaryToolId,
   type ToolContext,
@@ -647,11 +653,7 @@ export default function CoverStudio() {
       return;
     }
 
-    setSettings((current) => ({
-      ...current,
-      topText: field === "bottomText" ? current.topText : syncedCopy.topText,
-      bottomText: field === "topText" ? current.bottomText : syncedCopy.bottomText,
-    }));
+    setSettings((current) => applyMobileSyncedCopy(current, syncedCopy, field));
     setNotice(
       field === "all"
         ? "两行封面文案已同步，照片和构图保持不变"
@@ -982,7 +984,7 @@ export default function CoverStudio() {
       { value: "center", label: "居中" },
       { value: "right", label: "右侧对齐" },
     ] });
-    if (tool.id === "bottomTextScale") return base(settings.bottomTextScale, { disabled: settings.textScaleLinked });
+    if (tool.id === "bottomTextScale") return base(settings.bottomTextScale, { disabled: isMobileToolDisabled(tool, settings) });
     if (tool.settingKey) return base(settings[tool.settingKey as keyof CoverSettings], tool.dynamicBounds === "beforeOffsetLimits.x"
       ? { min: -beforeOffsetLimits.x, max: beforeOffsetLimits.x }
       : tool.dynamicBounds === "beforeOffsetLimits.y" ? { min: -beforeOffsetLimits.y, max: beforeOffsetLimits.y } : {});
@@ -996,10 +998,7 @@ export default function CoverStudio() {
       ] });
       case "alignBefore": return base(null, { disabled: !beforeImage });
       case "retouchEnabled": return base(brushMode);
-      case "retouchTarget": return base(activeRetouchTarget, { choices: [
-        { value: "after", label: "主照片记录" },
-        ...(beforeImage ? [{ value: "before", label: "拍摄前记录" } as const] : []),
-      ] });
+      case "retouchTarget": return base(activeRetouchTarget, { choices: getMobileRetouchTargetChoices(Boolean(beforeImage)) });
       case "brushSize": return base(brushSize);
       case "brushFeather": return base(brushFeather);
       case "brushStrength": return base(brushStrength);
@@ -1085,7 +1084,12 @@ export default function CoverStudio() {
       case "removeWatermark": setWatermark(defaultWatermarkRef.current); setWatermarkKind("default"); updateSetting("watermarkEnabled", true); setNotice("临时水印已移除，已恢复南铂固定水印"); break;
       case "resetSettings": resetSettings(); break;
       case "factoryReset": factoryReset(); break;
-      case "coverRules": document.getElementById("coverRules")?.scrollIntoView({ behavior: "smooth", block: "start" }); break;
+      case "coverRules": revealCoverRules({
+        compactOpen: layoutMode === "compact" && isCompactEditorOpen,
+        closeCompact: () => { setIsCompactEditorOpen(false); setIsMobileExportOpen(false); },
+        afterLayout: (callback) => window.requestAnimationFrame(() => window.requestAnimationFrame(callback)),
+        getTarget: () => document.getElementById("coverRules"),
+      }); break;
     }
   };
 
@@ -1797,7 +1801,7 @@ export default function CoverStudio() {
         </aside>
       </div>
 
-      <section id="coverRules" className="cover-standard-card">
+      <section id="coverRules" className="cover-standard-card" tabIndex={-1}>
         <div>
           <span>长期规范</span>
           <h2>{COVER_RULES_VERSION}</h2>

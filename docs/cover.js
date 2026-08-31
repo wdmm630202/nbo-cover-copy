@@ -15,6 +15,7 @@ const PRESETS = {
 const {
   DEFAULT_COVER_SETTINGS,
   PRIMARY_TOOLS,
+  applyMobileSyncedCopy,
   appendRetouchPoint,
   createCoverExportAsset,
   drawCover,
@@ -22,12 +23,16 @@ const {
   getExportFileName,
   getBeforeImageFrame,
   getBeforeOffsetLimits,
+  getMobileRetouchTargetChoices,
   getSecondaryTools,
+  isMobileToolDisabled,
   normalizeCoverSettings,
   releaseCoverScratchCanvases,
   resolveCoverLayoutMode,
   resolveCanvasInteractionMode,
   serializeStaticCoverSettings,
+  resetMobileToolSetting,
+  revealCoverRules,
   updateCoverSetting,
 } = window.NBOCoverCore;
 const {
@@ -194,7 +199,7 @@ const STATIC_MOBILE_TOOL_DELEGATIONS = Object.freeze({
   target: "adjustmentTarget", zoom: "zoom", offsetX: "offsetX", offsetY: "offsetY", rotation: "rotation",
   beforeZoom: "beforeZoom", beforeOffsetX: "beforeOffsetX", beforeOffsetY: "beforeOffsetY", beforeRotation: "beforeRotation", alignBefore: "alignBeforeFrame", resetBeforeFrame: "resetBeforeFrame",
   topText: "topText", bottomText: "bottomText", subtitle: "subtitle", topColor: "topColor", bottomColor: "bottomColor", subtitleColor: "subtitleColor", dividerColor: "dividerColor",
-  textScale: "textScale", bottomTextScale: "bottomTextScale", subtitleScale: "subtitleScale", textScaleLinked: "textScaleLink", showDivider: "dividerToggle", textStroke: "textStroke", textShadow: "textShadow", syncCopy: "syncAllCopy",
+  textScale: "textScale", bottomTextScale: "bottomTextScale", subtitleScale: "subtitleScale", textScaleLinked: "textScaleLink", showDivider: "dividerToggle", textStroke: "textStroke", textShadow: "textShadow", syncCopy: "syncedCopy",
   brightness: "brightness", shade: "shade", bottomShade: "bottomShade",
   retouchEnabled: "retouchToggle", retouchTarget: "retouchTarget", brushSize: "brushSize", brushFeather: "brushFeather", brushStrength: "brushStrength",
   retouchBefore: "compareBefore", retouchAfter: "compareAfter", undoRetouch: "undoRetouch", clearRetouch: "clearRetouch",
@@ -232,7 +237,7 @@ function mobileToolPresentation(tool) {
   let choices;
   let min = tool.min;
   let max = tool.max;
-  let disabled = false;
+  let disabled = isMobileToolDisabled(tool, state);
   let actionLabel = tool.label;
   if (tool.dynamicBounds === "beforeOffsetLimits.x") { const limits = currentBeforeOffsetLimits(); min = -limits.x; max = limits.x; }
   if (tool.dynamicBounds === "beforeOffsetLimits.y") { const limits = currentBeforeOffsetLimits(); min = -limits.y; max = limits.y; }
@@ -243,7 +248,7 @@ function mobileToolPresentation(tool) {
   if (tool.id === "alignBefore") disabled = !state.beforeImage;
   if (tool.id === "target") { value = adjustmentTarget; choices = [{ value: "after", label: "主照片与文字" }, ...(state.compareEnabled ? [{ value: "before", label: "拍摄前照片" }] : [])]; }
   if (tool.id === "retouchEnabled") value = retouch.active;
-  if (tool.id === "retouchTarget") { value = activeRetouchTarget(); choices = [{ value: "after", label: "主照片记录" }, { value: "before", label: "拍摄前记录" }]; }
+  if (tool.id === "retouchTarget") { value = activeRetouchTarget(); choices = getMobileRetouchTargetChoices(Boolean(state.beforeImage)); }
   if (tool.id === "brushSize") value = retouch.size;
   if (tool.id === "brushFeather") value = retouch.feather;
   if (tool.id === "brushStrength") value = retouch.strength;
@@ -303,15 +308,36 @@ function applyMobileToolChange(tool, value) {
 }
 
 function resetMobileTool(tool) {
+  if (tool.settingKey && tool.defaultValue !== undefined) {
+    const next = resetMobileToolSetting(state, tool);
+    Object.assign(state, next);
+    if (tool.settingKey === "beforeZoom" || tool.settingKey === "beforeRotation") clampBeforeOffsets();
+    if (tool.settingKey === "textScale" && state.textScaleLinked) state.bottomTextScale = tool.defaultValue;
+    updateUi();
+    saveSettings();
+    draw();
+    setStatus("这一项已恢复默认");
+    return;
+  }
   const reset = document.querySelector(`[data-reset-control="${CSS.escape(tool.id)}"]`);
   if (reset) return reset.click();
   if (tool.defaultValue !== undefined) applyMobileToolChange(tool, tool.defaultValue);
 }
 
+function revealStaticCoverRules() {
+  revealCoverRules({
+    compactOpen: coverLayoutMode === "compact" && compactEditorOpen,
+    closeCompact: closeCompactEditor,
+    afterLayout: (callback) => window.requestAnimationFrame(() => window.requestAnimationFrame(callback)),
+    getTarget: () => document.getElementById("coverRules"),
+  });
+}
+
 function runMobileToolAction(tool) {
   const elementId = STATIC_MOBILE_TOOL_DELEGATIONS[tool.id];
   if (tool.id === "uploadMain" || tool.id === "uploadBefore") return document.getElementById(elementId)?.click();
-  if (tool.id === "coverRules") return document.getElementById("coverRules")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (tool.id === "syncCopy") return applySyncedCopy("all");
+  if (tool.id === "coverRules") return revealStaticCoverRules();
   document.getElementById(elementId)?.click();
 }
 
@@ -327,12 +353,12 @@ function renderMobileSingleTool(tool) {
     const heading = document.createElement("span");
     const label = document.createElement("b"); label.textContent = tool.label;
     const output = document.createElement("output"); output.textContent = `${view.value}${tool.suffix || ""}`;
-    const reset = mobileButton("复位", () => resetMobileTool(tool));
+    const reset = mobileButton("复位", () => resetMobileTool(tool)); reset.disabled = view.disabled;
     heading.append(label, output, reset);
     const controls = document.createElement("span");
-    const slider = document.createElement("input"); slider.type = "range"; slider.min = view.min; slider.max = view.max; slider.step = 1; slider.value = view.value; slider.ariaLabel = tool.label;
+    const slider = document.createElement("input"); slider.type = "range"; slider.min = view.min; slider.max = view.max; slider.step = 1; slider.value = view.value; slider.ariaLabel = tool.label; slider.disabled = view.disabled;
     const exact = document.createElement("label"); exact.className = "mobile-tool-exact";
-    const number = document.createElement("input"); number.type = "number"; number.inputMode = "decimal"; number.min = view.min; number.max = view.max; number.step = 1; number.value = view.value; number.ariaLabel = `${tool.label}准确数值`;
+    const number = document.createElement("input"); number.type = "number"; number.inputMode = "decimal"; number.min = view.min; number.max = view.max; number.step = 1; number.value = view.value; number.ariaLabel = `${tool.label}准确数值`; number.disabled = view.disabled;
     const commit = (raw) => { const next = clamp(Number(raw), Number(view.min), Number(view.max)); applyMobileToolChange(tool, next); };
     slider.addEventListener("input", () => commit(slider.value)); number.addEventListener("change", () => commit(number.value));
     exact.append(number); if (tool.suffix) { const unit = document.createElement("i"); unit.textContent = tool.suffix; exact.append(unit); }
@@ -796,8 +822,7 @@ $("#copyWorkspaceSwitch").addEventListener("click", () => {
 
 function applySyncedCopy(field) {
   if (!syncedCopy) return setStatus("请先在文案页完成识别并选择一组方案");
-  if (field !== "bottomText") state.topText = syncedCopy.topText;
-  if (field !== "topText") state.bottomText = syncedCopy.bottomText;
+  Object.assign(state, applyMobileSyncedCopy(state, syncedCopy, field));
   updateUi();
   saveSettings();
   draw();

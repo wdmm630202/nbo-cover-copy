@@ -1286,6 +1286,48 @@ var NBOCoverCore = (function(exports) {
 		};
 	}
 	//#endregion
+	//#region app/cover/core/mobile-tool-behavior.ts
+	function applyMobileSyncedCopy(current, syncedCopy, field) {
+		return {
+			...current,
+			topText: field === "bottomText" ? current.topText : syncedCopy.topText,
+			bottomText: field === "topText" ? current.bottomText : syncedCopy.bottomText
+		};
+	}
+	function resetMobileToolSetting(current, tool) {
+		if (!tool.settingKey || tool.defaultValue === void 0) return current;
+		return {
+			...current,
+			[tool.settingKey]: tool.defaultValue
+		};
+	}
+	function isMobileToolDisabled(tool, state) {
+		return tool.id === "bottomTextScale" && state.textScaleLinked;
+	}
+	function getMobileRetouchTargetChoices(hasBeforeImage) {
+		return [{
+			value: "after",
+			label: "主照片记录"
+		}, ...hasBeforeImage ? [{
+			value: "before",
+			label: "拍摄前记录"
+		}] : []];
+	}
+	function revealCoverRules(options) {
+		const reveal = () => {
+			const target = options.getTarget();
+			if (!target) return;
+			target.scrollIntoView({
+				behavior: "smooth",
+				block: "start"
+			});
+			target.focus({ preventScroll: true });
+		};
+		if (!options.compactOpen) return reveal();
+		options.closeCompact();
+		options.afterLayout(reveal);
+	}
+	//#endregion
 	//#region app/cover/core/responsive-layout.ts
 	function resolveCoverLayoutMode({ width, height, pointer }) {
 		if (pointer === "fine" && width >= 1180) return "desktop";
@@ -1851,6 +1893,7 @@ var NBOCoverCore = (function(exports) {
 	exports.PRIMARY_TOOLS = PRIMARY_TOOLS;
 	exports.SECONDARY_TOOLS = SECONDARY_TOOLS;
 	exports.appendRetouchPoint = appendRetouchPoint;
+	exports.applyMobileSyncedCopy = applyMobileSyncedCopy;
 	exports.configureCoverExportRuntime = configureCoverExportRuntime;
 	exports.createCoverExportAsset = createCoverExportAsset;
 	exports.createCoverExportAssetWithRuntime = createCoverExportAssetWithRuntime;
@@ -1862,17 +1905,21 @@ var NBOCoverCore = (function(exports) {
 	exports.getBeforeOffsetLimits = getBeforeOffsetLimits;
 	exports.getExportAttemptSizes = getExportAttemptSizes;
 	exports.getExportFileName = getExportFileName;
+	exports.getMobileRetouchTargetChoices = getMobileRetouchTargetChoices;
 	exports.getOriginalPixelExportPlan = getOriginalPixelExportPlan;
 	exports.getOriginalPixelJpegMaxBytes = getOriginalPixelJpegMaxBytes;
 	exports.getOriginalPixelJpegQualities = getOriginalPixelJpegQualities;
 	exports.getRetouchBrushGeometry = getRetouchBrushGeometry;
 	exports.getSecondaryTools = getSecondaryTools;
+	exports.isMobileToolDisabled = isMobileToolDisabled;
 	exports.mapRetouchPoint = mapRetouchPoint;
 	exports.normalizeCoverSettings = normalizeCoverSettings;
 	exports.releaseCoverCanvas = releaseCoverCanvas;
 	exports.releaseCoverScratchCanvases = releaseCoverScratchCanvases;
+	exports.resetMobileToolSetting = resetMobileToolSetting;
 	exports.resolveCanvasInteractionMode = resolveCanvasInteractionMode;
 	exports.resolveCoverLayoutMode = resolveCoverLayoutMode;
+	exports.revealCoverRules = revealCoverRules;
 	exports.serializeStaticCoverSettings = serializeStaticCoverSettings;
 	exports.updateCoverSetting = updateCoverSetting;
 	return exports;

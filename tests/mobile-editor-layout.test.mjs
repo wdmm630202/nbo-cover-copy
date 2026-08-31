@@ -53,6 +53,21 @@ test("A1 一次只展示一个参数并由唯一注册表驱动", async () => {
   assert.doesNotMatch(staticSource, /\[\s*["']photo["']\s*,\s*["']compose["']/);
 });
 
+test("React 与静态手机接线共同使用语义行为层", async () => {
+  const [studio, staticSource] = await Promise.all([
+    read("../app/cover/CoverStudio.tsx"),
+    read("../docs/cover.js"),
+  ]);
+  for (const source of [studio, staticSource]) {
+    assert.match(source, /applyMobileSyncedCopy/);
+    assert.match(source, /getMobileRetouchTargetChoices/);
+    assert.match(source, /isMobileToolDisabled/);
+    assert.match(source, /revealCoverRules/);
+  }
+  assert.match(staticSource, /tool\.id === "syncCopy"\) return applySyncedCopy\("all"\)/);
+  assert.match(staticSource, /resetMobileToolSetting\(state, tool\)/);
+});
+
 test("单项面板支持 range text color toggle choice action 且触控目标足够大", async () => {
   const [dock, appCss, staticCss] = await Promise.all([
     read("../app/cover/CoverMobileToolDock.tsx"),

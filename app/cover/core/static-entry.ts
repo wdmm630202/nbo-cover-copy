@@ -13,6 +13,7 @@ configureCoverExportRuntime({
 export * from "./editor-settings";
 export * from "./export-core";
 export * from "./interaction-core";
+export * from "./mobile-tool-behavior";
 export * from "./render-core";
 export * from "./retouch-core";
 export * from "./responsive-layout";
