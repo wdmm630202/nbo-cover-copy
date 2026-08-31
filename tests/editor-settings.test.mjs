@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 import {
   DEFAULT_COVER_SETTINGS,
   normalizeCoverSettings,
+  serializeStaticCoverSettings,
   updateCoverSetting,
 } from "../app/cover/core/editor-settings.ts";
 
@@ -118,10 +119,67 @@ test("静态记忆点不重写原先保留的水印版本标记", () => {
   assert.equal(value.watermarkDefaultVersion, 5);
 });
 
+test("部分旧记忆点只覆盖它包含的字段", () => {
+  const current = {
+    ...DEFAULT_COVER_SETTINGS,
+    platformId: "douyin",
+    zoom: 178,
+    beforeFrameScale: 116,
+    subtitle: "保留当前小字",
+    shade: 48,
+    watermarkEnabled: true,
+    watermarkDefaultVersion: 5,
+  };
+  const value = normalizeCoverSettings({
+    platform: "xiaohongshu",
+    topText: "只换上行标题",
+  }, "static-memory", current);
+
+  assert.equal(value.platformId, "xiaohongshu");
+  assert.equal(value.topText, "只换上行标题");
+  assert.equal(value.zoom, 178);
+  assert.equal(value.beforeFrameScale, 116);
+  assert.equal(value.subtitle, "保留当前小字");
+  assert.equal(value.shade, 48);
+  assert.equal(value.watermarkEnabled, true);
+  assert.equal(value.watermarkDefaultVersion, 5);
+});
+
 test("单项更新也经过同一归一化边界", () => {
   const updated = updateCoverSetting(DEFAULT_COVER_SETTINGS, "zoom", 999);
   assert.equal(updated.zoom, 400);
   assert.equal(DEFAULT_COVER_SETTINGS.zoom, 100);
+});
+
+test("新静态保存结果仍可被旧静态字段读取", () => {
+  const saved = serializeStaticCoverSettings({
+    ...DEFAULT_COVER_SETTINGS,
+    platformId: "xiaohongshu",
+    templateId: "bottom-right",
+    showDivider: false,
+    showSafeArea: false,
+  });
+
+  assert.deepEqual(
+    {
+      platform: saved.platform,
+      template: saved.template,
+      divider: saved.divider,
+      safe: saved.safe,
+    },
+    {
+      platform: "xiaohongshu",
+      template: "bottom-right",
+      divider: false,
+      safe: false,
+    },
+  );
+  assert.equal(saved.platformId, "xiaohongshu");
+  assert.equal(saved.templateId, "bottom-right");
+  assert.equal("image" in serializeStaticCoverSettings({
+    ...DEFAULT_COVER_SETTINGS,
+    image: { id: "browser-only" },
+  }), false);
 });
 
 test("静态核心与 TypeScript 使用同一设置迁移", async () => {
@@ -143,4 +201,9 @@ test("静态核心与 TypeScript 使用同一设置迁移", async () => {
     DEFAULT_COVER_SETTINGS,
   );
   assert.equal(typeof context.NBOCoverCore.updateCoverSetting, "function");
+  assert.equal(typeof context.NBOCoverCore.serializeStaticCoverSettings, "function");
+  const saved = context.NBOCoverCore.serializeStaticCoverSettings({ ...actual, image: { id: "browser-only" } });
+  assert.equal(saved.platform, actual.platformId);
+  assert.equal(saved.template, actual.templateId);
+  assert.equal("image" in saved, false);
 });

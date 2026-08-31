@@ -156,8 +156,12 @@ var NBOCoverCore = (function(exports) {
 		if (legacy[id]) return legacy[id];
 		return COVER_TEMPLATES.some((template) => template.id === id) ? id : fallback;
 	}
-	function normalizeCoverSettings(value, requestedProfile) {
-		const source = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
+	function normalizeCoverSettings(value, requestedProfile, baseSettings) {
+		const patch = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
+		const source = baseSettings ? {
+			...baseSettings,
+			...patch
+		} : patch;
 		const profile = requestedProfile ?? inferProfile(source);
 		if (profile !== "canonical") applyStaticAliases(source);
 		if (!Object.keys(DEFAULT_COVER_SETTINGS).some((key) => hasOwn(source, key))) return { ...DEFAULT_COVER_SETTINGS };
@@ -248,6 +252,15 @@ var NBOCoverCore = (function(exports) {
 			...settings,
 			[key]: value
 		});
+	}
+	function serializeStaticCoverSettings(settings) {
+		return {
+			...Object.fromEntries(Object.keys(DEFAULT_COVER_SETTINGS).map((key) => [key, settings[key]])),
+			platform: settings.platformId,
+			template: settings.templateId,
+			divider: settings.showDivider,
+			safe: settings.showSafeArea
+		};
 	}
 	//#endregion
 	//#region app/cover/core/responsive-layout.ts
@@ -806,6 +819,7 @@ var NBOCoverCore = (function(exports) {
 	exports.getSecondaryTools = getSecondaryTools;
 	exports.normalizeCoverSettings = normalizeCoverSettings;
 	exports.resolveCoverLayoutMode = resolveCoverLayoutMode;
+	exports.serializeStaticCoverSettings = serializeStaticCoverSettings;
 	exports.updateCoverSetting = updateCoverSetting;
 	return exports;
 })({});

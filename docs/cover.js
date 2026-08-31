@@ -23,6 +23,7 @@ const PRESETS = {
 const {
   DEFAULT_COVER_SETTINGS,
   normalizeCoverSettings,
+  serializeStaticCoverSettings,
   updateCoverSetting,
 } = window.NBOCoverCore;
 const {
@@ -652,14 +653,7 @@ function saveSettings() {
 }
 
 function writeSettings() {
-  const settings = { ...state };
-  delete settings.image;
-  delete settings.beforeImage;
-  delete settings.watermark;
-  delete settings.fileName;
-  delete settings.beforeFileName;
-  delete settings.watermarkName;
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(serializeStaticCoverSettings(state)));
 }
 
 window.addEventListener("pagehide", () => {
@@ -1224,10 +1218,7 @@ $("#resetSettings").addEventListener("click", () => {
 });
 document.querySelectorAll("[data-save-memory]").forEach((button) => button.addEventListener("click", () => {
   const slot = button.dataset.saveMemory;
-  const settings = { ...state };
-  delete settings.image; delete settings.beforeImage; delete settings.watermark;
-  delete settings.fileName; delete settings.beforeFileName; delete settings.watermarkName;
-  localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(settings));
+  localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(serializeStaticCoverSettings(state)));
   setStatus(`已保存到记忆点 ${slot}`);
 }));
 function updateMemoryNames() {
@@ -1257,7 +1248,7 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
     const parsed = JSON.parse(saved);
     delete parsed.beforeImage;
     delete parsed.beforeFileName;
-    Object.assign(state, normalizeCoverSettings(parsed, "static-memory"));
+    Object.assign(state, normalizeCoverSettings(parsed, "static-memory", state));
     clampBeforeOffsets();
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
   } catch {

@@ -47,6 +47,13 @@ export type CoverSettings = {
 
 export type CoverSettingsNormalizationProfile = "canonical" | "static-storage" | "static-memory";
 
+export type StaticCoverSettings = CoverSettings & {
+  platform: CoverSettings["platformId"];
+  template: CoverSettings["templateId"];
+  divider: CoverSettings["showDivider"];
+  safe: CoverSettings["showSafeArea"];
+};
+
 export const DEFAULT_COVER_SETTINGS: CoverSettings = {
   platformId: "douyin",
   templateId: "middle-left",
@@ -136,10 +143,14 @@ function normalizeTemplateId(
 export function normalizeCoverSettings(
   value: unknown,
   requestedProfile?: CoverSettingsNormalizationProfile,
+  baseSettings?: CoverSettings,
 ): CoverSettings {
-  const source: Record<string, unknown> = value && typeof value === "object" && !Array.isArray(value)
+  const patch: Record<string, unknown> = value && typeof value === "object" && !Array.isArray(value)
     ? { ...(value as Record<string, unknown>) }
     : {};
+  const source: Record<string, unknown> = baseSettings
+    ? { ...baseSettings, ...patch }
+    : patch;
   const profile = requestedProfile ?? inferProfile(source);
   if (profile !== "canonical") applyStaticAliases(source);
 
@@ -262,4 +273,18 @@ export function updateCoverSetting<K extends keyof CoverSettings>(
   value: CoverSettings[K],
 ): CoverSettings {
   return normalizeCoverSettings({ ...settings, [key]: value });
+}
+
+export function serializeStaticCoverSettings(settings: CoverSettings): StaticCoverSettings {
+  const canonicalSettings = Object.fromEntries(
+    (Object.keys(DEFAULT_COVER_SETTINGS) as Array<keyof CoverSettings>)
+      .map((key) => [key, settings[key]]),
+  ) as CoverSettings;
+  return {
+    ...canonicalSettings,
+    platform: settings.platformId,
+    template: settings.templateId,
+    divider: settings.showDivider,
+    safe: settings.showSafeArea,
+  };
 }
