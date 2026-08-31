@@ -26,9 +26,12 @@ import {
   drawCoverText,
   getBeforeImageFrame,
   getBeforeOffsetLimits,
-  releaseCoverCanvas,
-  releaseCoverScratchCanvases,
 } from "./core/render-core";
+import {
+  createCoverExportAsset,
+  getExportFileName,
+  type CoverExportAsset,
+} from "./core/static-entry";
 // The legacy #FEE800 correction now lives in the shared settings normalizer.
 import {
   COVER_COPY_SYNC_CHANNEL,
@@ -44,9 +47,6 @@ import {
   getComparisonAlignmentPlan,
   getComparisonExportError,
   getComparisonOverlapWarning,
-  getExportAttemptSizes,
-  getOriginalPixelJpegMaxBytes,
-  getOriginalPixelJpegQualities,
   getAdjustmentPanelVisibility,
   getVisibleRetouchStrokes,
   resolvePhotoInteractionTargetFromPoint,
@@ -59,14 +59,6 @@ import {
   getImageDropHint,
   type ImageDropTarget,
 } from "./drop-upload";
-
-type ExportAsset = {
-  blob: Blob;
-  file: File;
-  outputSize: { width: number; height: number };
-  originalOutputSize: { width: number; height: number };
-  usedMobileFallback: boolean;
-};
 
 function isMobileExportDevice() {
   return /iP(?:hone|ad|od)|Android/i.test(navigator.userAgent)
@@ -81,11 +73,6 @@ function canShareExportFile(file: File) {
 const STORAGE_KEY = "nbo-cover-studio-settings-v1";
 const MEMORY_KEY_PREFIX = "nbo-cover-studio-memory-";
 const MEMORY_NAMES_KEY = "nbo-cover-studio-memory-names";
-
-function formatExportTimestamp(date = new Date()) {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-}
 
 const ROTATION_SNAP_ANGLES = [-180, -90, 0, 90, 180];
 const ROTATION_SNAP_DISTANCE = 3;
@@ -203,12 +190,12 @@ export default function CoverStudio() {
   const [watermarkKind, setWatermarkKind] = useState<"default" | "custom">("default");
   const [exportReady, setExportReady] = useState({ jpeg: false, png: false });
   const exportGenerationRef = useRef(0);
-  const exportCacheRef = useRef<{ generation: number; jpeg: ExportAsset | null; png: ExportAsset | null }>({ generation: 0, jpeg: null, png: null });
+  const exportCacheRef = useRef<{ generation: number; jpeg: CoverExportAsset | null; png: CoverExportAsset | null }>({ generation: 0, jpeg: null, png: null });
   const [dragging, setDragging] = useState(false);
   const [beforeDragging, setBeforeDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [exportFeedback, setExportFeedback] = useState("手机导出后会打开成品预览，可长按存储到照片");
-  const [savePreview, setSavePreview] = useState<{ url: string; asset: ExportAsset } | null>(null);
+  const [savePreview, setSavePreview] = useState<{ url: string; asset: CoverExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
   const [memoryNames, setMemoryNames] = useState(["记忆 1", "记忆 2", "记忆 3"]);
@@ -815,88 +802,23 @@ export default function CoverStudio() {
     format: "jpeg" | "png",
     photoOnly = false,
     generation = exportGenerationRef.current,
-  ): Promise<ExportAsset | null> => {
+  ): Promise<CoverExportAsset | null> => {
     if (!image || generation !== exportGenerationRef.current) return null;
-    const attempts = getExportAttemptSizes(
-      { width: image.naturalWidth, height: image.naturalHeight },
-      preset,
+    return createCoverExportAsset({
+      render: {
+        image,
+        beforeImage,
+        watermark: settings.watermarkEnabled ? watermark : null,
+        settings,
+        preset,
+        retouchStrokes,
+        beforeRetouchStrokes,
+      },
       format,
-      isMobileExportDevice(),
-    );
-    const originalOutputSize = attempts[0];
-    const exportCanvas = document.createElement("canvas");
-    const toBlob = (quality?: number) => new Promise<Blob | null>((resolve) => {
-      try {
-        exportCanvas.toBlob(resolve, `image/${format}`, quality);
-      } catch {
-        resolve(null);
-      }
+      photoOnly,
+      mobile: isMobileExportDevice(),
+      fileStem: fileName,
     });
-    let blob: Blob | null = null;
-    let outputSize = originalOutputSize;
-    for (const candidate of attempts) {
-      if (generation !== exportGenerationRef.current) {
-        releaseCoverCanvas(exportCanvas);
-        return null;
-      }
-      try {
-        drawCover({
-          canvas: exportCanvas,
-          image,
-          beforeImage,
-          watermark: settings.watermarkEnabled ? watermark : null,
-          settings,
-          preset,
-          includeGuide: false,
-          outputSize: candidate,
-          photoOnly,
-          retouchStrokes,
-          beforeRetouchStrokes,
-        });
-        releaseCoverScratchCanvases(exportCanvas);
-        if (format === "jpeg") {
-          for (const quality of getOriginalPixelJpegQualities()) {
-            blob = await toBlob(quality);
-            if (!blob || blob.size <= getOriginalPixelJpegMaxBytes()) break;
-          }
-          if (blob && blob.size > getOriginalPixelJpegMaxBytes()) blob = null;
-        } else {
-          blob = await toBlob();
-        }
-      } catch {
-        blob = null;
-      }
-      if (blob) {
-        outputSize = candidate;
-        break;
-      }
-      blob = null;
-      releaseCoverCanvas(exportCanvas);
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-    }
-    if (generation !== exportGenerationRef.current) {
-      releaseCoverCanvas(exportCanvas);
-      return null;
-    }
-    if (!blob) {
-      releaseCoverCanvas(exportCanvas);
-      return null;
-    }
-    if (generation !== exportGenerationRef.current) {
-      releaseCoverCanvas(exportCanvas);
-      return null;
-    }
-    const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
-    const exportName = `${safeName}_${preset.label}_${preset.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-    const asset = {
-      blob,
-      file: new File([blob], exportName, { type: blob.type }),
-      outputSize,
-      originalOutputSize,
-      usedMobileFallback: outputSize.width !== originalOutputSize.width || outputSize.height !== originalOutputSize.height,
-    };
-    releaseCoverCanvas(exportCanvas);
-    return asset;
   }, [beforeImage, beforeRetouchStrokes, fileName, image, preset, retouchStrokes, settings, watermark]);
 
   useEffect(() => {
@@ -1206,7 +1128,7 @@ export default function CoverStudio() {
     setExportFeedback(message);
   };
 
-  const describeExportResolution = (asset: ExportAsset) => asset.usedMobileFallback
+  const describeExportResolution = (asset: CoverExportAsset) => asset.usedMobileFallback
     ? `原始像素超出当前手机可用内存，已采用可稳定导出的最高像素 ${asset.outputSize.width}×${asset.outputSize.height}`
     : `已保留原始裁切像素 ${asset.outputSize.width}×${asset.outputSize.height}`;
 
@@ -1239,7 +1161,7 @@ export default function CoverStudio() {
     } else if (!asset) {
       setExportReady((current) => ({ ...current, [format]: false }));
       setExportMessage(`正在尝试生成原始像素 ${format === "png" ? "PNG" : "JPG"}…`);
-      let prepared: ExportAsset | null = null;
+      let prepared: CoverExportAsset | null = null;
       try {
         prepared = await buildExportAsset(format, false, generation);
       } catch {
@@ -1255,8 +1177,13 @@ export default function CoverStudio() {
           : "浏览器无法按原始像素导出，请关闭其他页面后再试");
       asset = prepared;
     }
-    const safeName = fileName.replace(/\.[^.]+$/, "") || "南铂封面";
-    const exportName = `${safeName}_${photoOnly ? "原图" : "设计"}_${preset.label}_${preset.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;
+    const exportName = getExportFileName(
+      fileName,
+      photoOnly ? "原图" : "设计",
+      preset.label,
+      preset.ratio,
+      format,
+    );
     const namedAsset = { ...asset, file: new File([asset.blob], exportName, { type: asset.blob.type }) };
     const isMobile = isMobileExportDevice();
     const resolutionMessage = describeExportResolution(namedAsset);

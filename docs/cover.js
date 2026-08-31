@@ -7,10 +7,6 @@ const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
-const formatExportTimestamp = (date = new Date()) => {
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-};
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -18,12 +14,13 @@ const PRESETS = {
 };
 const {
   DEFAULT_COVER_SETTINGS,
+  createCoverExportAsset,
   drawCover,
   drawCoverText,
+  getExportFileName,
   getBeforeImageFrame,
   getBeforeOffsetLimits,
   normalizeCoverSettings,
-  releaseCoverCanvas,
   releaseCoverScratchCanvases,
   serializeStaticCoverSettings,
   updateCoverSetting,
@@ -32,9 +29,6 @@ const {
   getComparisonAlignmentPlan,
   getComparisonExportError,
   getComparisonOverlapWarning,
-  getExportAttemptSizes,
-  getOriginalPixelJpegMaxBytes,
-  getOriginalPixelJpegQualities,
   getAdjustmentPanelVisibility,
   getVisibleRetouchStrokes,
   resolvePhotoInteractionTargetFromPoint,
@@ -1320,75 +1314,22 @@ function scheduleExportPreparation() {
 
 async function buildExportAsset(format, photoOnly = false, generation = exportGeneration) {
   if (!state.image || generation !== exportGeneration) return null;
-  const output = document.createElement("canvas");
-  const mimeType = format === "png" ? "image/png" : "image/jpeg";
   const current = preset();
-  const attempts = getExportAttemptSizes(
-    { width: state.image.naturalWidth, height: state.image.naturalHeight },
-    current,
+  return createCoverExportAsset({
+    render: {
+      image: state.image,
+      beforeImage: state.beforeImage,
+      watermark: state.watermarkEnabled ? state.watermark : null,
+      settings: state,
+      preset: { id: state.platformId, ...current },
+      retouchStrokes: retouch.strokes,
+      beforeRetouchStrokes: retouch.beforeStrokes,
+    },
     format,
-    isMobileExportDevice(),
-  );
-  const originalOutputSize = attempts[0];
-  const toBlob = (quality) => new Promise((resolve) => {
-    try {
-      output.toBlob(resolve, mimeType, quality);
-    } catch {
-      resolve(null);
-    }
+    photoOnly,
+    mobile: isMobileExportDevice(),
+    fileStem: state.fileName,
   });
-  let blob = null;
-  let outputSize = originalOutputSize;
-  for (const candidate of attempts) {
-    if (generation !== exportGeneration) {
-      releaseCoverCanvas(output);
-      return null;
-    }
-    try {
-      draw(false, output, candidate, photoOnly);
-      if (format === "jpeg") {
-        for (const quality of getOriginalPixelJpegQualities()) {
-          blob = await toBlob(quality);
-          if (!blob || blob.size <= getOriginalPixelJpegMaxBytes()) break;
-        }
-        if (blob && blob.size > getOriginalPixelJpegMaxBytes()) blob = null;
-      } else {
-        blob = await toBlob();
-      }
-    } catch {
-      blob = null;
-    }
-    if (blob) {
-      outputSize = candidate;
-      break;
-    }
-    blob = null;
-    releaseCoverCanvas(output);
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-  }
-  if (generation !== exportGeneration) {
-    releaseCoverCanvas(output);
-    return null;
-  }
-  if (!blob) {
-    releaseCoverCanvas(output);
-    return null;
-  }
-  if (generation !== exportGeneration) {
-    releaseCoverCanvas(output);
-    return null;
-  }
-  const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
-  const exportName = `${name}_${current.label}_${current.ratio.replace(":", "x")}.${format === "png" ? "png" : "jpg"}`;
-  const asset = {
-    blob,
-    file: new File([blob], exportName, { type: blob.type }),
-    outputSize,
-    originalOutputSize,
-    usedMobileFallback: outputSize.width !== originalOutputSize.width || outputSize.height !== originalOutputSize.height,
-  };
-  releaseCoverCanvas(output);
-  return asset;
 }
 
 async function exportCover(format, photoOnly = false) {
@@ -1430,8 +1371,13 @@ async function exportCover(format, photoOnly = false) {
   }
   if (generation !== exportGeneration) return;
   const current = preset();
-  const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
-  const exportName = `${name}_${photoOnly ? "原图" : "设计"}_${current.label}_${current.ratio.replace(":", "x")}_${formatExportTimestamp()}.${format === "png" ? "png" : "jpg"}`;
+  const exportName = getExportFileName(
+    state.fileName,
+    photoOnly ? "原图" : "设计",
+    current.label,
+    current.ratio,
+    format,
+  );
   asset = { ...asset, file: new File([asset.blob], exportName, { type: asset.blob.type }) };
   const isMobile = isMobileExportDevice();
   const resolutionMessage = describeExportResolution(asset);

@@ -48,7 +48,7 @@ test("本机生产服务器缺少 Worker 环境时仍显示验证页", async () 
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
-  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverRenderCore, coverRetouchCore, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
+  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverRenderCore, coverExportCore, coverRetouchCore, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -60,6 +60,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
     readFile(new URL("../app/cover/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/core/render-core.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/core/export-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/core/retouch-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/compare-layout.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/cover-config.ts", import.meta.url), "utf8"),
@@ -239,7 +240,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicEntry, /NBO_COVER_COPY_SELECTED/);
   assert.match(publicEntry, /NBO_COVER_IMAGE_READY/);
   assert.match(publicEntry, /localStorage\.setItem/);
-  assert.match(publicCoverScript, /image\/jpeg/);
+  assert.match(coverExportCore, /image\/jpeg/);
   assert.match(coverRenderCore, /getComparisonEvidenceLayout/);
   assert.match(publicCoverScript, /getComparisonExportError/);
   assert.match(publicCoverScript, /typeof navigator\.share/);
@@ -251,8 +252,13 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /requestAnimationFrame/);
   assert.match(publicCoverScript, /pagehide/);
   assert.match(publicCoverScript, /JPG 控制在 19\.9MB 内/);
-  assert.match(publicCoverScript, /getExportAttemptSizes/);
-  assert.match(publicCompareLayout, /8_000_000/);
+  assert.match(publicCoverScript, /createCoverExportAsset/);
+  assert.doesNotMatch(publicCoverScript, /getExportAttemptSizes|19\.9 \* 1024|ORIGINAL_PIXEL_JPEG_QUALITIES|toBlob\(/);
+  assert.doesNotMatch(coverStudio, /getExportAttemptSizes|19\.9 \* 1024|ORIGINAL_PIXEL_JPEG_QUALITIES|toBlob\(/);
+  assert.doesNotMatch(publicCompareLayout, /8_000_000|getExportAttemptSizes|getOriginalPixelJpegQualities/);
+  assert.match(coverExportCore, /8_000_000/);
+  assert.match(coverExportCore, /19\.9 \* 1024 \* 1024/);
+  assert.match(coverExportCore, /createCoverExportAsset/);
   assert.match(publicCoverScript, /正在尝试生成原始像素/);
   assert.match(publicCover, /id="exportFeedback"/);
   assert.doesNotMatch(publicCoverScript, /请再次点击导出/);

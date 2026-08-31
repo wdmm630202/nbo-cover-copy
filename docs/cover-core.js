@@ -1,5 +1,177 @@
 var NBOCoverCore = (function(exports) {
 	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+	//#region app/cover/core/export-core.ts
+	var CoverExportError = class extends Error {
+		constructor(code, message, cause) {
+			super(message);
+			this.name = "CoverExportError";
+			this.code = code;
+			this.cause = cause;
+		}
+	};
+	var MOBILE_EXPORT_LIMITS = [
+		{
+			maxPixels: 8e6,
+			maxSide: 4096
+		},
+		{
+			maxPixels: 6e6,
+			maxSide: 4096
+		},
+		{
+			maxPixels: 4e6,
+			maxSide: 4096
+		},
+		{
+			maxPixels: 21e5,
+			maxSide: 4096
+		}
+	];
+	var ORIGINAL_PIXEL_JPEG_QUALITIES = [
+		.98,
+		.91,
+		.84,
+		.77,
+		.7,
+		.63,
+		.56
+	];
+	var ORIGINAL_PIXEL_JPEG_MAX_BYTES = 19.9 * 1024 * 1024;
+	function formatExportTimestamp(date = /* @__PURE__ */ new Date()) {
+		const pad = (value) => String(value).padStart(2, "0");
+		return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+	}
+	function normalizeFileStem(fileStem) {
+		return fileStem.trim().replace(/\.[^.]+$/, "") || "南铂封面";
+	}
+	function getExportFileName(fileStem, variant, platformLabel, ratio, format, date = /* @__PURE__ */ new Date()) {
+		const extension = format === "png" ? "png" : "jpg";
+		return `${normalizeFileStem(fileStem)}_${variant}_${platformLabel}_${ratio.replace(":", "x")}_${formatExportTimestamp(date)}.${extension}`;
+	}
+	function getOriginalPixelExportPlan(source, preset, format) {
+		const sourceWidth = Math.max(1, Math.round(source.width));
+		const sourceHeight = Math.max(1, Math.round(source.height));
+		const targetRatio = Math.max(1, preset.width) / Math.max(1, preset.height);
+		return {
+			...sourceWidth / sourceHeight >= targetRatio ? {
+				width: Math.max(1, Math.round(sourceHeight * targetRatio)),
+				height: sourceHeight
+			} : {
+				width: sourceWidth,
+				height: Math.max(1, Math.round(sourceWidth / targetRatio))
+			},
+			quality: format === "jpeg" ? .98 : null
+		};
+	}
+	function constrainExportSize(size, maxPixels, maxSide) {
+		const scale = Math.min(1, Math.sqrt(maxPixels / (size.width * size.height)), maxSide / size.width, maxSide / size.height);
+		return {
+			width: Math.max(1, Math.round(size.width * scale)),
+			height: Math.max(1, Math.round(size.height * scale))
+		};
+	}
+	function getExportAttemptSizes(source, preset, format, mobile) {
+		const plan = getOriginalPixelExportPlan(source, preset, format);
+		const original = {
+			width: plan.width,
+			height: plan.height
+		};
+		if (!mobile) return [original];
+		const candidates = [original, ...MOBILE_EXPORT_LIMITS.map(({ maxPixels, maxSide }) => constrainExportSize(original, maxPixels, maxSide))];
+		return candidates.filter((candidate, index) => candidates.findIndex((item) => item.width === candidate.width && item.height === candidate.height) === index);
+	}
+	function getOriginalPixelJpegQualities() {
+		return [...ORIGINAL_PIXEL_JPEG_QUALITIES];
+	}
+	function getOriginalPixelJpegMaxBytes() {
+		return ORIGINAL_PIXEL_JPEG_MAX_BYTES;
+	}
+	function getPreset(render) {
+		return render.preset;
+	}
+	function encodeCanvas(canvas, mimeType, quality) {
+		return new Promise((resolve) => {
+			try {
+				canvas.toBlob(resolve, mimeType, quality);
+			} catch {
+				resolve(null);
+			}
+		});
+	}
+	var browserRuntime = null;
+	function configureCoverExportRuntime(runtime) {
+		browserRuntime = runtime;
+	}
+	async function createCoverExportAssetWithRuntime(request, runtime) {
+		const { image } = request.render;
+		if (!image?.naturalWidth || !image.naturalHeight) throw new CoverExportError("SOURCE_IMAGE_MISSING", "请先上传一张照片");
+		const attempts = getExportAttemptSizes({
+			width: image.naturalWidth,
+			height: image.naturalHeight
+		}, getPreset(request.render), request.format, request.mobile);
+		const originalOutputSize = attempts[0];
+		const canvas = runtime.createCanvas();
+		const mimeType = request.format === "png" ? "image/png" : "image/jpeg";
+		let lastFailure = new CoverExportError("CANVAS_EXPORT_FAILED", "浏览器无法生成这张图片");
+		for (let index = 0; index < attempts.length; index += 1) {
+			const outputSize = attempts[index];
+			let blob = null;
+			try {
+				runtime.drawCover({
+					...request.render,
+					canvas,
+					includeGuide: false,
+					outputSize,
+					photoOnly: request.photoOnly
+				});
+				runtime.releaseCoverScratchCanvases(canvas);
+			} catch (error) {
+				lastFailure = new CoverExportError("CANVAS_RENDER_FAILED", "浏览器无法按候选像素绘制图片", error);
+				runtime.releaseCoverCanvas(canvas);
+				if (index < attempts.length - 1) await runtime.waitForNextAttempt();
+				continue;
+			}
+			if (request.format === "jpeg") {
+				let exceededLimit = false;
+				for (const quality of ORIGINAL_PIXEL_JPEG_QUALITIES) {
+					blob = await encodeCanvas(canvas, mimeType, quality);
+					if (!blob) break;
+					if (blob.size <= ORIGINAL_PIXEL_JPEG_MAX_BYTES) {
+						exceededLimit = false;
+						break;
+					}
+					exceededLimit = true;
+				}
+				if (blob && blob.size > ORIGINAL_PIXEL_JPEG_MAX_BYTES) blob = null;
+				lastFailure = exceededLimit ? new CoverExportError("JPEG_SIZE_LIMIT", "无法在保留候选像素的同时把 JPG 控制在 19.9MB 内") : new CoverExportError("CANVAS_EXPORT_FAILED", "浏览器无法编码 JPG");
+			} else {
+				blob = await encodeCanvas(canvas, mimeType);
+				lastFailure = new CoverExportError("CANVAS_EXPORT_FAILED", "浏览器无法编码 PNG");
+			}
+			if (blob) {
+				runtime.releaseCoverCanvas(canvas);
+				const preset = getPreset(request.render);
+				const fileName = getExportFileName(request.fileStem, request.photoOnly ? "原图" : "设计", preset.label, preset.ratio, request.format, request.now);
+				const file = runtime.createFile(blob, fileName, { type: blob.type || mimeType });
+				return {
+					blob,
+					file,
+					outputSize,
+					originalOutputSize,
+					usedMobileFallback: outputSize.width !== originalOutputSize.width || outputSize.height !== originalOutputSize.height
+				};
+			}
+			runtime.releaseCoverCanvas(canvas);
+			if (index < attempts.length - 1) await runtime.waitForNextAttempt();
+		}
+		runtime.releaseCoverCanvas(canvas);
+		throw lastFailure;
+	}
+	function createCoverExportAsset(request) {
+		if (!browserRuntime) throw new Error("Cover export runtime has not been configured");
+		return createCoverExportAssetWithRuntime(request, browserRuntime);
+	}
+	//#endregion
 	//#region app/cover/cover-config.ts
 	var PLATFORM_PRESETS = [
 		{
@@ -90,185 +262,6 @@ var NBOCoverCore = (function(exports) {
 		verticalInset: 54,
 		playCountReserve: 144
 	};
-	//#endregion
-	//#region app/cover/core/editor-settings.ts
-	var DEFAULT_COVER_SETTINGS = {
-		platformId: "douyin",
-		templateId: "middle-left",
-		topText: "男人的",
-		bottomText: "高级感",
-		subtitle: "不被定义的自己",
-		topColor: "#FFFFFF",
-		bottomColor: "#FFFFFF",
-		dividerColor: "#C9A77A",
-		showDivider: true,
-		subtitleColor: "#FFFFFF",
-		subtitleScale: 100,
-		brightness: 100,
-		zoom: 100,
-		offsetX: 0,
-		offsetXRangeVersion: 2,
-		offsetY: 0,
-		rotation: 0,
-		textScale: 100,
-		bottomTextScale: 100,
-		textScaleLinked: true,
-		textStroke: 0,
-		textShadow: 50,
-		textShadowDefaultVersion: 1,
-		titleScaleVersion: 3,
-		shade: 0,
-		bottomShade: 100,
-		showSafeArea: true,
-		compareEnabled: false,
-		beforeZoom: 100,
-		beforeOffsetX: 0,
-		beforeOffsetY: 0,
-		beforeRotation: 0,
-		beforeBrightness: 100,
-		beforeShade: 0,
-		beforeBottomShade: 100,
-		beforeFrameScale: 100,
-		watermarkScale: 100,
-		watermarkAlign: "left",
-		watermarkOpacity: 50,
-		watermarkEnabled: false,
-		watermarkDefaultVersion: 1
-	};
-	var STATIC_SETTING_ALIASES = {
-		platform: "platformId",
-		template: "templateId",
-		divider: "showDivider",
-		safe: "showSafeArea"
-	};
-	function hasOwn(source, key) {
-		return Object.prototype.hasOwnProperty.call(source, key);
-	}
-	function inferProfile(source) {
-		return Object.keys(STATIC_SETTING_ALIASES).some((key) => hasOwn(source, key)) ? "static-storage" : "canonical";
-	}
-	function applyStaticAliases(source) {
-		for (const [legacyKey, canonicalKey] of Object.entries(STATIC_SETTING_ALIASES)) if (hasOwn(source, legacyKey)) source[canonicalKey] = source[legacyKey];
-	}
-	function normalizeTemplateId(value, fallback = DEFAULT_COVER_SETTINGS.templateId) {
-		const legacy = {
-			left: "top-left",
-			bottom: "top-center",
-			badge: "middle-left",
-			center: "middle-center",
-			clean: "bottom-left",
-			right: "bottom-right"
-		};
-		const id = typeof value === "string" ? value : "";
-		if (legacy[id]) return legacy[id];
-		return COVER_TEMPLATES.some((template) => template.id === id) ? id : fallback;
-	}
-	function normalizeCoverSettings(value, requestedProfile, baseSettings) {
-		const patch = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
-		const source = baseSettings ? {
-			...baseSettings,
-			...patch
-		} : patch;
-		const profile = requestedProfile ?? inferProfile(source);
-		if (profile !== "canonical") applyStaticAliases(source);
-		if (!Object.keys(DEFAULT_COVER_SETTINGS).some((key) => hasOwn(source, key))) return { ...DEFAULT_COVER_SETTINGS };
-		const numberValue = (key, min, max) => {
-			const parsed = Number(source[key]);
-			return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : DEFAULT_COVER_SETTINGS[key];
-		};
-		const booleanValue = (key) => typeof source[key] === "boolean" ? source[key] : DEFAULT_COVER_SETTINGS[key];
-		const textValue = (key, maxLength) => typeof source[key] === "string" ? source[key].slice(0, maxLength) : DEFAULT_COVER_SETTINGS[key];
-		const colorValue = (key) => {
-			const color = typeof source[key] === "string" ? source[key].toUpperCase() : "";
-			return /^#[0-9A-F]{6}$/.test(color) ? color : DEFAULT_COVER_SETTINGS[key];
-		};
-		if (source.bottomColor === "#FEE800") source.bottomColor = "#FFFFFF";
-		if (Number(source.watermarkOpacity) === 92) source.watermarkOpacity = 50;
-		if (Number(source.watermarkScale) <= 42) source.watermarkScale = 100;
-		if (profile !== "static-memory" && Number(source.shade) === 62) source.shade = 0;
-		if (profile !== "static-memory" && source.watermarkDefaultVersion !== 1) {
-			source.watermarkEnabled = false;
-			source.watermarkDefaultVersion = 1;
-		}
-		if (Number(source.titleScaleVersion ?? 0) < 2) source.textScale = Math.round(Number(source.textScale || 100) / 1.8);
-		if (Number(source.titleScaleVersion ?? 0) < 3) {
-			source.bottomTextScale = Number(source.textScale || 100);
-			source.textScaleLinked = true;
-			source.titleScaleVersion = 3;
-		}
-		if (source.textShadowDefaultVersion !== 1) {
-			source.textShadow = 50;
-			source.textShadowDefaultVersion = 1;
-		}
-		if (source.offsetXRangeVersion !== 2) {
-			const previousOffsetX = Number(source.offsetX ?? (source.offsetXRangeVersion === 1 ? 100 : 0));
-			source.offsetX = Math.max(-200, Math.min(200, source.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
-			source.offsetXRangeVersion = 2;
-		}
-		if (source.bottomText === "藏在自然状态里") source.bottomText = "藏在自然状态";
-		const platformId = typeof source.platformId === "string" && PLATFORM_PRESETS.some((item) => item.id === source.platformId) ? source.platformId : DEFAULT_COVER_SETTINGS.platformId;
-		const watermarkAlign = source.watermarkAlign === "left" || source.watermarkAlign === "center" || source.watermarkAlign === "right" ? source.watermarkAlign : DEFAULT_COVER_SETTINGS.watermarkAlign;
-		const staticTemplateFallback = profile === "canonical" ? DEFAULT_COVER_SETTINGS.templateId : "top-left";
-		const staticWatermarkDefaultVersion = Number(source.watermarkDefaultVersion);
-		return {
-			platformId,
-			templateId: normalizeTemplateId(source.templateId, staticTemplateFallback),
-			topText: textValue("topText", 18),
-			bottomText: textValue("bottomText", 18),
-			subtitle: textValue("subtitle", 38),
-			topColor: colorValue("topColor"),
-			bottomColor: colorValue("bottomColor"),
-			dividerColor: colorValue("dividerColor"),
-			showDivider: booleanValue("showDivider"),
-			subtitleColor: colorValue("subtitleColor"),
-			subtitleScale: numberValue("subtitleScale", 60, 160),
-			brightness: numberValue("brightness", 0, 200),
-			zoom: numberValue("zoom", 0, 400),
-			offsetX: numberValue("offsetX", -200, 200),
-			offsetXRangeVersion: 2,
-			offsetY: numberValue("offsetY", -200, 200),
-			rotation: numberValue("rotation", -180, 180),
-			textScale: numberValue("textScale", 0, 200),
-			bottomTextScale: numberValue("bottomTextScale", 0, 200),
-			textScaleLinked: booleanValue("textScaleLinked"),
-			textStroke: numberValue("textStroke", 0, 100),
-			textShadow: numberValue("textShadow", 0, 100),
-			textShadowDefaultVersion: 1,
-			titleScaleVersion: 3,
-			shade: numberValue("shade", 0, 100),
-			bottomShade: numberValue("bottomShade", 0, 100),
-			showSafeArea: booleanValue("showSafeArea"),
-			compareEnabled: booleanValue("compareEnabled"),
-			beforeZoom: numberValue("beforeZoom", 100, 300),
-			beforeOffsetX: numberValue("beforeOffsetX", -100, 100),
-			beforeOffsetY: numberValue("beforeOffsetY", -100, 100),
-			beforeRotation: numberValue("beforeRotation", -180, 180),
-			beforeBrightness: numberValue("beforeBrightness", 0, 200),
-			beforeShade: numberValue("beforeShade", 0, 100),
-			beforeBottomShade: numberValue("beforeBottomShade", 0, 100),
-			beforeFrameScale: numberValue("beforeFrameScale", 100, 120),
-			watermarkScale: numberValue("watermarkScale", 0, 300),
-			watermarkAlign,
-			watermarkOpacity: numberValue("watermarkOpacity", 0, 100),
-			watermarkEnabled: booleanValue("watermarkEnabled"),
-			watermarkDefaultVersion: profile === "static-memory" && Number.isFinite(staticWatermarkDefaultVersion) ? staticWatermarkDefaultVersion : 1
-		};
-	}
-	function updateCoverSetting(settings, key, value) {
-		return normalizeCoverSettings({
-			...settings,
-			[key]: value
-		});
-	}
-	function serializeStaticCoverSettings(settings) {
-		return {
-			...Object.fromEntries(Object.keys(DEFAULT_COVER_SETTINGS).map((key) => [key, settings[key]])),
-			platform: settings.platformId,
-			template: settings.templateId,
-			divider: settings.showDivider,
-			safe: settings.showSafeArea
-		};
-	}
 	//#endregion
 	//#region app/cover/compare-layout.ts
 	var COMPARISON_PHOTO_DEFAULTS = {
@@ -1080,6 +1073,185 @@ var NBOCoverCore = (function(exports) {
 		}));
 	}
 	//#endregion
+	//#region app/cover/core/editor-settings.ts
+	var DEFAULT_COVER_SETTINGS = {
+		platformId: "douyin",
+		templateId: "middle-left",
+		topText: "男人的",
+		bottomText: "高级感",
+		subtitle: "不被定义的自己",
+		topColor: "#FFFFFF",
+		bottomColor: "#FFFFFF",
+		dividerColor: "#C9A77A",
+		showDivider: true,
+		subtitleColor: "#FFFFFF",
+		subtitleScale: 100,
+		brightness: 100,
+		zoom: 100,
+		offsetX: 0,
+		offsetXRangeVersion: 2,
+		offsetY: 0,
+		rotation: 0,
+		textScale: 100,
+		bottomTextScale: 100,
+		textScaleLinked: true,
+		textStroke: 0,
+		textShadow: 50,
+		textShadowDefaultVersion: 1,
+		titleScaleVersion: 3,
+		shade: 0,
+		bottomShade: 100,
+		showSafeArea: true,
+		compareEnabled: false,
+		beforeZoom: 100,
+		beforeOffsetX: 0,
+		beforeOffsetY: 0,
+		beforeRotation: 0,
+		beforeBrightness: 100,
+		beforeShade: 0,
+		beforeBottomShade: 100,
+		beforeFrameScale: 100,
+		watermarkScale: 100,
+		watermarkAlign: "left",
+		watermarkOpacity: 50,
+		watermarkEnabled: false,
+		watermarkDefaultVersion: 1
+	};
+	var STATIC_SETTING_ALIASES = {
+		platform: "platformId",
+		template: "templateId",
+		divider: "showDivider",
+		safe: "showSafeArea"
+	};
+	function hasOwn(source, key) {
+		return Object.prototype.hasOwnProperty.call(source, key);
+	}
+	function inferProfile(source) {
+		return Object.keys(STATIC_SETTING_ALIASES).some((key) => hasOwn(source, key)) ? "static-storage" : "canonical";
+	}
+	function applyStaticAliases(source) {
+		for (const [legacyKey, canonicalKey] of Object.entries(STATIC_SETTING_ALIASES)) if (hasOwn(source, legacyKey)) source[canonicalKey] = source[legacyKey];
+	}
+	function normalizeTemplateId(value, fallback = DEFAULT_COVER_SETTINGS.templateId) {
+		const legacy = {
+			left: "top-left",
+			bottom: "top-center",
+			badge: "middle-left",
+			center: "middle-center",
+			clean: "bottom-left",
+			right: "bottom-right"
+		};
+		const id = typeof value === "string" ? value : "";
+		if (legacy[id]) return legacy[id];
+		return COVER_TEMPLATES.some((template) => template.id === id) ? id : fallback;
+	}
+	function normalizeCoverSettings(value, requestedProfile, baseSettings) {
+		const patch = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
+		const source = baseSettings ? {
+			...baseSettings,
+			...patch
+		} : patch;
+		const profile = requestedProfile ?? inferProfile(source);
+		if (profile !== "canonical") applyStaticAliases(source);
+		if (!Object.keys(DEFAULT_COVER_SETTINGS).some((key) => hasOwn(source, key))) return { ...DEFAULT_COVER_SETTINGS };
+		const numberValue = (key, min, max) => {
+			const parsed = Number(source[key]);
+			return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : DEFAULT_COVER_SETTINGS[key];
+		};
+		const booleanValue = (key) => typeof source[key] === "boolean" ? source[key] : DEFAULT_COVER_SETTINGS[key];
+		const textValue = (key, maxLength) => typeof source[key] === "string" ? source[key].slice(0, maxLength) : DEFAULT_COVER_SETTINGS[key];
+		const colorValue = (key) => {
+			const color = typeof source[key] === "string" ? source[key].toUpperCase() : "";
+			return /^#[0-9A-F]{6}$/.test(color) ? color : DEFAULT_COVER_SETTINGS[key];
+		};
+		if (source.bottomColor === "#FEE800") source.bottomColor = "#FFFFFF";
+		if (Number(source.watermarkOpacity) === 92) source.watermarkOpacity = 50;
+		if (Number(source.watermarkScale) <= 42) source.watermarkScale = 100;
+		if (profile !== "static-memory" && Number(source.shade) === 62) source.shade = 0;
+		if (profile !== "static-memory" && source.watermarkDefaultVersion !== 1) {
+			source.watermarkEnabled = false;
+			source.watermarkDefaultVersion = 1;
+		}
+		if (Number(source.titleScaleVersion ?? 0) < 2) source.textScale = Math.round(Number(source.textScale || 100) / 1.8);
+		if (Number(source.titleScaleVersion ?? 0) < 3) {
+			source.bottomTextScale = Number(source.textScale || 100);
+			source.textScaleLinked = true;
+			source.titleScaleVersion = 3;
+		}
+		if (source.textShadowDefaultVersion !== 1) {
+			source.textShadow = 50;
+			source.textShadowDefaultVersion = 1;
+		}
+		if (source.offsetXRangeVersion !== 2) {
+			const previousOffsetX = Number(source.offsetX ?? (source.offsetXRangeVersion === 1 ? 100 : 0));
+			source.offsetX = Math.max(-200, Math.min(200, source.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
+			source.offsetXRangeVersion = 2;
+		}
+		if (source.bottomText === "藏在自然状态里") source.bottomText = "藏在自然状态";
+		const platformId = typeof source.platformId === "string" && PLATFORM_PRESETS.some((item) => item.id === source.platformId) ? source.platformId : DEFAULT_COVER_SETTINGS.platformId;
+		const watermarkAlign = source.watermarkAlign === "left" || source.watermarkAlign === "center" || source.watermarkAlign === "right" ? source.watermarkAlign : DEFAULT_COVER_SETTINGS.watermarkAlign;
+		const staticTemplateFallback = profile === "canonical" ? DEFAULT_COVER_SETTINGS.templateId : "top-left";
+		const staticWatermarkDefaultVersion = Number(source.watermarkDefaultVersion);
+		return {
+			platformId,
+			templateId: normalizeTemplateId(source.templateId, staticTemplateFallback),
+			topText: textValue("topText", 18),
+			bottomText: textValue("bottomText", 18),
+			subtitle: textValue("subtitle", 38),
+			topColor: colorValue("topColor"),
+			bottomColor: colorValue("bottomColor"),
+			dividerColor: colorValue("dividerColor"),
+			showDivider: booleanValue("showDivider"),
+			subtitleColor: colorValue("subtitleColor"),
+			subtitleScale: numberValue("subtitleScale", 60, 160),
+			brightness: numberValue("brightness", 0, 200),
+			zoom: numberValue("zoom", 0, 400),
+			offsetX: numberValue("offsetX", -200, 200),
+			offsetXRangeVersion: 2,
+			offsetY: numberValue("offsetY", -200, 200),
+			rotation: numberValue("rotation", -180, 180),
+			textScale: numberValue("textScale", 0, 200),
+			bottomTextScale: numberValue("bottomTextScale", 0, 200),
+			textScaleLinked: booleanValue("textScaleLinked"),
+			textStroke: numberValue("textStroke", 0, 100),
+			textShadow: numberValue("textShadow", 0, 100),
+			textShadowDefaultVersion: 1,
+			titleScaleVersion: 3,
+			shade: numberValue("shade", 0, 100),
+			bottomShade: numberValue("bottomShade", 0, 100),
+			showSafeArea: booleanValue("showSafeArea"),
+			compareEnabled: booleanValue("compareEnabled"),
+			beforeZoom: numberValue("beforeZoom", 100, 300),
+			beforeOffsetX: numberValue("beforeOffsetX", -100, 100),
+			beforeOffsetY: numberValue("beforeOffsetY", -100, 100),
+			beforeRotation: numberValue("beforeRotation", -180, 180),
+			beforeBrightness: numberValue("beforeBrightness", 0, 200),
+			beforeShade: numberValue("beforeShade", 0, 100),
+			beforeBottomShade: numberValue("beforeBottomShade", 0, 100),
+			beforeFrameScale: numberValue("beforeFrameScale", 100, 120),
+			watermarkScale: numberValue("watermarkScale", 0, 300),
+			watermarkAlign,
+			watermarkOpacity: numberValue("watermarkOpacity", 0, 100),
+			watermarkEnabled: booleanValue("watermarkEnabled"),
+			watermarkDefaultVersion: profile === "static-memory" && Number.isFinite(staticWatermarkDefaultVersion) ? staticWatermarkDefaultVersion : 1
+		};
+	}
+	function updateCoverSetting(settings, key, value) {
+		return normalizeCoverSettings({
+			...settings,
+			[key]: value
+		});
+	}
+	function serializeStaticCoverSettings(settings) {
+		return {
+			...Object.fromEntries(Object.keys(DEFAULT_COVER_SETTINGS).map((key) => [key, settings[key]])),
+			platform: settings.platformId,
+			template: settings.templateId,
+			divider: settings.showDivider,
+			safe: settings.showSafeArea
+		};
+	}
+	//#endregion
 	//#region app/cover/core/responsive-layout.ts
 	function resolveCoverLayoutMode({ width, height, pointer }) {
 		if (pointer === "fine" && width >= 1180) return "desktop";
@@ -1630,14 +1802,34 @@ var NBOCoverCore = (function(exports) {
 		return immutableTools(primary === "retouch" && !context.comparisonEnabled ? SECONDARY_TOOLS.retouch.filter((tool) => tool.id !== "retouchTarget") : SECONDARY_TOOLS[primary]);
 	}
 	//#endregion
+	//#region app/cover/core/static-entry.ts
+	configureCoverExportRuntime({
+		createCanvas: () => document.createElement("canvas"),
+		drawCover,
+		releaseCoverScratchCanvases,
+		releaseCoverCanvas,
+		waitForNextAttempt: () => new Promise((resolve) => window.setTimeout(resolve, 0)),
+		createFile: (blob, name, options) => new File([blob], name, options)
+	});
+	//#endregion
+	exports.CoverExportError = CoverExportError;
 	exports.DEFAULT_COVER_SETTINGS = DEFAULT_COVER_SETTINGS;
 	exports.PRIMARY_TOOLS = PRIMARY_TOOLS;
 	exports.SECONDARY_TOOLS = SECONDARY_TOOLS;
+	exports.configureCoverExportRuntime = configureCoverExportRuntime;
+	exports.createCoverExportAsset = createCoverExportAsset;
+	exports.createCoverExportAssetWithRuntime = createCoverExportAssetWithRuntime;
 	exports.drawCover = drawCover;
 	exports.drawCoverText = drawCoverText;
 	exports.eraseShadeWithBrush = eraseShadeWithBrush;
+	exports.formatExportTimestamp = formatExportTimestamp;
 	exports.getBeforeImageFrame = getBeforeImageFrame;
 	exports.getBeforeOffsetLimits = getBeforeOffsetLimits;
+	exports.getExportAttemptSizes = getExportAttemptSizes;
+	exports.getExportFileName = getExportFileName;
+	exports.getOriginalPixelExportPlan = getOriginalPixelExportPlan;
+	exports.getOriginalPixelJpegMaxBytes = getOriginalPixelJpegMaxBytes;
+	exports.getOriginalPixelJpegQualities = getOriginalPixelJpegQualities;
 	exports.getRetouchBrushGeometry = getRetouchBrushGeometry;
 	exports.getSecondaryTools = getSecondaryTools;
 	exports.mapRetouchPoint = mapRetouchPoint;
