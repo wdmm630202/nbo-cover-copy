@@ -42,7 +42,7 @@ var NBOCoverCore = (function(exports) {
 		return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 	}
 	function normalizeFileStem(fileStem) {
-		return fileStem.trim().replace(/\.[^.]+$/, "") || "南铂封面";
+		return fileStem.replace(/\.[^.]+$/, "") || "南铂封面";
 	}
 	function getExportFileName(fileStem, variant, platformLabel, ratio, format, date = /* @__PURE__ */ new Date()) {
 		const extension = format === "png" ? "png" : "jpg";
@@ -103,6 +103,8 @@ var NBOCoverCore = (function(exports) {
 		browserRuntime = runtime;
 	}
 	async function createCoverExportAssetWithRuntime(request, runtime) {
+		const cancellationError = () => new CoverExportError("EXPORT_CANCELLED", "导出任务已失效");
+		if (request.isCancelled?.()) throw cancellationError();
 		const { image } = request.render;
 		if (!image?.naturalWidth || !image.naturalHeight) throw new CoverExportError("SOURCE_IMAGE_MISSING", "请先上传一张照片");
 		const attempts = getExportAttemptSizes({
@@ -110,11 +112,18 @@ var NBOCoverCore = (function(exports) {
 			height: image.naturalHeight
 		}, getPreset(request.render), request.format, request.mobile);
 		const originalOutputSize = attempts[0];
-		const canvas = runtime.createCanvas();
 		const mimeType = request.format === "png" ? "image/png" : "image/jpeg";
 		let lastFailure = new CoverExportError("CANVAS_EXPORT_FAILED", "浏览器无法生成这张图片");
 		for (let index = 0; index < attempts.length; index += 1) {
+			if (request.isCancelled?.()) throw cancellationError();
 			const outputSize = attempts[index];
+			const canvas = runtime.createCanvas();
+			let released = false;
+			const release = () => {
+				if (released) return;
+				released = true;
+				runtime.releaseCoverCanvas(canvas);
+			};
 			let blob = null;
 			try {
 				runtime.drawCover({
@@ -124,10 +133,15 @@ var NBOCoverCore = (function(exports) {
 					outputSize,
 					photoOnly: request.photoOnly
 				});
+				if (request.isCancelled?.()) {
+					release();
+					throw cancellationError();
+				}
 				runtime.releaseCoverScratchCanvases(canvas);
 			} catch (error) {
+				if (error instanceof CoverExportError && error.code === "EXPORT_CANCELLED") throw error;
 				lastFailure = new CoverExportError("CANVAS_RENDER_FAILED", "浏览器无法按候选像素绘制图片", error);
-				runtime.releaseCoverCanvas(canvas);
+				release();
 				if (index < attempts.length - 1) await runtime.waitForNextAttempt();
 				continue;
 			}
@@ -135,6 +149,10 @@ var NBOCoverCore = (function(exports) {
 				let exceededLimit = false;
 				for (const quality of ORIGINAL_PIXEL_JPEG_QUALITIES) {
 					blob = await encodeCanvas(canvas, mimeType, quality);
+					if (request.isCancelled?.()) {
+						release();
+						throw cancellationError();
+					}
 					if (!blob) break;
 					if (blob.size <= ORIGINAL_PIXEL_JPEG_MAX_BYTES) {
 						exceededLimit = false;
@@ -146,10 +164,14 @@ var NBOCoverCore = (function(exports) {
 				lastFailure = exceededLimit ? new CoverExportError("JPEG_SIZE_LIMIT", "无法在保留候选像素的同时把 JPG 控制在 19.9MB 内") : new CoverExportError("CANVAS_EXPORT_FAILED", "浏览器无法编码 JPG");
 			} else {
 				blob = await encodeCanvas(canvas, mimeType);
+				if (request.isCancelled?.()) {
+					release();
+					throw cancellationError();
+				}
 				lastFailure = new CoverExportError("CANVAS_EXPORT_FAILED", "浏览器无法编码 PNG");
 			}
 			if (blob) {
-				runtime.releaseCoverCanvas(canvas);
+				release();
 				const preset = getPreset(request.render);
 				const fileName = getExportFileName(request.fileStem, request.photoOnly ? "原图" : "设计", preset.label, preset.ratio, request.format, request.now);
 				const file = runtime.createFile(blob, fileName, { type: blob.type || mimeType });
@@ -161,10 +183,9 @@ var NBOCoverCore = (function(exports) {
 					usedMobileFallback: outputSize.width !== originalOutputSize.width || outputSize.height !== originalOutputSize.height
 				};
 			}
-			runtime.releaseCoverCanvas(canvas);
+			release();
 			if (index < attempts.length - 1) await runtime.waitForNextAttempt();
 		}
-		runtime.releaseCoverCanvas(canvas);
 		throw lastFailure;
 	}
 	function createCoverExportAsset(request) {

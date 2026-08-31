@@ -818,6 +818,7 @@ export default function CoverStudio() {
       photoOnly,
       mobile: isMobileExportDevice(),
       fileStem: fileName,
+      isCancelled: () => generation !== exportGenerationRef.current,
     });
   }, [beforeImage, beforeRetouchStrokes, fileName, image, preset, retouchStrokes, settings, watermark]);
 

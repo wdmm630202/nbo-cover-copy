@@ -44,7 +44,7 @@ function fakeBlob(size, type) {
   return { size, type };
 }
 
-function makeRuntime({ encode, render } = {}) {
+function makeRuntime({ encode, render, deferEncode } = {}) {
   const calls = {
     render: [],
     encode: [],
@@ -58,6 +58,10 @@ function makeRuntime({ encode, render } = {}) {
     height: 0,
     toBlob(callback, mimeType, quality) {
       calls.encode.push({ mimeType, quality, width: canvas.width, height: canvas.height });
+      if (deferEncode) {
+        deferEncode(callback, { mimeType, quality, canvas, calls });
+        return;
+      }
       try {
         callback(encode ? encode({ mimeType, quality, canvas, calls }) : fakeBlob(1024, mimeType));
       } catch (error) {
@@ -103,6 +107,10 @@ test("导出时间戳和文件名在所有外壳保持一致", () => {
   assert.equal(
     getExportFileName("portrait.PNG", "原图", "小红书", "3:4", "png", date),
     "portrait_原图_小红书_3x4_20260831_090807.png",
+  );
+  assert.equal(
+    getExportFileName(" portrait .JPG", "设计", "抖音", "9:16", "jpeg", date),
+    " portrait _设计_抖音_9x16_20260831_090807.jpg",
   );
   assert.equal(
     getExportFileName(".jpg", "设计", "视频号", "3:4", "jpeg", date),
@@ -198,6 +206,34 @@ test("手机在原像素 canvas 失败后按旧候选顺序降级并标记 fallb
   assert.deepEqual(asset.originalOutputSize, { width: 3375, height: 6000 });
   assert.equal(asset.usedMobileFallback, true);
   assert.equal(calls.waits, 1);
+  assert.equal(calls.release, 2);
+});
+
+test("异步编码期间 generation 失效会安静中止，不继续绘制后续手机尺寸", async () => {
+  let cancelled = false;
+  let completeEncode;
+  const { runtime, calls } = makeRuntime({
+    deferEncode: (callback) => {
+      completeEncode = () => callback(null);
+    },
+  });
+  const pending = createCoverExportAssetWithRuntime(
+    makeRequest({
+      format: "png",
+      mobile: true,
+      isCancelled: () => cancelled,
+    }),
+    runtime,
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  cancelled = true;
+  completeEncode();
+  await assert.rejects(pending, { code: "EXPORT_CANCELLED" });
+  assert.equal(calls.render.length, 1);
+  assert.deepEqual(calls.render[0].outputSize, { width: 3375, height: 6000 });
+  assert.equal(calls.release, 1);
+  assert.equal(calls.waits, 0);
 });
 
 test("drawCover 每次都关闭辅助线，传入 photoOnly 和当前候选尺寸", async () => {
@@ -234,7 +270,7 @@ test("成功、toBlob(null)、绘制抛错和最终失败都释放临时 canvas"
       createCoverExportAssetWithRuntime(makeRequest({ format: "png" }), runtime),
       { code: "CANVAS_EXPORT_FAILED" },
     );
-    assert.ok(calls.release >= 1);
+    assert.equal(calls.release, 1);
   });
 
   await t.test("绘制抛错最终失败", async () => {
@@ -243,7 +279,7 @@ test("成功、toBlob(null)、绘制抛错和最终失败都释放临时 canvas"
       createCoverExportAssetWithRuntime(makeRequest({ format: "png" }), runtime),
       { code: "CANVAS_RENDER_FAILED" },
     );
-    assert.ok(calls.release >= 1);
+    assert.equal(calls.release, 1);
   });
 
   await t.test("JPG 全部质量仍超限", async () => {
@@ -255,6 +291,16 @@ test("成功、toBlob(null)、绘制抛错和最终失败都释放临时 canvas"
       { code: "JPEG_SIZE_LIMIT" },
     );
     assert.deepEqual(calls.encode.map(({ quality }) => quality), getOriginalPixelJpegQualities());
-    assert.ok(calls.release >= 1);
+    assert.equal(calls.release, 1);
+  });
+
+  await t.test("手机所有候选全失败，每个候选 canvas 各释放一次", async () => {
+    const { runtime, calls } = makeRuntime({ encode: () => null });
+    await assert.rejects(
+      createCoverExportAssetWithRuntime(makeRequest({ format: "png", mobile: true }), runtime),
+      { code: "CANVAS_EXPORT_FAILED" },
+    );
+    assert.equal(calls.render.length, 5);
+    assert.equal(calls.release, 5);
   });
 });

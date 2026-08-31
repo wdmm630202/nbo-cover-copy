@@ -1329,6 +1329,7 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
     photoOnly,
     mobile: isMobileExportDevice(),
     fileStem: state.fileName,
+    isCancelled: () => generation !== exportGeneration,
   });
 }
 
