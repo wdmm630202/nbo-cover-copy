@@ -2,6 +2,55 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+const occurrences = (source, pattern) => [...source.matchAll(pattern)].length;
+
+test("发布页先加载共享核心且每个运行时只保留一套算法与界面根", async () => {
+  const [html, script, studio, staticEntry, canvasSurface, dock, compactShell, exportSheet] = await Promise.all([
+    readFile(new URL("../docs/cover.html", import.meta.url), "utf8"),
+    readFile(new URL("../docs/cover.js", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/core/static-entry.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/CoverCanvasSurface.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/CoverMobileToolDock.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/CoverCompactShell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/CoverExportSheet.tsx", import.meta.url), "utf8"),
+  ]);
+
+  const coreIndex = html.indexOf("cover-core.js");
+  const appIndex = html.indexOf("cover.js");
+  assert.ok(coreIndex >= 0 && appIndex > coreIndex, "cover-core.js 必须先于 cover.js 加载");
+  for (const name of ["drawCover", "eraseShadeWithBrush", "normalizeStudioSettings"]) {
+    assert.doesNotMatch(script, new RegExp(`(?:function\\s+${name}\\s*\\(|(?:const|let|var)\\s+${name}\\s*=)`));
+  }
+  assert.match(script, /window\.NBOCoverCore/);
+  assert.match(studio, /from "\.\/core\/render-core"/);
+  assert.match(studio, /from "\.\/core\/static-entry"/);
+  assert.match(staticEntry, /from "\.\/export-core"/);
+  assert.match(staticEntry, /export \* from "\.\/export-core"/);
+  assert.match(canvasSurface, /from "\.\/core\/interaction-core"/);
+  assert.match(dock, /from "\.\/core\/tool-registry"/);
+
+  assert.equal(occurrences(html, /<canvas\b/g), 1, "静态页只能存在一个编辑 canvas");
+  assert.equal(occurrences(canvasSurface, /<canvas\b/g), 1, "React 只能渲染一个编辑 canvas");
+  assert.equal(occurrences(studio, /<CoverCanvasSurface\b/g), 1);
+  assert.equal(occurrences(studio, /<CoverMobileToolDock\b/g), 1);
+
+  for (const root of [
+    "mobileEditorTopbar", "mobileBrushStatus", "mobileSingleToolControl",
+    "mobileSecondaryTools", "mobilePrimaryTools", "mobileExportSheet",
+  ]) assert.equal(occurrences(html, new RegExp(`id="${root}"`, "g")), 1, `静态页缺少唯一 ${root}`);
+  assert.match(compactShell, /mobile-editor-topbar/);
+  assert.match(compactShell, /cover-compact-preview/);
+  assert.match(compactShell, /mobile-brush-status/);
+  assert.match(dock, /mobile-single-tool-control/);
+  assert.match(dock, /mobile-secondary-tools/);
+  assert.match(dock, /mobile-primary-tools/);
+  assert.match(exportSheet, /mobile-export-sheet/);
+  assert.match(html, /data-cover-layout="desktop"/);
+  assert.match(compactShell, /split-preview/);
+  assert.match(compactShell, /split-tools/);
+});
+
 async function renderWithEnvironment(environment) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);

@@ -203,3 +203,37 @@ for (const traceCase of TRACE_CASES) {
     assert.deepEqual(traceCurrentCase(currentCore, traceCase), expected);
   });
 }
+
+test("同一固定编辑状态在 Compact Split Desktop 使用相同维度与 Canvas trace", async () => {
+  const source = await readFile(coreUrl, "utf8");
+  const fixed = TRACE_CASES.find(({ id }) => id === "top-left-comparison-full");
+  const traces = [];
+  const dimensions = [];
+  for (const shell of ["compact", "split", "desktop"]) {
+    const environment = createTraceEnvironment();
+    const core = loadCurrentCore(source, environment);
+    const canvas = environment.createCanvas(shell);
+    core.drawCover({
+      canvas,
+      image: { __name: "main", naturalWidth: 3375, naturalHeight: 6000 },
+      beforeImage: { __name: "before", naturalWidth: 3024, naturalHeight: 4032 },
+      watermark: { __name: "watermark", naturalWidth: 1200, naturalHeight: 400 },
+      settings: { ...core.DEFAULT_COVER_SETTINGS, ...fixed.settings },
+      preset,
+      includeGuide: false,
+      outputSize: { width: 1080, height: 1920 },
+      retouchStrokes: fixed.retouchStrokes,
+      beforeRetouchStrokes: fixed.beforeRetouchStrokes,
+    });
+    dimensions.push([canvas.width, canvas.height]);
+    traces.push(environment.recorder.log);
+  }
+  assert.deepEqual(dimensions, [[1080, 1920], [1080, 1920], [1080, 1920]]);
+  assert.deepEqual(traces[1], traces[0]);
+  assert.deepEqual(traces[2], traces[0]);
+  assert.ok(traces[0].some(([name, sourceName]) => name === "drawImage" && sourceName === "before"));
+  assert.ok(traces[0].some(([name, value]) => name === "fillText" && value === "前"));
+  assert.ok(traces[0].some(([name, value]) => name === "fillText" && value === "后"));
+  assert.ok(traces[0].some(([name]) => name === "createLinearGradient"));
+  assert.ok(traces[0].some(([name, value]) => name === "set.globalCompositeOperation" && value === "destination-out"));
+});
