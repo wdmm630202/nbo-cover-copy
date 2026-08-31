@@ -48,7 +48,7 @@ test("本机生产服务器缺少 Worker 环境时仍显示验证页", async () 
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
-  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverRetouchCore, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
+  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverRenderCore, coverRetouchCore, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -59,6 +59,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
     readFile(new URL("../docs/compare-layout.js", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/core/render-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/core/retouch-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/compare-layout.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/cover-config.ts", import.meta.url), "utf8"),
@@ -114,7 +115,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /恢复对比图默认尺寸/);
   assert.match(coverStudio, /getComparisonAlignmentPlan/);
   assert.match(coverStudio, /beforeFrameScale/);
-  assert.match(coverStudio, /getComparisonEvidenceLayout/);
+  assert.match(coverRenderCore, /getComparisonEvidenceLayout/);
   assert.match(coverStudio, /getComparisonExportError/);
   assert.match(coverStudio, /photoOnly/);
   assert.match(coverStudio, /字体描边/);
@@ -134,31 +135,34 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /拍摄前照片/);
   assert.match(coverStudio, /getVisibleRetouchStrokes/);
   assert.match(coverStudio, /beforeRetouchStrokes/);
-  assert.match(coverStudio, /eraseShadeWithBrush/);
-  assert.match(coverStudio, /from "\.\/core\/retouch-core"/);
+  assert.match(coverRenderCore, /export function drawCover/);
+  assert.doesNotMatch(coverStudio, /function drawCover\s*\(/);
+  assert.doesNotMatch(publicCoverScript, /function drawCover\s*\(/);
+  assert.match(coverRenderCore, /eraseShadeWithBrush/);
+  assert.match(coverRenderCore, /from "\.\/retouch-core"/);
   assert.doesNotMatch(coverStudio, /function eraseShadeWithBrush|const eraseShadeWithBrush/);
   assert.match(coverRetouchCore, /quadraticCurveTo/);
   assert.match(coverRetouchCore, /filter = `blur\(/);
   assert.match(coverRetouchCore, /globalCompositeOperation = "destination-out"/);
   assert.match(coverStudio, /label="亮度"[\s\S]*?min=\{0\}[\s\S]*?max=\{200\}/);
-  assert.match(coverStudio, /strokeText/);
+  assert.match(coverRenderCore, /strokeText/);
   assert.match(coverStudio, /#FEE800/);
-  assert.match(coverStudio, /主页 3:4 安全区/);
+  assert.match(coverRenderCore, /主页 3:4 安全区/);
   assert.match(coverStudio, /图片不上传、不保存/);
-  assert.match(coverStudio, /getWatermarkVisibleHeight\(width\) \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);
-  assert.match(coverStudio, /WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32/);
-  assert.match(coverStudio, /WATERMARK_BOTTOM_GAP_AT_1080 = 36/);
-  assert.match(coverStudio, /getWatermarkBottomGap\(width\)/);
+  assert.match(coverRenderCore, /getWatermarkVisibleHeight\(width\) \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);
+  assert.match(coverRenderCore, /WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32/);
+  assert.match(coverRenderCore, /WATERMARK_BOTTOM_GAP_AT_1080 = 36/);
+  assert.match(coverRenderCore, /getWatermarkBottomGap\(width\)/);
   assert.match(coverStudio, /label="照片缩放"[\s\S]*?min=\{0\}[\s\S]*?max=\{400\}/);
   assert.match(coverStudio, /label="左右位置"[\s\S]*?min=\{-200\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /label="上下位置"[\s\S]*?min=\{-200\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /ROTATION_SNAP_ANGLES[\s\S]*?-90[\s\S]*?90/);
   assert.match(coverStudio, /studio-transform-hud/);
   assert.match(coverStudio, /studio-snap-guide/);
-  assert.match(coverStudio, /settings\.watermarkAlign === "left"/);
-  assert.match(coverStudio, /settings\.watermarkAlign === "right"/);
-  assert.match(coverStudio, /startsWith\("top-"\)/);
-  assert.match(coverStudio, /startsWith\("bottom-"\)/);
+  assert.match(coverRenderCore, /settings\.watermarkAlign === "left"/);
+  assert.match(coverRenderCore, /settings\.watermarkAlign === "right"/);
+  assert.match(coverRenderCore, /startsWith\("top-"\)/);
+  assert.match(coverRenderCore, /startsWith\("bottom-"\)/);
   assert.match(coverStudio, /全部同步/);
   assert.match(coverStudio, /彻底重置/);
   assert.match(coverStudio, /studio-slider-number/);
@@ -236,7 +240,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicEntry, /NBO_COVER_IMAGE_READY/);
   assert.match(publicEntry, /localStorage\.setItem/);
   assert.match(publicCoverScript, /image\/jpeg/);
-  assert.match(publicCoverScript, /getComparisonEvidenceLayout/);
+  assert.match(coverRenderCore, /getComparisonEvidenceLayout/);
   assert.match(publicCoverScript, /getComparisonExportError/);
   assert.match(publicCoverScript, /typeof navigator\.share/);
   assert.match(publicCoverScript, /navigator\.share/);
@@ -252,8 +256,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /正在尝试生成原始像素/);
   assert.match(publicCover, /id="exportFeedback"/);
   assert.doesNotMatch(publicCoverScript, /请再次点击导出/);
-  assert.match(publicCoverScript, /eraseShadeWithBrush/);
-  assert.match(publicCoverScript, /const \{[\s\S]*?eraseShadeWithBrush[\s\S]*?\} = window\.NBOCoverCore;/);
+  assert.doesNotMatch(publicCoverScript, /eraseShadeWithBrush/);
+  assert.match(publicCoverScript, /const \{[\s\S]*?drawCover[\s\S]*?\} = window\.NBOCoverCore;/);
   assert.doesNotMatch(publicCoverScript, /function eraseShadeWithBrush|const eraseShadeWithBrush/);
   assert.match(publicCover, /局部涂抹提亮/);
   assert.match(publicCover, /id="brushCursor"/);
@@ -269,21 +273,21 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCoverScript, /BracketLeft/);
   assert.match(publicCoverScript, /BracketRight/);
   assert.match(publicCover, /id="brightness" type="range" min="0" max="200" value="100"/);
-  assert.match(publicCoverScript, /主页 3:4 安全区/);
+  assert.match(coverRenderCore, /主页 3:4 安全区/);
   assert.match(publicCoverScript, /rotationSnapAngles[\s\S]*?-90[\s\S]*?90/);
   assert.match(publicCover, /transformHud/);
   assert.match(publicCover, /snapHorizontal/);
-  assert.match(publicCoverScript, /播放量避让区 144px/);
-  assert.match(publicCoverScript, /requestedY/);
-  assert.match(publicCoverScript, /getWatermarkVisibleHeight\(width\) \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);
-  assert.match(publicCoverScript, /WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32/);
-  assert.match(publicCoverScript, /WATERMARK_BOTTOM_GAP_AT_1080 = 36/);
-  assert.match(publicCoverScript, /getWatermarkBottomGap\(width\)/);
+  assert.match(coverRenderCore, /播放量避让区 144px/);
+  assert.match(coverRenderCore, /requestedY/);
+  assert.match(coverRenderCore, /getWatermarkVisibleHeight\(width\) \/ Math\.max\(1, bounds\.bottom - bounds\.top\)/);
+  assert.match(coverRenderCore, /WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32/);
+  assert.match(coverRenderCore, /WATERMARK_BOTTOM_GAP_AT_1080 = 36/);
+  assert.match(coverRenderCore, /getWatermarkBottomGap\(width\)/);
   assert.match(publicCover, /id="zoom" type="range" min="0" max="400" value="100"/);
   assert.match(publicCover, /id="offsetX" type="range" min="-200" max="200" value="0"/);
   assert.match(publicCover, /id="offsetY" type="range" min="-200" max="200" value="0"/);
-  assert.match(publicCoverScript, /state\.watermarkAlign === "left"/);
-  assert.match(publicCoverScript, /state\.watermarkAlign === "right"/);
+  assert.match(coverRenderCore, /settings\.watermarkAlign === "left"/);
+  assert.match(coverRenderCore, /settings\.watermarkAlign === "right"/);
   assert.doesNotMatch(coverStudio + coverCompareLayout + publicCoverScript + publicCompareLayout, /真实客片\s*·\s*NANBOART/);
   assert.match(publicCover, /data-template="top-left"/);
   assert.match(publicCover, /data-template="bottom-right"/);

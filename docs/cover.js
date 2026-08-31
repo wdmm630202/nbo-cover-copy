@@ -7,10 +7,6 @@ const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
-const WATERMARK_VISIBLE_HEIGHT_AT_1080 = 32;
-const WATERMARK_BOTTOM_GAP_AT_1080 = 36;
-const getWatermarkVisibleHeight = (width) => Math.round(WATERMARK_VISIBLE_HEIGHT_AT_1080 * width / 1080);
-const getWatermarkBottomGap = (width) => Math.round(WATERMARK_BOTTOM_GAP_AT_1080 * width / 1080);
 const formatExportTimestamp = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, "0");
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
@@ -22,19 +18,20 @@ const PRESETS = {
 };
 const {
   DEFAULT_COVER_SETTINGS,
-  eraseShadeWithBrush,
+  drawCover,
+  drawCoverText,
+  getBeforeImageFrame,
+  getBeforeOffsetLimits,
   normalizeCoverSettings,
+  releaseCoverCanvas,
+  releaseCoverScratchCanvases,
   serializeStaticCoverSettings,
   updateCoverSetting,
 } = window.NBOCoverCore;
 const {
-  drawComparisonEditorialOverlay,
   getComparisonAlignmentPlan,
-  getComparisonEvidenceLayout,
   getComparisonExportError,
-  getComparisonFadeStops,
   getComparisonOverlapWarning,
-  getComparisonPhotoTransform,
   getExportAttemptSizes,
   getOriginalPixelJpegMaxBytes,
   getOriginalPixelJpegQualities,
@@ -68,14 +65,6 @@ const state = {
   watermarkName: "",
 };
 
-const DOUYIN_HOME_SAFE = {
-  cropTop: 240,
-  cropBottom: 1680,
-  horizontalInset: 54,
-  verticalInset: 54,
-  playCountReserve: 144,
-};
-
 const $ = (selector) => document.querySelector(selector);
 const canvas = $("#coverCanvas");
 const canvasShell = $("#canvasShell");
@@ -89,7 +78,6 @@ let exportGeneration = 0;
 let exportCache = { generation: 0, jpeg: null, png: null };
 let previewDrawFrame = 0;
 let saveSettingsTimer = 0;
-const previewScratch = { shade: document.createElement("canvas"), stroke: document.createElement("canvas"), compare: document.createElement("canvas") };
 let imageInteraction = { rotationMode: false, drag: null };
 let adjustmentTarget = "after";
 const mobileGesture = { pointers: new Map(), holdTimer: 0, active: false, anchorId: null, holdOrigin: null, baseline: null };
@@ -680,34 +668,6 @@ function preset() {
   return PRESETS[state.platformId];
 }
 
-function getBeforeImageFrame(canvasSize, frameScale = state.beforeFrameScale) {
-  const { frame, imageInset } = getComparisonEvidenceLayout(canvasSize, frameScale);
-  const inset = Math.max(2, Math.round(imageInset * canvasSize.width / 1080));
-  return {
-    x: frame.x + inset,
-    y: frame.y + inset,
-    width: frame.width - inset * 2,
-    height: frame.height - inset * 2,
-    radius: Math.max(1, frame.radius - inset),
-  };
-}
-
-function getBeforeOffsetLimits(beforeImage, frame, beforeZoom, beforeRotation = 0) {
-  if (!beforeImage?.naturalWidth || !beforeImage.naturalHeight) return { x: 0, y: 0 };
-  const transform = getComparisonPhotoTransform(
-    { width: beforeImage.naturalWidth, height: beforeImage.naturalHeight },
-    { x: 0, y: 0, width: frame.width, height: frame.height },
-    { zoom: beforeZoom, rotation: beforeRotation },
-  );
-  const cosine = Math.abs(Math.cos(transform.rotationRadians));
-  const sine = Math.abs(Math.sin(transform.rotationRadians));
-  const drawWidth = transform.drawWidth * cosine + transform.drawHeight * sine;
-  const drawHeight = transform.drawWidth * sine + transform.drawHeight * cosine;
-  return {
-    x: Math.min(100, Math.max(0, (drawWidth - frame.width) / 2 / frame.width * 100)),
-    y: Math.min(100, Math.max(0, (drawHeight - frame.height) / 2 / frame.height * 100)),
-  };
-}
 
 function currentBeforeOffsetLimits(beforeZoom = state.beforeZoom) {
   const raw = getBeforeOffsetLimits(state.beforeImage, getBeforeImageFrame(preset()), beforeZoom, state.beforeRotation);
@@ -1132,7 +1092,13 @@ $("#alignBeforeFrame").addEventListener("click", () => {
   scratch.height = current.height;
   const context = scratch.getContext("2d");
   if (!context) return setStatus("暂时无法计算对齐，请刷新后重试");
-  const textBounds = drawText(context, current.width, current.height);
+  const textBounds = drawCoverText(
+    context,
+    state,
+    current.width,
+    current.height,
+    state.watermarkEnabled ? state.watermark : null,
+  );
   const plan = getComparisonAlignmentPlan(current, textBounds, { currentScale: state.beforeFrameScale });
   scratch.width = scratch.height = 1;
   if (!plan.ok) {
@@ -1294,126 +1260,6 @@ function describeExportResolution(asset) {
     : `已保留原始裁切像素 ${asset.outputSize.width}×${asset.outputSize.height}`;
 }
 
-function roundedRectPath(ctx, x, y, width, height, radius) {
-  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
-  ctx.beginPath();
-  ctx.moveTo(x + safeRadius, y);
-  ctx.lineTo(x + width - safeRadius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
-  ctx.lineTo(x + width, y + height - safeRadius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
-  ctx.lineTo(x + safeRadius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
-  ctx.lineTo(x, y + safeRadius);
-  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
-  ctx.closePath();
-}
-
-function applyComparisonFadeMask(ctx, frame) {
-  ctx.save();
-  ctx.globalCompositeOperation = "destination-in";
-  const horizontalMask = ctx.createLinearGradient(frame.x, 0, frame.x + frame.width, 0);
-  const verticalMask = ctx.createLinearGradient(0, frame.y, 0, frame.y + frame.height);
-  getComparisonFadeStops().forEach(([stop, alpha]) => {
-    horizontalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
-    verticalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
-  });
-  ctx.fillStyle = horizontalMask;
-  ctx.fillRect(frame.x, frame.y, frame.width, frame.height);
-  ctx.fillStyle = verticalMask;
-  ctx.fillRect(frame.x, frame.y, frame.width, frame.height);
-  ctx.restore();
-}
-
-function drawComparisonEvidence(ctx, ownerCanvas, width, height, beforeRetouchStrokes) {
-  const { frame } = getComparisonEvidenceLayout({ width, height }, state.beforeFrameScale);
-  const imageFrame = getBeforeImageFrame({ width, height }, state.beforeFrameScale);
-
-  if (!state.beforeImage) {
-    ctx.save();
-    roundedRectPath(ctx, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
-    ctx.clip();
-    ctx.fillStyle = "rgba(28,28,28,.66)";
-    ctx.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-    ctx.fillStyle = "rgba(238,238,238,.86)";
-    ctx.font = `600 ${Math.max(12, Math.round(width * .018))}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("请添加拍摄前素颜照", frame.x + frame.width / 2, frame.y + frame.height / 2, frame.width * .82);
-    ctx.restore();
-    return;
-  }
-
-  const scratch = ownerCanvas === canvas ? previewScratch.compare : document.createElement("canvas");
-  if (scratch.width !== width) scratch.width = width;
-  if (scratch.height !== height) scratch.height = height;
-  const scratchContext = scratch.getContext("2d");
-  if (!scratchContext) return;
-  scratchContext.clearRect(0, 0, width, height);
-  scratchContext.save();
-  roundedRectPath(scratchContext, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
-  scratchContext.clip();
-  const offsetLimits = getBeforeOffsetLimits(state.beforeImage, imageFrame, state.beforeZoom, state.beforeRotation);
-  const offsetX = clamp(state.beforeOffsetX, -offsetLimits.x, offsetLimits.x);
-  const offsetY = clamp(state.beforeOffsetY, -offsetLimits.y, offsetLimits.y);
-  const transform = getComparisonPhotoTransform(
-    { width: state.beforeImage.naturalWidth, height: state.beforeImage.naturalHeight },
-    imageFrame,
-    {
-      zoom: state.beforeZoom,
-      offsetX,
-      offsetY,
-      rotation: state.beforeRotation,
-    },
-  );
-  scratchContext.filter = `brightness(${state.beforeBrightness}%)`;
-  scratchContext.translate(transform.centerX, transform.centerY);
-  scratchContext.rotate(transform.rotationRadians);
-  scratchContext.drawImage(state.beforeImage, -transform.drawWidth / 2, -transform.drawHeight / 2, transform.drawWidth, transform.drawHeight);
-  scratchContext.setTransform(1, 0, 0, 1, 0, 0);
-  scratchContext.filter = "none";
-  scratchContext.restore();
-  applyComparisonFadeMask(scratchContext, imageFrame);
-  ctx.drawImage(scratch, 0, 0);
-
-  if (state.beforeShade > 0 || state.beforeBottomShade > 0) {
-    const shadeCanvas = ownerCanvas === canvas ? previewScratch.shade : document.createElement("canvas");
-    const strokeCanvas = ownerCanvas === canvas ? previewScratch.stroke : document.createElement("canvas");
-    if (shadeCanvas.width !== width) shadeCanvas.width = width;
-    if (shadeCanvas.height !== height) shadeCanvas.height = height;
-    if (strokeCanvas.width !== width) strokeCanvas.width = width;
-    if (strokeCanvas.height !== height) strokeCanvas.height = height;
-    const shadeContext = shadeCanvas.getContext("2d");
-    if (!shadeContext) return;
-    shadeContext.clearRect(0, 0, width, height);
-    shadeContext.save();
-    roundedRectPath(shadeContext, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, imageFrame.radius);
-    shadeContext.clip();
-    if (state.beforeShade > 0) {
-      const shadeAlpha = clamp(state.beforeShade / 100, 0, .9);
-      shadeContext.fillStyle = `rgba(0,0,0,${shadeAlpha})`;
-      shadeContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-    }
-    if (state.beforeBottomShade > 0) {
-      const bottomAlpha = clamp(state.beforeBottomShade / 100, 0, .9);
-      const bottomGradient = shadeContext.createLinearGradient(0, imageFrame.y + imageFrame.height * .35, 0, imageFrame.y + imageFrame.height);
-      bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
-      bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
-      shadeContext.fillStyle = bottomGradient;
-      shadeContext.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
-    }
-    shadeContext.restore();
-    eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, beforeRetouchStrokes);
-    applyComparisonFadeMask(shadeContext, imageFrame);
-    ctx.drawImage(shadeCanvas, 0, 0);
-    if (ownerCanvas !== canvas) {
-      shadeCanvas.width = shadeCanvas.height = 1;
-      strokeCanvas.width = strokeCanvas.height = 1;
-    }
-  }
-  if (ownerCanvas !== canvas) scratch.width = scratch.height = 1;
-}
-
 function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, photoOnly = false) {
   if (targetCanvas === canvas && !outputSize) {
     scheduleExportPreparation();
@@ -1428,392 +1274,34 @@ function draw(includeGuide = true, targetCanvas = canvas, outputSize = null, pho
 }
 
 function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, photoOnly = false) {
-  const targetContext = targetCanvas.getContext("2d");
   const current = preset();
   const lowPower = (navigator.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4;
   const previewWidth = Math.min(lowPower ? 420 : 540, current.width);
   const previewSize = { width: previewWidth, height: Math.round(previewWidth * current.height / current.width) };
-  const { width, height } = outputSize || (targetCanvas === canvas ? previewSize : current);
-  targetCanvas.width = width;
-  targetCanvas.height = height;
-  targetContext.fillStyle = "#151515";
-  targetContext.fillRect(0, 0, width, height);
+  const retouchTarget = activeRetouchTarget();
+  const strokeGroups = { after: retouch.strokes, before: retouch.beforeStrokes };
+  const isPreview = targetCanvas === canvas;
+  const visibleAfterStrokes = photoOnly
+    ? []
+    : getVisibleRetouchStrokes(strokeGroups, "after", isPreview && retouch.compareBefore && retouchTarget === "after");
+  const visibleBeforeStrokes = photoOnly
+    ? []
+    : getVisibleRetouchStrokes(strokeGroups, "before", isPreview && retouch.compareBefore && retouchTarget === "before");
 
-  if (state.image) {
-    const radians = state.rotation * Math.PI / 180;
-    const rotatedWidth = Math.abs(state.image.naturalWidth * Math.cos(radians)) + Math.abs(state.image.naturalHeight * Math.sin(radians));
-    const rotatedHeight = Math.abs(state.image.naturalWidth * Math.sin(radians)) + Math.abs(state.image.naturalHeight * Math.cos(radians));
-    const base = Math.max(width / rotatedWidth, height / rotatedHeight);
-    const scale = base * state.zoom / 100;
-    const imageWidth = state.image.naturalWidth * scale;
-    const imageHeight = state.image.naturalHeight * scale;
-    targetContext.save();
-    targetContext.filter = `brightness(${state.brightness}%)`;
-    targetContext.translate(width / 2 + state.offsetX / 100 * width, height / 2 + state.offsetY / 100 * height);
-    targetContext.rotate(radians);
-    targetContext.drawImage(state.image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
-    targetContext.restore();
-  } else {
-    const placeholder = targetContext.createLinearGradient(0, 0, width, height);
-    placeholder.addColorStop(0, "#161616");
-    placeholder.addColorStop(.58, "#2b2725");
-    placeholder.addColorStop(1, "#0d0d0d");
-    targetContext.fillStyle = placeholder;
-    targetContext.fillRect(0, 0, width, height);
-    targetContext.fillStyle = "rgba(255,255,255,.36)";
-    targetContext.font = `600 ${Math.round(width * .034)}px sans-serif`;
-    targetContext.textAlign = "center";
-    targetContext.fillText("上传照片后在这里预览", width / 2, height / 2);
-  }
-
-  if (!photoOnly) {
-    const retouchTarget = activeRetouchTarget();
-    const strokeGroups = { after: retouch.strokes, before: retouch.beforeStrokes };
-    const visibleAfterStrokes = getVisibleRetouchStrokes(strokeGroups, "after", targetCanvas === canvas && retouch.compareBefore && retouchTarget === "after");
-    const visibleBeforeStrokes = getVisibleRetouchStrokes(strokeGroups, "before", targetCanvas === canvas && retouch.compareBefore && retouchTarget === "before");
-    if (visibleAfterStrokes.length) {
-      const shadeCanvas = targetCanvas === canvas ? previewScratch.shade : document.createElement("canvas");
-      const strokeCanvas = targetCanvas === canvas ? previewScratch.stroke : document.createElement("canvas");
-      if (shadeCanvas.width !== width) shadeCanvas.width = width;
-      if (shadeCanvas.height !== height) shadeCanvas.height = height;
-      if (strokeCanvas.width !== width) strokeCanvas.width = width;
-      if (strokeCanvas.height !== height) strokeCanvas.height = height;
-      const shadeContext = shadeCanvas.getContext("2d");
-      if (shadeContext) {
-        shadeContext.clearRect(0, 0, width, height);
-        drawShade(shadeContext, width, height);
-        eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, visibleAfterStrokes);
-        targetContext.drawImage(shadeCanvas, 0, 0);
-      }
-    } else {
-      drawShade(targetContext, width, height);
-    }
-    if (state.compareEnabled) drawComparisonEvidence(targetContext, targetCanvas, width, height, visibleBeforeStrokes);
-    drawText(targetContext, width, height);
-    if (state.compareEnabled) drawComparisonEditorialOverlay(targetContext, { width, height }, roundedRectPath, state.beforeFrameScale);
-    if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
-  }
-  if (!photoOnly && includeGuide && state.showSafeArea && state.platformId === "douyin") drawGuide(targetContext, width, height);
-}
-
-function drawShade(ctx, width, height) {
-  const alpha = Math.max(0, Math.min(.9, state.shade / 100));
-  let gradient;
-  if (state.templateId.startsWith("bottom-")) {
-    gradient = ctx.createLinearGradient(0, height * .35, 0, height);
-    gradient.addColorStop(0, "rgba(0,0,0,0)");
-    gradient.addColorStop(1, `rgba(0,0,0,${alpha})`);
-  } else if (state.templateId.endsWith("-right")) {
-    gradient = ctx.createLinearGradient(width * .18, 0, width, 0);
-    gradient.addColorStop(0, "rgba(0,0,0,0)");
-    gradient.addColorStop(1, `rgba(0,0,0,${alpha})`);
-  } else if (state.templateId === "middle-center") {
-    gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, `rgba(0,0,0,${alpha * .3})`);
-    gradient.addColorStop(.5, `rgba(0,0,0,${alpha * .12})`);
-    gradient.addColorStop(1, `rgba(0,0,0,${alpha * .72})`);
-  } else {
-    gradient = ctx.createLinearGradient(0, 0, width * .82, 0);
-    gradient.addColorStop(0, `rgba(0,0,0,${alpha})`);
-    gradient.addColorStop(.68, `rgba(0,0,0,${alpha * .36})`);
-    gradient.addColorStop(1, "rgba(0,0,0,0)");
-  }
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
-  if (state.bottomShade > 0) {
-    const bottomAlpha = Math.max(0, Math.min(.9, state.bottomShade / 100));
-    const bottomGradient = ctx.createLinearGradient(0, height * .35, 0, height);
-    bottomGradient.addColorStop(0, "rgba(0,0,0,0)");
-    bottomGradient.addColorStop(1, `rgba(0,0,0,${bottomAlpha})`);
-    ctx.fillStyle = bottomGradient;
-    ctx.fillRect(0, 0, width, height);
-  }
-}
-
-function colorWithAlpha(color, alpha) {
-  const value = Number.parseInt(color.replace("#", ""), 16);
-  return `rgba(${value >> 16},${(value >> 8) & 255},${value & 255},${alpha})`;
-}
-
-function drawText(ctx, width, height) {
-  const right = state.templateId.endsWith("-right");
-  const center = state.templateId.endsWith("-center");
-  const align = right ? "right" : center ? "center" : "left";
-  const geometryScale = width / 1080;
-  const horizontalInset = DOUYIN_HOME_SAFE.horizontalInset * geometryScale;
-  const x = right ? width - horizontalInset : center ? width / 2 : horizontalInset;
-  const maxWidth = width - horizontalInset * 2;
-  const topBaseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.textScale / 100));
-  const bottomBaseFont = Math.max(1, Math.round(width * .074 * 2.1 * state.bottomTextScale / 100));
-  ctx.save();
-  ctx.textAlign = align;
-  const textStroke = Math.max(0, Math.min(1, state.textStroke / 100));
-  const textShadow = Math.max(0, Math.min(1, state.textShadow / 100));
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = `rgba(0,0,0,${.92 * textStroke})`;
-  ctx.lineWidth = width * .012 * textStroke;
-  ctx.shadowColor = `rgba(0,0,0,${.78 * textShadow})`;
-  ctx.shadowBlur = width * .024 * textShadow;
-  ctx.shadowOffsetX = width * .004 * textShadow;
-  ctx.shadowOffsetY = width * .006 * textShadow;
-  const hasBottomText = Boolean(state.bottomText.trim());
-  const topFit = fitText(ctx, state.topText, topBaseFont, maxWidth);
-  const bottomFit = hasBottomText ? fitText(ctx, state.bottomText, state.textScaleLinked ? topBaseFont : bottomBaseFont, maxWidth) : topFit;
-  const linkedFontSize = Math.min(topFit, bottomFit);
-  const topFontSize = state.textScaleLinked ? linkedFontSize : topFit;
-  const bottomFontSize = state.textScaleLinked ? linkedFontSize : bottomFit;
-  const subtitleFontSize = Math.round(width * .061 * state.subtitleScale / 100);
-  const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
-  ctx.font = `900 ${topFontSize}px sans-serif`;
-  const topHeadlineInk = measureInkBounds(ctx, state.topText || "国");
-  ctx.font = `900 ${activeHeadlineFontSize}px sans-serif`;
-  const activeHeadlineInk = measureInkBounds(ctx, state.bottomText || state.topText || "国");
-  ctx.font = `400 ${subtitleFontSize}px sans-serif`;
-  const subtitleInk = measureInkBounds(ctx, state.subtitle || "国");
-  const fixedVerticalGap = getWatermarkVisibleHeight(width);
-  const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
-  const dividerThickness = 4;
-  const relativeActiveBaseline = hasBottomText ? lineGap : 0;
-  const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
-  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
-  const subtitleLineHeight = Math.round(subtitleFontSize * 1.45);
-  const subtitleLines = countWrappedLines(ctx, state.subtitle);
-  const blockTop = -topHeadlineInk.ascent;
-  const blockBottom = state.subtitle.trim()
-    ? relativeSubtitleBaseline + (subtitleLines - 1) * subtitleLineHeight + subtitleInk.descent
-    : state.showDivider
-      ? relativeDividerY + dividerThickness
-      : relativeActiveBaseline + activeHeadlineInk.descent;
-  const isDouyinCanvas = height / width > 1.5;
-  const cropTop = isDouyinCanvas ? DOUYIN_HOME_SAFE.cropTop * geometryScale : 0;
-  const cropBottom = isDouyinCanvas ? DOUYIN_HOME_SAFE.cropBottom * geometryScale : height;
-  const usableTop = cropTop + DOUYIN_HOME_SAFE.verticalInset * geometryScale;
-  const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * geometryScale : 0;
-  const usableBottom = cropBottom - playCountReserve - DOUYIN_HOME_SAFE.verticalInset * geometryScale;
-  const watermarkScale = state.watermark && state.watermarkEnabled
-    ? getWatermarkVisibleHeight(width) / Math.max(1, getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top)
-    : 0;
-  const watermarkEdgeGap = getWatermarkBottomGap(width);
-  const watermarkBottom = cropBottom - playCountReserve - watermarkEdgeGap;
-  const watermarkTop = state.watermark && state.watermarkEnabled
-    ? watermarkBottom - (getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top) * watermarkScale
-    : Number.POSITIVE_INFINITY;
-  const bottomTextLimit = Math.min(usableBottom, watermarkTop - fixedVerticalGap);
-  const requestedY = state.templateId.startsWith("top-")
-    ? usableTop - blockTop
-    : state.templateId.startsWith("bottom-")
-      ? bottomTextLimit - blockBottom
-      : (cropTop + cropBottom) / 2 - blockTop;
-  const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
-  const secondBaseline = y + lineGap;
-  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
-  const dividerY = y + relativeDividerY;
-  const subtitleBaseline = y + relativeSubtitleBaseline;
-  ctx.fillStyle = state.topColor;
-  ctx.font = `900 ${topFontSize}px sans-serif`;
-  if (textStroke > 0) ctx.strokeText(state.topText || "上行标题", x, y, maxWidth);
-  ctx.fillText(state.topText || "上行标题", x, y, maxWidth);
-  if (state.bottomText.trim()) {
-    ctx.fillStyle = state.bottomColor;
-    ctx.font = `900 ${bottomFontSize}px sans-serif`;
-    if (textStroke > 0) ctx.strokeText(state.bottomText, x, secondBaseline, maxWidth);
-    ctx.fillText(state.bottomText, x, secondBaseline, maxWidth);
-  }
-  if (state.showDivider) {
-    const dividerWidth = activeHeadlineFontSize;
-    const dividerX = right ? x - dividerWidth : center ? x - dividerWidth / 2 : x;
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    const dividerGradient = ctx.createLinearGradient(dividerX, 0, dividerX + dividerWidth, 0);
-    dividerGradient.addColorStop(0, colorWithAlpha(state.dividerColor, 0));
-    dividerGradient.addColorStop(.18, colorWithAlpha(state.dividerColor, 1));
-    dividerGradient.addColorStop(.82, colorWithAlpha(state.dividerColor, 1));
-    dividerGradient.addColorStop(1, colorWithAlpha(state.dividerColor, 0));
-    ctx.fillStyle = dividerGradient;
-    ctx.fillRect(Math.round(dividerX), dividerY, Math.round(dividerWidth), dividerThickness);
-  }
-  if (state.subtitle.trim()) {
-    ctx.shadowColor = `rgba(0,0,0,${.78 * textShadow})`;
-    ctx.shadowBlur = width * .024 * textShadow;
-    ctx.shadowOffsetX = width * .004 * textShadow;
-    ctx.shadowOffsetY = width * .006 * textShadow;
-    ctx.fillStyle = state.subtitleColor;
-    ctx.font = `400 ${subtitleFontSize}px sans-serif`;
-    const subtitleY = state.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
-    drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleLineHeight, align);
-  }
-  ctx.font = `900 ${topFontSize}px sans-serif`;
-  const topWidth = Math.min(maxWidth, ctx.measureText(state.topText || "上行标题").width);
-  ctx.font = `900 ${bottomFontSize}px sans-serif`;
-  const bottomWidth = hasBottomText ? Math.min(maxWidth, ctx.measureText(state.bottomText).width) : 0;
-  ctx.font = `400 ${subtitleFontSize}px sans-serif`;
-  const subtitleWidth = getWrappedTextWidth(ctx, state.subtitle, maxWidth);
-  const contentWidth = Math.max(topWidth, bottomWidth, state.showDivider ? activeHeadlineFontSize : 0, subtitleWidth);
-  const left = right ? x - contentWidth : center ? x - contentWidth / 2 : x;
-  const bounds = { left, right: left + contentWidth, top: y + blockTop, bottom: y + blockBottom };
-  ctx.restore();
-  return bounds;
-}
-
-function fitText(ctx, text, start, maxWidth) {
-  let size = start;
-  while (size > start * .58) {
-    ctx.font = `900 ${size}px sans-serif`;
-    if (ctx.measureText(text || "标题").width <= maxWidth) break;
-    size -= 2;
-  }
-  return size;
-}
-
-function measureInkBounds(ctx, text) {
-  const characters = Array.from(text || "国");
-  let ascent = 0;
-  let descent = 0;
-  characters.forEach((character) => {
-    const metrics = ctx.measureText(character);
-    ascent = Math.max(ascent, metrics.actualBoundingBoxAscent || 0);
-    descent = Math.max(descent, metrics.actualBoundingBoxDescent || 0);
+  drawCover({
+    canvas: targetCanvas,
+    image: state.image,
+    beforeImage: state.beforeImage,
+    watermark: state.watermarkEnabled ? state.watermark : null,
+    settings: state,
+    preset: { id: state.platformId, ...current },
+    includeGuide,
+    outputSize: outputSize || (isPreview ? previewSize : current),
+    photoOnly,
+    retouchStrokes: visibleAfterStrokes,
+    beforeRetouchStrokes: visibleBeforeStrokes,
   });
-  const fallbackSize = Number(ctx.font.match(/([\d.]+)px/)?.[1] || 16);
-  return {
-    ascent: ascent || fallbackSize * .78,
-    descent: descent || fallbackSize * .22,
-  };
-}
-
-function drawWrapped(ctx, text, x, y, maxWidth, lineHeight, align) {
-  const characters = Array.from(text);
-  const lines = Array.from({ length: Math.ceil(characters.length / 12) }, (_, index) =>
-    characters.slice(index * 12, index * 12 + 12).join("")
-  );
-  ctx.textAlign = align;
-  lines.slice(0, 2).forEach((line, index) => {
-    const lineY = y + index * lineHeight;
-    if (Array.from(line).length !== 12) {
-      if (ctx.lineWidth > 0) ctx.strokeText(line, x, lineY, maxWidth);
-      return ctx.fillText(line, x, lineY, maxWidth);
-    }
-    const left = align === "right" ? x - maxWidth : align === "center" ? x - maxWidth / 2 : x;
-    const glyphs = Array.from(line).map((character) => ({ character, metrics: ctx.measureText(character) }));
-    const widths = glyphs.map(({ metrics }) =>
-      (metrics.actualBoundingBoxLeft || 0) + (metrics.actualBoundingBoxRight || metrics.width)
-    );
-    const gap = Math.max(0, (maxWidth - widths.reduce((sum, width) => sum + width, 0)) / 11);
-    let cursor = left;
-    ctx.textAlign = "left";
-    glyphs.forEach(({ character, metrics }, glyphIndex) => {
-      if (ctx.lineWidth > 0) ctx.strokeText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
-      ctx.fillText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
-      cursor += widths[glyphIndex] + gap;
-    });
-    ctx.textAlign = align;
-  });
-}
-
-function countWrappedLines(ctx, text) {
-  if (!text.trim()) return 0;
-  return Math.min(Math.ceil(Array.from(text).length / 12), 2);
-}
-
-function getWrappedTextWidth(ctx, text, maxWidth) {
-  if (!text.trim()) return 0;
-  const characters = Array.from(text);
-  return Math.max(...Array.from({ length: Math.min(2, Math.ceil(characters.length / 12)) }, (_, index) => {
-    const line = characters.slice(index * 12, index * 12 + 12).join("");
-    return line.length === 12 ? maxWidth : Math.min(maxWidth, ctx.measureText(line).width);
-  }));
-}
-
-function drawWatermark(ctx, width, height) {
-  // 保留透明 PNG 的完整原始画布，画布本身就是水印的定位基准。
-  const bounds = getWatermarkVisibleBounds(state.watermark);
-  const scale = getWatermarkVisibleHeight(width) / Math.max(1, bounds.bottom - bounds.top);
-  const drawWidth = state.watermark.naturalWidth * scale;
-  const drawHeight = state.watermark.naturalHeight * scale;
-  const safeInset = DOUYIN_HOME_SAFE.horizontalInset * (width / 1080);
-  const watermarkEdgeGap = getWatermarkBottomGap(width);
-  const x = state.watermarkAlign === "left"
-    ? safeInset - bounds.left * scale
-    : state.watermarkAlign === "right"
-      ? width - safeInset - bounds.right * scale
-      : width / 2 - (bounds.left + bounds.right) / 2 * scale;
-  const isDouyinCanvas = height / width > 1.5;
-  const cropBottom = isDouyinCanvas ? DOUYIN_HOME_SAFE.cropBottom * (width / 1080) : height;
-  const playCountReserve = isDouyinCanvas ? DOUYIN_HOME_SAFE.playCountReserve * (width / 1080) : 0;
-  const y = cropBottom - playCountReserve - watermarkEdgeGap - bounds.bottom * scale;
-  ctx.save();
-  ctx.globalAlpha = state.watermarkOpacity / 100;
-  ctx.drawImage(state.watermark, x, y, drawWidth, drawHeight);
-  ctx.restore();
-}
-
-const watermarkBoundsCache = new WeakMap();
-
-function getWatermarkVisibleBounds(watermark) {
-  const cached = watermarkBoundsCache.get(watermark);
-  if (cached) return cached;
-  const sampleWidth = Math.min(1600, watermark.naturalWidth);
-  const sampleHeight = Math.max(1, Math.round(watermark.naturalHeight * sampleWidth / watermark.naturalWidth));
-  const sample = document.createElement("canvas");
-  sample.width = sampleWidth;
-  sample.height = sampleHeight;
-  const sampleContext = sample.getContext("2d", { willReadFrequently: true });
-  if (!sampleContext) return { left: 0, right: watermark.naturalWidth, top: 0, bottom: watermark.naturalHeight };
-  sampleContext.drawImage(watermark, 0, 0, sampleWidth, sampleHeight);
-  const pixels = sampleContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
-  let left = sampleWidth;
-  let right = -1;
-  let top = sampleHeight;
-  let bottom = -1;
-  for (let index = 3; index < pixels.length; index += 4) {
-    if (pixels[index] <= 8) continue;
-    const x = ((index - 3) / 4) % sampleWidth;
-    const y = Math.floor(((index - 3) / 4) / sampleWidth);
-    left = Math.min(left, x);
-    right = Math.max(right, x);
-    top = Math.min(top, y);
-    bottom = Math.max(bottom, y);
-  }
-  const ratioX = watermark.naturalWidth / sampleWidth;
-  const ratioY = watermark.naturalHeight / sampleHeight;
-  const bounds = right < left
-    ? { left: 0, right: watermark.naturalWidth, top: 0, bottom: watermark.naturalHeight }
-    : { left: left * ratioX, right: (right + 1) * ratioX, top: top * ratioY, bottom: (bottom + 1) * ratioY };
-  watermarkBoundsCache.set(watermark, bounds);
-  return bounds;
-}
-
-function drawGuide(ctx, width, height) {
-  const guideScale = width / PRESETS.douyin.width;
-  const safeHeight = width / 3 * 4;
-  const top = (height - safeHeight) / 2;
-  ctx.save();
-  ctx.setLineDash([18 * guideScale, 14 * guideScale]);
-  ctx.lineWidth = 4 * guideScale;
-  ctx.strokeStyle = "rgba(254,232,0,.92)";
-  ctx.strokeRect(18 * guideScale, top, width - 36 * guideScale, safeHeight);
-  ctx.setLineDash([]);
-  ctx.fillStyle = "rgba(254,232,0,.94)";
-  ctx.font = `700 ${Math.round(width * .024)}px sans-serif`;
-  ctx.textAlign = "right";
-  ctx.fillText("主页 3:4 安全区（导出时自动隐藏）", width - 30 * guideScale, top + 38 * guideScale);
-  const reserveTop = (DOUYIN_HOME_SAFE.cropBottom - DOUYIN_HOME_SAFE.playCountReserve) * guideScale;
-  const reserveHeight = DOUYIN_HOME_SAFE.playCountReserve * guideScale;
-  ctx.fillStyle = "rgba(255,45,70,.12)";
-  ctx.fillRect(18 * guideScale, reserveTop, width - 36 * guideScale, reserveHeight);
-  ctx.setLineDash([12 * guideScale, 10 * guideScale]);
-  ctx.strokeStyle = "rgba(255,80,96,.9)";
-  ctx.beginPath();
-  ctx.moveTo(18 * guideScale, reserveTop);
-  ctx.lineTo(width - 18 * guideScale, reserveTop);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = "rgba(255,110,120,.96)";
-  ctx.textAlign = "left";
-  ctx.fillText("播放量避让区 144px", 30 * guideScale, reserveTop + 38 * guideScale);
-  ctx.restore();
+  if (!isPreview) releaseCoverScratchCanvases(targetCanvas);
 }
 
 function setExportReady(format, ready) {
@@ -1853,7 +1341,7 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
   let outputSize = originalOutputSize;
   for (const candidate of attempts) {
     if (generation !== exportGeneration) {
-      output.width = output.height = 1;
+      releaseCoverCanvas(output);
       return null;
     }
     try {
@@ -1875,19 +1363,19 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
       break;
     }
     blob = null;
-    output.width = output.height = 1;
+    releaseCoverCanvas(output);
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
   if (generation !== exportGeneration) {
-    output.width = output.height = 1;
+    releaseCoverCanvas(output);
     return null;
   }
   if (!blob) {
-    output.width = output.height = 1;
+    releaseCoverCanvas(output);
     return null;
   }
   if (generation !== exportGeneration) {
-    output.width = output.height = 1;
+    releaseCoverCanvas(output);
     return null;
   }
   const name = state.fileName.replace(/\.[^.]+$/, "") || "南铂封面";
@@ -1899,7 +1387,7 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
     originalOutputSize,
     usedMobileFallback: outputSize.width !== originalOutputSize.width || outputSize.height !== originalOutputSize.height,
   };
-  output.width = output.height = 1;
+  releaseCoverCanvas(output);
   return asset;
 }
 
