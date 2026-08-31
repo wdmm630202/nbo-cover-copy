@@ -76,6 +76,32 @@ test("同方向只在下降至少 140px 且文本聚焦时打开，blur 与高�
   assert.equal(state.keyboardHeight, 300);
 });
 
+test("同方向 1 到 3px 宽度抖动仍识别键盘，较大分屏宽变会重建基线", () => {
+  for (const width of [391, 392, 393]) {
+    let state = canonical.updateMobileKeyboardViewport(null, sample(390, 844, false, true, "portrait"));
+    state = canonical.updateMobileKeyboardViewport(state, sample(width, 704, true, true, "portrait"));
+    assert.equal(state.open, true, `${width - 390}px 宽度抖动不应掩盖 140px 键盘下降`);
+    assert.equal(state.keyboardHeight, 140);
+    assert.equal(state.baselineWidth, 390);
+  }
+
+  let state = canonical.updateMobileKeyboardViewport(null, sample(430, 932, false, true, "portrait"));
+  state = canonical.updateMobileKeyboardViewport(state, sample(433, 632, true, true, "portrait"));
+  assert.equal(state.open, true);
+  assert.equal(state.keyboardHeight, 300);
+  assert.equal(state.baselineWidth, 430);
+
+  state = canonical.updateMobileKeyboardViewport(null, sample(390, 844, false, true, "portrait"));
+  state = canonical.updateMobileKeyboardViewport(state, sample(430, 704, true, true, "portrait"));
+  assert.deepEqual(state, {
+    baselineWidth: 430,
+    baselineHeight: 704,
+    orientation: "portrait",
+    open: false,
+    keyboardHeight: 0,
+  });
+});
+
 test("静态核心与 React 使用同一个键盘视口状态转换", async () => {
   assert.equal(typeof canonical.updateMobileKeyboardViewport, "function");
   const context = {};
@@ -86,6 +112,8 @@ test("静态核心与 React 使用同一个键盘视口状态转换", async () =
     sample(390, 844, false),
     sample(390, 705, true),
     sample(390, 704, true),
+    sample(393, 544, true, true, "portrait"),
+    sample(430, 704, true, true, "portrait"),
     sample(844, 390, true),
     sample(844, 390, false),
     sample(844, 390, true),

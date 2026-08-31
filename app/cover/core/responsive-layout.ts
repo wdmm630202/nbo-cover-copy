@@ -23,7 +23,10 @@ export type MobileKeyboardViewportInput = {
 };
 
 export const MOBILE_KEYBOARD_THRESHOLD = 140;
-const MOBILE_VIEWPORT_WIDTH_RESET_DELTA = 2;
+// visualViewport may jitter 1–3 CSS px when the keyboard or browser chrome moves.
+// At 390/430px, 3% is about 12/13px: safely above that jitter while still catching split-view resizing.
+const MOBILE_VIEWPORT_WIDTH_RESET_MIN = 8;
+const MOBILE_VIEWPORT_WIDTH_RESET_RATIO = 0.03;
 
 export function updateMobileKeyboardViewport(
   current: MobileKeyboardViewportState | null,
@@ -35,8 +38,9 @@ export function updateMobileKeyboardViewport(
   if (!current) {
     return { baselineWidth: width, baselineHeight: height, orientation, open: false, keyboardHeight: 0 };
   }
-  const resetBaseline = current.orientation !== orientation
-    || Math.abs(current.baselineWidth - width) >= MOBILE_VIEWPORT_WIDTH_RESET_DELTA;
+  const substantiveWidthChange = Math.abs(current.baselineWidth - width)
+    >= Math.max(MOBILE_VIEWPORT_WIDTH_RESET_MIN, current.baselineWidth * MOBILE_VIEWPORT_WIDTH_RESET_RATIO);
+  const resetBaseline = current.orientation !== orientation || substantiveWidthChange;
 
   if (!input.active || !input.focused || resetBaseline || height >= current.baselineHeight) {
     return { baselineWidth: width, baselineHeight: height, orientation, open: false, keyboardHeight: 0 };

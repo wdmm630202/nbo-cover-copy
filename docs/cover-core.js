@@ -1330,7 +1330,8 @@ var NBOCoverCore = (function(exports) {
 	//#endregion
 	//#region app/cover/core/responsive-layout.ts
 	var MOBILE_KEYBOARD_THRESHOLD = 140;
-	var MOBILE_VIEWPORT_WIDTH_RESET_DELTA = 2;
+	var MOBILE_VIEWPORT_WIDTH_RESET_MIN = 8;
+	var MOBILE_VIEWPORT_WIDTH_RESET_RATIO = 0.03;
 	function updateMobileKeyboardViewport(current, input) {
 		const width = Number.isFinite(input.width) ? Math.max(0, input.width) : 0;
 		const height = Number.isFinite(input.height) ? Math.max(0, input.height) : 0;
@@ -1342,7 +1343,8 @@ var NBOCoverCore = (function(exports) {
 			open: false,
 			keyboardHeight: 0
 		};
-		const resetBaseline = current.orientation !== orientation || Math.abs(current.baselineWidth - width) >= MOBILE_VIEWPORT_WIDTH_RESET_DELTA;
+		const substantiveWidthChange = Math.abs(current.baselineWidth - width) >= Math.max(MOBILE_VIEWPORT_WIDTH_RESET_MIN, current.baselineWidth * MOBILE_VIEWPORT_WIDTH_RESET_RATIO);
+		const resetBaseline = current.orientation !== orientation || substantiveWidthChange;
 		if (!input.active || !input.focused || resetBaseline || height >= current.baselineHeight) return {
 			baselineWidth: width,
 			baselineHeight: height,
