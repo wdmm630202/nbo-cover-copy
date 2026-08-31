@@ -1273,6 +1273,19 @@ var NBOCoverCore = (function(exports) {
 		};
 	}
 	//#endregion
+	//#region app/cover/core/interaction-core.ts
+	function resolveCanvasInteractionMode(input) {
+		if (input.brushMode) return "brush";
+		if (input.rotationMode) return "rotate";
+		return "transform";
+	}
+	function appendRetouchPoint(stroke, point) {
+		return {
+			...stroke,
+			points: [...stroke.points, point]
+		};
+	}
+	//#endregion
 	//#region app/cover/core/responsive-layout.ts
 	function resolveCoverLayoutMode({ width, height, pointer }) {
 		if (pointer === "fine" && width >= 1180) return "desktop";
@@ -1837,6 +1850,7 @@ var NBOCoverCore = (function(exports) {
 	exports.DEFAULT_COVER_SETTINGS = DEFAULT_COVER_SETTINGS;
 	exports.PRIMARY_TOOLS = PRIMARY_TOOLS;
 	exports.SECONDARY_TOOLS = SECONDARY_TOOLS;
+	exports.appendRetouchPoint = appendRetouchPoint;
 	exports.configureCoverExportRuntime = configureCoverExportRuntime;
 	exports.createCoverExportAsset = createCoverExportAsset;
 	exports.createCoverExportAssetWithRuntime = createCoverExportAssetWithRuntime;
@@ -1857,6 +1871,7 @@ var NBOCoverCore = (function(exports) {
 	exports.normalizeCoverSettings = normalizeCoverSettings;
 	exports.releaseCoverCanvas = releaseCoverCanvas;
 	exports.releaseCoverScratchCanvases = releaseCoverScratchCanvases;
+	exports.resolveCanvasInteractionMode = resolveCanvasInteractionMode;
 	exports.resolveCoverLayoutMode = resolveCoverLayoutMode;
 	exports.serializeStaticCoverSettings = serializeStaticCoverSettings;
 	exports.updateCoverSetting = updateCoverSetting;

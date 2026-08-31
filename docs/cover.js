@@ -14,6 +14,7 @@ const PRESETS = {
 };
 const {
   DEFAULT_COVER_SETTINGS,
+  appendRetouchPoint,
   createCoverExportAsset,
   drawCover,
   drawCoverText,
@@ -22,6 +23,7 @@ const {
   getBeforeOffsetLimits,
   normalizeCoverSettings,
   releaseCoverScratchCanvases,
+  resolveCanvasInteractionMode,
   serializeStaticCoverSettings,
   updateCoverSetting,
 } = window.NBOCoverCore;
@@ -153,7 +155,8 @@ if (canvasShell && previewTools) {
 
 canvas.addEventListener("pointerdown", (event) => {
   if (!state.image || event.button !== 0) return;
-  if (retouch.active) {
+  const interactionMode = resolveCanvasInteractionMode({ brushMode: retouch.active, rotationMode: imageInteraction.rotationMode });
+  if (interactionMode === "brush") {
     retouch.compareBefore = false;
     const rect = canvas.getBoundingClientRect();
     const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
@@ -188,14 +191,15 @@ canvas.addEventListener("pointerdown", (event) => {
     offsetY: target === "before" ? state.beforeOffsetY : state.offsetY,
     rotation: target === "before" ? state.beforeRotation : state.rotation,
   };
-  setStatus(imageInteraction.rotationMode
+  setStatus(interactionMode === "rotate"
     ? target === "before" ? "正在旋转拍摄前照片" : "正在旋转主照片"
     : target === "before" ? "正在移动拍摄前照片" : "正在移动主照片");
   canvas.setPointerCapture(event.pointerId);
 });
 
 canvas.addEventListener("pointermove", (event) => {
-  if (retouch.active) {
+  const interactionMode = resolveCanvasInteractionMode({ brushMode: retouch.active, rotationMode: imageInteraction.rotationMode });
+  if (interactionMode === "brush") {
     const rect = canvas.getBoundingClientRect();
     const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
     const cursor = $("#brushCursor");
@@ -206,7 +210,13 @@ canvas.addEventListener("pointermove", (event) => {
   if (retouch.pointerId === event.pointerId) {
     const rect = canvas.getBoundingClientRect();
     const strokes = retouch.pointerTarget === "before" ? retouch.beforeStrokes : retouch.strokes;
-    strokes.at(-1)?.points.push({ x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) });
+    const lastIndex = strokes.length - 1;
+    if (lastIndex >= 0) {
+      strokes[lastIndex] = appendRetouchPoint(strokes[lastIndex], {
+        x: clamp((event.clientX - rect.left) / rect.width, 0, 1),
+        y: clamp((event.clientY - rect.top) / rect.height, 0, 1),
+      });
+    }
     draw();
     return;
   }
@@ -217,7 +227,7 @@ canvas.addEventListener("pointermove", (event) => {
   const beforeFrame = getBeforeImageFrame({ width: canvas.width, height: canvas.height });
   const interactionWidth = drag.target === "before" ? rect.width * beforeFrame.width / canvas.width : rect.width;
   const interactionHeight = drag.target === "before" ? rect.height * beforeFrame.height / canvas.height : rect.height;
-  if (imageInteraction.rotationMode) {
+  if (interactionMode === "rotate") {
     const snapped = snapRotation(clamp(Math.round(drag.rotation + (event.clientX - drag.x) / interactionWidth * 180), -180, 180));
     if (drag.target === "before") {
       state.beforeRotation = snapped.value;
@@ -390,7 +400,7 @@ document.querySelector(".studio-header")?.addEventListener("click", exitAllMobil
 
 canvas.addEventListener("wheel", (event) => {
   if (!state.image) return;
-  if (retouch.active) return;
+  if (resolveCanvasInteractionMode({ brushMode: retouch.active, rotationMode: imageInteraction.rotationMode }) === "brush") return;
   event.preventDefault();
   const amount = clamp(-event.deltaY * .02, -2, 2);
   const rect = canvas.getBoundingClientRect();
@@ -413,7 +423,7 @@ canvas.addEventListener("wheel", (event) => {
 
 canvas.addEventListener("dblclick", (event) => {
   if (!state.image) return;
-  if (retouch.active) return;
+  if (resolveCanvasInteractionMode({ brushMode: retouch.active, rotationMode: imageInteraction.rotationMode }) === "brush") return;
   event.preventDefault();
   const rect = canvas.getBoundingClientRect();
   const point = { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };

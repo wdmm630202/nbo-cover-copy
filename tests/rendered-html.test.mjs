@@ -48,7 +48,7 @@ test("本机生产服务器缺少 Worker 环境时仍显示验证页", async () 
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
-  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverRenderCore, coverExportCore, coverRetouchCore, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
+  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverCanvasSurface, coverInteractionCore, coverRenderCore, coverExportCore, coverRetouchCore, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -59,6 +59,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
     readFile(new URL("../docs/compare-layout.js", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/CoverCanvasSurface.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/core/interaction-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/core/render-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/core/export-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/core/retouch-core.ts", import.meta.url), "utf8"),
@@ -128,7 +130,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /涂抹强度/);
   assert.match(coverStudio, /BracketLeft/);
   assert.match(coverStudio, /BracketRight/);
-  assert.match(coverStudio, /studio-brush-cursor/);
+  assert.match(coverCanvasSurface, /studio-brush-cursor/);
   assert.match(coverStudio, /涂抹前/);
   assert.match(coverStudio, /涂抹后/);
   assert.match(coverStudio, /aria-label="管理涂抹记录"/);
@@ -158,8 +160,13 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /label="左右位置"[\s\S]*?min=\{-200\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /label="上下位置"[\s\S]*?min=\{-200\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /ROTATION_SNAP_ANGLES[\s\S]*?-90[\s\S]*?90/);
-  assert.match(coverStudio, /studio-transform-hud/);
-  assert.match(coverStudio, /studio-snap-guide/);
+  assert.match(coverCanvasSurface, /studio-transform-hud/);
+  assert.match(coverCanvasSurface, /studio-snap-guide/);
+  assert.match(coverStudio, /CoverCanvasSurface/);
+  assert.match(coverCanvasSurface, /resolveCanvasInteractionMode/);
+  assert.match(coverCanvasSurface, /appendRetouchPoint/);
+  assert.match(coverInteractionCore, /export function resolveCanvasInteractionMode/);
+  assert.match(coverInteractionCore, /export function appendRetouchPoint/);
   assert.match(coverRenderCore, /settings\.watermarkAlign === "left"/);
   assert.match(coverRenderCore, /settings\.watermarkAlign === "right"/);
   assert.match(coverRenderCore, /startsWith\("top-"\)/);
