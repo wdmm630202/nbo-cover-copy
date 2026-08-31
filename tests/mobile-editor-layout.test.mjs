@@ -205,7 +205,7 @@ test("文本键盘只在视口下降 140px 且聚焦时压缩工具区，预览�
 
   for (const source of [studio, staticSource]) {
     assert.match(source, /visualViewport/);
-    assert.match(source, /MOBILE_KEYBOARD_THRESHOLD\s*=\s*140/);
+    assert.match(source, /updateMobileKeyboardViewport/);
     assert.match(source, /isTextControlFocused/);
     assert.match(source, /--mobile-keyboard-height/);
     assert.match(source, /is-keyboard-open/);

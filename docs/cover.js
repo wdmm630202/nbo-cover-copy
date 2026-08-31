@@ -7,7 +7,6 @@ const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
-const MOBILE_KEYBOARD_THRESHOLD = 140;
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -34,6 +33,7 @@ const {
   serializeStaticCoverSettings,
   resetMobileToolSetting,
   revealCoverRules,
+  updateMobileKeyboardViewport,
   updateCoverSetting,
 } = window.NBOCoverCore;
 const {
@@ -106,7 +106,7 @@ let compactEditorOpen = false;
 let mobileExportOpen = false;
 let mobileExportBusy = false;
 let mobileKeyboardOpen = false;
-let mobileViewportBaseline = 0;
+let mobileKeyboardViewportState = null;
 let activePrimaryTool = "compose";
 let activeSecondaryTool = "target";
 const mobileGesture = { pointers: new Map(), holdTimer: 0, active: false, anchorId: null, holdOrigin: null, baseline: null };
@@ -179,17 +179,20 @@ function syncMobileKeyboardViewport() {
   const editorOpen = coverLayoutMode === "compact" && compactEditorOpen && Boolean(state.image);
   if (!viewport || !editorOpen) {
     mobileKeyboardOpen = false;
-    mobileViewportBaseline = 0;
+    mobileKeyboardViewportState = null;
     document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
     renderMobileEditorLayout();
     return;
   }
-  if (!mobileViewportBaseline) mobileViewportBaseline = viewport.height;
-  const focused = isTextControlFocused();
-  if (!focused) mobileViewportBaseline = Math.max(mobileViewportBaseline, viewport.height);
-  const keyboardHeight = focused ? Math.max(0, mobileViewportBaseline - viewport.height) : 0;
-  mobileKeyboardOpen = focused && keyboardHeight >= MOBILE_KEYBOARD_THRESHOLD;
-  document.documentElement.style.setProperty("--mobile-keyboard-height", `${mobileKeyboardOpen ? Math.round(keyboardHeight) : 0}px`);
+  mobileKeyboardViewportState = updateMobileKeyboardViewport(mobileKeyboardViewportState, {
+    width: viewport.width,
+    height: viewport.height,
+    orientation: window.innerWidth > window.innerHeight ? "landscape" : "portrait",
+    focused: isTextControlFocused(),
+    active: true,
+  });
+  mobileKeyboardOpen = mobileKeyboardViewportState.open;
+  document.documentElement.style.setProperty("--mobile-keyboard-height", `${mobileKeyboardViewportState.keyboardHeight}px`);
   renderMobileEditorLayout();
 }
 
@@ -201,7 +204,8 @@ function syncMobileEditorLayout() {
     compactEditorOpen = false;
     mobileExportOpen = false;
     mobileKeyboardOpen = false;
-    mobileViewportBaseline = 0;
+    mobileKeyboardViewportState = null;
+    document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
   } else if (previousMode !== "compact" && state.image) {
     compactEditorOpen = true;
   }
@@ -212,7 +216,9 @@ function openCompactEditor() {
   if (coverLayoutMode !== "compact" || !state.image) return;
   compactEditorOpen = true;
   mobileExportOpen = false;
-  mobileViewportBaseline = window.visualViewport?.height || window.innerHeight;
+  mobileKeyboardViewportState = null;
+  mobileKeyboardOpen = false;
+  document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
   renderMobileEditorLayout();
 }
 
@@ -220,7 +226,7 @@ function closeCompactEditor() {
   compactEditorOpen = false;
   mobileExportOpen = false;
   mobileKeyboardOpen = false;
-  mobileViewportBaseline = 0;
+  mobileKeyboardViewportState = null;
   document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
   renderMobileEditorLayout();
 }

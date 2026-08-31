@@ -38,7 +38,9 @@ import {
 } from "./core/static-entry";
 import {
   resolveCoverLayoutMode,
+  updateMobileKeyboardViewport,
   type CoverLayoutMode,
+  type MobileKeyboardViewportState,
 } from "./core/responsive-layout";
 import {
   applyMobileSyncedCopy,
@@ -94,7 +96,6 @@ const MEMORY_NAMES_KEY = "nbo-cover-studio-memory-names";
 
 const ROTATION_SNAP_ANGLES = [-180, -90, 0, 90, 180];
 const ROTATION_SNAP_DISTANCE = 3;
-const MOBILE_KEYBOARD_THRESHOLD = 140;
 
 function isTextControlFocused() {
   const active = document.activeElement;
@@ -249,7 +250,7 @@ export default function CoverStudio() {
   const rotationModeRef = useRef(rotationMode);
   const brushModeRef = useRef(brushMode);
   const brushSettingsRef = useRef({ size: brushSize, feather: brushFeather, strength: brushStrength });
-  const mobileViewportBaselineRef = useRef(0);
+  const mobileKeyboardViewportRef = useRef<MobileKeyboardViewportState | null>(null);
 
   const showTransformHint = (text: string, guide: "horizontal" | "vertical" | null = null) => {
     const hud = transformHudRef.current;
@@ -362,21 +363,22 @@ export default function CoverStudio() {
     if (!viewport || !editorOpen) {
       document.body.classList.remove("is-keyboard-open");
       document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
-      mobileViewportBaselineRef.current = 0;
+      mobileKeyboardViewportRef.current = null;
       const resetTimer = window.setTimeout(() => setIsMobileKeyboardOpen(false), 0);
       return () => window.clearTimeout(resetTimer);
     }
-    mobileViewportBaselineRef.current = Math.max(mobileViewportBaselineRef.current, viewport.height);
     const syncKeyboardViewport = () => {
-      const focused = isTextControlFocused();
-      if (!focused) mobileViewportBaselineRef.current = Math.max(mobileViewportBaselineRef.current, viewport.height);
-      const keyboardHeight = focused
-        ? Math.max(0, mobileViewportBaselineRef.current - viewport.height)
-        : 0;
-      const open = focused && keyboardHeight >= MOBILE_KEYBOARD_THRESHOLD;
-      document.body.classList.toggle("is-keyboard-open", open);
-      document.documentElement.style.setProperty("--mobile-keyboard-height", `${open ? Math.round(keyboardHeight) : 0}px`);
-      setIsMobileKeyboardOpen(open);
+      const next = updateMobileKeyboardViewport(mobileKeyboardViewportRef.current, {
+        width: viewport.width,
+        height: viewport.height,
+        orientation: window.innerWidth > window.innerHeight ? "landscape" : "portrait",
+        focused: isTextControlFocused(),
+        active: true,
+      });
+      mobileKeyboardViewportRef.current = next;
+      document.body.classList.toggle("is-keyboard-open", next.open);
+      document.documentElement.style.setProperty("--mobile-keyboard-height", `${next.keyboardHeight}px`);
+      setIsMobileKeyboardOpen(next.open);
     };
     const handleFocusOut = () => window.setTimeout(syncKeyboardViewport, 0);
     viewport.addEventListener("resize", syncKeyboardViewport);
@@ -389,6 +391,7 @@ export default function CoverStudio() {
       document.removeEventListener("focusout", handleFocusOut);
       document.body.classList.remove("is-keyboard-open");
       document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
+      mobileKeyboardViewportRef.current = null;
     };
   }, [isCompactEditorOpen, layoutMode]);
 
