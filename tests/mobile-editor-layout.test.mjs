@@ -88,9 +88,10 @@ test("单项面板支持 range text color toggle choice action 且触控目标�
 });
 
 test("React Compact 壳层保留单一画布并由 CoverStudio 拥有开关状态", async () => {
-  const [studio, shell, dock, exportSheet] = await Promise.all([
+  const [studio, shell, splitShell, dock, exportSheet] = await Promise.all([
     read("../app/cover/CoverStudio.tsx"),
     read("../app/cover/CoverCompactShell.tsx"),
+    read("../app/cover/CoverSplitShell.tsx"),
     read("../app/cover/CoverMobileToolDock.tsx"),
     read("../app/cover/CoverExportSheet.tsx"),
   ]);
@@ -104,10 +105,96 @@ test("React Compact 壳层保留单一画布并由 CoverStudio 拥有开关状�
   assert.match(exportSheet, /id="mobileExportSheet"/);
   assert.match(studio, /import \{[\s\S]{0,100}resolveCoverLayoutMode[\s\S]{0,100}\} from "\.\/core\/responsive-layout"/);
   assert.match(studio, /const \[isCompactEditorOpen, setIsCompactEditorOpen\] = useState\(false\)/);
-  assert.match(studio, /<CoverCompactShell/);
+  assert.match(studio, /<CoverSplitShell/);
+  assert.match(splitShell, /<CoverCompactShell/);
   assert.match(studio, /canvas=\{coverCanvas\}/);
   assert.doesNotMatch(studio, /key=\{[^}]*layout/i);
   assert.equal((studio.match(/<CoverCanvasSurface/g) || []).length, 1);
+});
+
+test("Split 壳层复用同一画布与 Dock 且不持有业务状态", async () => {
+  const [studio, splitShell, compactShell, html, staticSource] = await Promise.all([
+    read("../app/cover/CoverStudio.tsx"),
+    read("../app/cover/CoverSplitShell.tsx"),
+    read("../app/cover/CoverCompactShell.tsx"),
+    read("../docs/cover.html"),
+    read("../docs/cover.js"),
+  ]);
+
+  assert.match(splitShell, /export type CoverSplitShellProps = (?:Omit<[^;]+&\s*)?\{/);
+  assert.match(`${splitShell}\n${compactShell}`, /className="[^\"]*split-tools[^\"]*"/);
+  assert.match(splitShell, /onOpenExport/);
+  assert.doesNotMatch(splitShell, /\buseState\b|\buseReducer\b/);
+  assert.match(studio, /<CoverSplitShell/);
+  assert.match(studio, /canvas=\{coverCanvas\}/);
+  assert.match(studio, /dock=\{mobileToolDock\}/);
+  assert.equal((studio.match(/<CoverCanvasSurface/g) || []).length, 1);
+  assert.equal((studio.match(/<CoverMobileToolDock/g) || []).length, 1);
+  assert.doesNotMatch(studio, /key=\{[^}]*layout/i);
+  assert.match(splitShell, /CoverCompactShell/);
+  assert.equal((html.match(/<canvas\b/g) || []).length, 1);
+  assert.equal((html.match(/id="mobileSingleToolControl"/g) || []).length, 1);
+  assert.match(html, /class="split-tools"[\s\S]*id="mobileSingleToolControl"[\s\S]*id="mobilePrimaryTools"/);
+  assert.doesNotMatch(staticSource, /cloneNode\(|replaceWith\(|replaceChild\(/);
+  assert.equal((compactShell.match(/\{canvas\}/g) || []).length, 1);
+  assert.doesNotMatch(compactShell, /split\s*\?[\s\S]{0,240}\{canvas\}/);
+  assert.doesNotMatch(splitShell, /mode\s*===\s*["'](?:compact|split|desktop)["']\s*\?/);
+});
+
+test("React 与静态页都观察编辑器根尺寸并清理监听", async () => {
+  const [studio, staticSource] = await Promise.all([
+    read("../app/cover/CoverStudio.tsx"),
+    read("../docs/cover.js"),
+  ]);
+
+  assert.match(studio, /const editorRootRef = useRef<HTMLElement/);
+  assert.match(studio, /new ResizeObserver\(syncLayout\)/);
+  assert.match(studio, /observer\.observe\(editorRoot\)/);
+  assert.match(studio, /observer\.disconnect\(\)/);
+  assert.match(staticSource, /new ResizeObserver\(syncMobileEditorLayout\)/);
+  assert.match(staticSource, /coverLayoutObserver\.observe\(studioGrid\)/);
+  assert.match(staticSource, /resolveCoverLayoutTransition\(state,/);
+});
+
+test("Split 左侧预览固定且只有右侧工具垂直滚动", async () => {
+  const [appCss, staticCss] = await Promise.all([
+    read("../app/globals.css"),
+    read("../docs/cover.css"),
+  ]);
+
+  for (const css of [appCss, staticCss]) {
+    assert.match(css, /data-cover-layout="split"/);
+    assert.match(css, /data-cover-layout="split"[\s\S]{0,2200}split-preview[\s\S]{0,500}position:\s*sticky/);
+    assert.match(css, /data-cover-layout="split"[\s\S]{0,2600}split-tools[\s\S]{0,500}overflow-y:\s*auto/);
+    assert.match(css, /data-cover-layout="split"[\s\S]{0,2600}overflow-x:\s*hidden/);
+    assert.match(css, /data-cover-layout="desktop"/);
+  }
+});
+
+test("Desktop 仍保留三栏、双面板滚动和原有交互接线", async () => {
+  const [studio, surface, appCss, html, staticCss, staticSource] = await Promise.all([
+    read("../app/cover/CoverStudio.tsx"),
+    read("../app/cover/CoverCanvasSurface.tsx"),
+    read("../app/globals.css"),
+    read("../docs/cover.html"),
+    read("../docs/cover.css"),
+    read("../docs/cover.js"),
+  ]);
+
+  for (const css of [appCss, staticCss]) {
+    assert.match(css, /(?:cover-)?studio-grid\s*\{[\s\S]{0,180}grid-template-columns:\s*330px\s+minmax\(420px,\s*1fr\)\s+350px/);
+    assert.match(css, /grid-template-columns:\s*300px\s+minmax\(580px,\s*1fr\)\s+390px/);
+    assert.doesNotMatch(css, /data-cover-layout="desktop"\][^{]*\{[^}]*grid-template-columns/);
+    assert.match(css, /data-cover-layout="desktop"[\s\S]{0,1200}(?:studio-controls|controls)[\s\S]{0,250}overflow-y:\s*auto/);
+    assert.match(css, /data-cover-layout="desktop"[\s\S]{0,1600}(?:studio-design|design)[\s\S]{0,250}overflow-y:\s*auto/);
+  }
+  for (const token of ["studio-controls", "studio-preview-panel", "studio-design", "exportCover("]) assert.match(studio, new RegExp(token.replace("(", "\\(")));
+  assert.match(surface, /canvas\.addEventListener\("wheel"/);
+  assert.match(surface, /canvas\.addEventListener\("pointerdown"/);
+  for (const token of ['class="panel controls"', 'class="preview-panel"', 'class="panel design"', 'id="coverCanvas"', 'id="exportOriginalPng"', 'id="exportJpg"']) assert.match(html, new RegExp(token));
+  assert.match(staticSource, /canvas\.addEventListener\("wheel"/);
+  assert.match(staticSource, /canvas\.addEventListener\("pointerdown"/);
+  assert.match(staticSource, /window\.addEventListener\("keydown"/);
 });
 
 test("Compact 壳层占有 100dvh 并将滚动限定在工具横排", async () => {
@@ -144,7 +231,7 @@ test("手机壳层只由共享 resolver 决定且模式变化会安全隐藏", a
   assert.equal(resolveCoverLayoutMode({ width: 1440, height: 900, pointer: "fine" }), "desktop");
   assert.match(studio, /resolveCoverLayoutMode\(\{/);
   assert.match(studio, /layoutMode (?:===|!==) "compact"/);
-  assert.match(staticSource, /resolveCoverLayoutMode\(\{/);
+  assert.match(staticSource, /resolveCoverLayout(?:Mode|Transition)\(/);
   assert.match(staticSource, /studioGrid\.dataset\.coverLayout = coverLayoutMode/);
   assert.match(staticSource, /addEventListener\("resize", syncMobileEditorLayout\)/);
   assert.match(staticSource, /coverPointerQuery\.addEventListener\?\.\("change", syncMobileEditorLayout\)/);

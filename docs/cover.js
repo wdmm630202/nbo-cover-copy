@@ -29,6 +29,7 @@ const {
   normalizeCoverSettings,
   releaseCoverScratchCanvases,
   resolveCoverLayoutMode,
+  resolveCoverLayoutTransition,
   resolveCanvasInteractionMode,
   serializeStaticCoverSettings,
   resetMobileToolSetting,
@@ -86,6 +87,7 @@ const mobileEditorTopbar = $("#mobileEditorTopbar");
 const mobileSecondaryTools = $("#mobileSecondaryTools");
 const mobilePrimaryTools = $("#mobilePrimaryTools");
 const mobileSingleToolControl = $("#mobileSingleToolControl");
+const splitTools = $("#splitTools");
 const mobileExportSheet = $("#mobileExportSheet");
 const mobileBrushStatus = $("#mobileBrushStatus");
 const mobileEditorLauncher = $("#openMobileEditor");
@@ -155,15 +157,18 @@ const activeRetouchStrokes = () => activeRetouchTarget() === "before" ? retouch.
 
 function renderMobileEditorLayout() {
   const open = coverLayoutMode === "compact" && Boolean(state.image) && compactEditorOpen;
+  const split = coverLayoutMode === "split";
   studioGrid.dataset.coverLayout = coverLayoutMode;
   studioGrid.classList.toggle("is-mobile-editor-open", open);
   document.body.classList.toggle("mobile-editor-open", open);
+  document.body.classList.toggle("split-editor-open", split);
   studioGrid.classList.toggle("is-keyboard-open", open && mobileKeyboardOpen);
   mobileEditorTopbar.hidden = !open;
-  mobileSingleToolControl.hidden = !open;
-  mobileSecondaryTools.hidden = !open;
-  mobilePrimaryTools.hidden = !open;
-  mobileExportSheet.hidden = !(open && mobileExportOpen);
+  splitTools.hidden = !open && !split;
+  mobileSingleToolControl.hidden = !open && !split;
+  mobileSecondaryTools.hidden = !open && !split;
+  mobilePrimaryTools.hidden = !open && !split;
+  mobileExportSheet.hidden = !((open || split) && mobileExportOpen);
   mobileEditorLauncher.hidden = !(coverLayoutMode === "compact" && state.image && !open);
   ["mobileExportOriginalPng", "mobileExportOriginalJpg", "mobileExportDesignPng", "mobileExportDesignJpg", "closeMobileExport"].forEach((id) => {
     document.getElementById(id).disabled = mobileExportBusy;
@@ -171,7 +176,7 @@ function renderMobileEditorLayout() {
   $("#mobileExportStatus").textContent = mobileExportBusy
     ? "正在生成原始像素成品…"
     : "导出后会打开系统分享；取消后仍可长按成品保存。";
-  if (open) renderMobileToolDock();
+  if (open || split) renderMobileToolDock();
 }
 
 function syncMobileKeyboardViewport() {
@@ -199,7 +204,12 @@ function syncMobileKeyboardViewport() {
 function syncMobileEditorLayout() {
   const previousMode = coverLayoutMode;
   const pointer = coverPointerQuery.matches ? "coarse" : "fine";
-  coverLayoutMode = resolveCoverLayoutMode({ width: window.innerWidth, height: window.innerHeight, pointer });
+  const transition = resolveCoverLayoutTransition(state, {
+    width: studioGrid.getBoundingClientRect().width || window.innerWidth,
+    height: window.innerHeight,
+    pointer,
+  });
+  coverLayoutMode = transition.mode;
   if (coverLayoutMode !== "compact") {
     compactEditorOpen = false;
     mobileExportOpen = false;
@@ -237,12 +247,23 @@ $("#openMobileExport").addEventListener("click", () => {
   mobileExportOpen = true;
   renderMobileEditorLayout();
 });
+$("#openSplitExport").addEventListener("click", () => {
+  mobileExportOpen = true;
+  renderMobileEditorLayout();
+});
 $("#closeMobileExport").addEventListener("click", () => {
   mobileExportOpen = false;
   renderMobileEditorLayout();
 });
 window.addEventListener("resize", syncMobileEditorLayout);
 coverPointerQuery.addEventListener?.("change", syncMobileEditorLayout);
+const coverLayoutObserver = new ResizeObserver(syncMobileEditorLayout);
+coverLayoutObserver.observe(studioGrid);
+window.addEventListener("pagehide", () => {
+  coverLayoutObserver.disconnect();
+  window.removeEventListener("resize", syncMobileEditorLayout);
+  coverPointerQuery.removeEventListener?.("change", syncMobileEditorLayout);
+}, { once: true });
 window.visualViewport?.addEventListener("resize", syncMobileKeyboardViewport);
 document.addEventListener("focusin", syncMobileKeyboardViewport);
 document.addEventListener("focusout", () => window.setTimeout(syncMobileKeyboardViewport, 0));

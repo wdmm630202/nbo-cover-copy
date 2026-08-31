@@ -119,7 +119,7 @@
                 <button class="mobile-editor-launcher" id="openMobileEditor" type="button" hidden>继续手机编辑</button>
               </div>
             </div>
-            <div class="canvas-shell ratio-9-16" id="canvasShell">
+            <div class="canvas-shell split-preview ratio-9-16" id="canvasShell">
               <canvas id="coverCanvas" aria-label="封面实时预览，可拖动照片、滚轮缩放、双击旋转"></canvas>
               <span class="mobile-touch-zone" id="mobileTouchZone" aria-hidden="true"></span>
               <span class="transform-hud" id="transformHud" aria-live="polite"></span>
@@ -128,11 +128,17 @@
               <span class="brush-cursor" id="brushCursor" aria-hidden="true"></span>
               <p id="mobileBrushStatus" class="mobile-brush-status" role="status" aria-live="polite">涂抹关闭 · 主照片</p>
             </div>
-            <section id="mobileSingleToolControl" class="mobile-single-tool-control" aria-live="polite" hidden></section>
-            <nav id="mobileSecondaryTools" class="mobile-secondary-tools" aria-label="当前工具" hidden>
-            </nav>
-            <nav id="mobilePrimaryTools" class="mobile-primary-tools" aria-label="编辑分类" hidden>
-            </nav>
+            <aside class="split-tools" id="splitTools" hidden>
+              <div class="split-tools-header">
+                <strong>编辑工具</strong>
+                <button id="openSplitExport" type="button">导出</button>
+              </div>
+              <section id="mobileSingleToolControl" class="mobile-single-tool-control" aria-live="polite" hidden></section>
+              <nav id="mobileSecondaryTools" class="mobile-secondary-tools" aria-label="当前工具" hidden>
+              </nav>
+              <nav id="mobilePrimaryTools" class="mobile-primary-tools" aria-label="编辑分类" hidden>
+              </nav>
+            </aside>
             <section id="mobileExportSheet" class="mobile-export-sheet" aria-label="选择导出格式" hidden>
               <div>
                 <strong>选择导出格式</strong>

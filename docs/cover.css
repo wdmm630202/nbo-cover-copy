@@ -319,10 +319,133 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .mobile-editor-topbar,
+.split-tools,
 .mobile-secondary-tools,
 .mobile-primary-tools,
 .mobile-export-sheet,
 .mobile-editor-launcher { display: none; }
+
+body.split-editor-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.studio-grid[data-cover-layout="split"] {
+  overflow-x: hidden;
+}
+
+.studio-grid[data-cover-layout="split"] > .controls,
+.studio-grid[data-cover-layout="split"] > .design,
+.studio-grid[data-cover-layout="split"] .preview-toolbar,
+.studio-grid[data-cover-layout="split"] .preview-tools {
+  display: none;
+}
+
+.studio-grid[data-cover-layout="split"] .preview-panel {
+  min-width: 0;
+  width: 100%;
+  height: 100dvh;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
+  gap: 12px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #171716;
+}
+
+.studio-grid[data-cover-layout="split"] .split-preview {
+  min-width: 0;
+  min-height: 0;
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #111;
+}
+
+.studio-grid[data-cover-layout="split"] .split-tools {
+  min-width: 0;
+  min-height: 0;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 18px;
+  background: rgba(28, 28, 27, .94);
+  scrollbar-width: thin;
+}
+
+.studio-grid[data-cover-layout="split"] .split-tools-header {
+  min-height: 44px;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #fff;
+}
+
+.studio-grid[data-cover-layout="split"] .split-tools-header button {
+  min-width: 72px;
+  min-height: 44px;
+  border: 1px solid rgba(255, 82, 106, .7);
+  border-radius: 12px;
+  background: rgba(255, 36, 66, .18);
+  color: #fff;
+  font-weight: 750;
+}
+
+.studio-grid[data-cover-layout="split"] .mobile-single-tool-control,
+.studio-grid[data-cover-layout="split"] .mobile-secondary-tools,
+.studio-grid[data-cover-layout="split"] .mobile-primary-tools {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.studio-grid[data-cover-layout="split"] .mobile-single-tool-control { display: block; max-height: none; }
+
+.studio-grid[data-cover-layout="split"] .mobile-brush-status {
+  min-height: 28px;
+  margin: 0;
+  padding: 5px 10px;
+  position: absolute;
+  z-index: 8;
+  top: 14px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px;
+  background: rgba(26, 26, 25, .72);
+  color: rgba(255, 255, 255, .78);
+  font-size: 12px;
+  font-weight: 700;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.studio-grid[data-cover-layout="desktop"] {
+  overflow-x: hidden;
+}
+
+.studio-grid[data-cover-layout="desktop"] .controls,
+.studio-grid[data-cover-layout="desktop"] .design {
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 body.mobile-editor-open {
   overflow: hidden;
@@ -346,6 +469,10 @@ body.mobile-editor-open {
   background: #171716;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+}
+
+.studio-grid[data-cover-layout="compact"].is-mobile-editor-open .split-tools {
+  display: contents;
 }
 
 .studio-grid[data-cover-layout="compact"].is-mobile-editor-open .mobile-editor-topbar {

@@ -15,9 +15,9 @@ import {
   PLATFORM_PRESETS,
 } from "./cover-config";
 import CoverCanvasSurface from "./CoverCanvasSurface";
-import CoverCompactShell from "./CoverCompactShell";
 import CoverExportSheet from "./CoverExportSheet";
 import CoverMobileToolDock, { type MobileToolPresentation } from "./CoverMobileToolDock";
+import CoverSplitShell from "./CoverSplitShell";
 import {
   DEFAULT_COVER_SETTINGS,
   normalizeCoverSettings,
@@ -193,6 +193,7 @@ function Slider({
 }
 
 export default function CoverStudio() {
+  const editorRootRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasShellRef = useRef<HTMLDivElement>(null);
   const mobileTouchZoneRef = useRef<HTMLSpanElement>(null);
@@ -324,18 +325,23 @@ export default function CoverStudio() {
   }, [activePrimaryTool, activeSecondaryTool, adjustmentTarget, mobileToolContext, settings.compareEnabled]);
 
   useEffect(() => {
+    const editorRoot = editorRootRef.current;
+    if (!editorRoot) return;
     const pointerQuery = window.matchMedia("(pointer: coarse)");
     const syncLayout = () => {
       setLayoutMode(resolveCoverLayoutMode({
-        width: window.innerWidth,
+        width: editorRoot.getBoundingClientRect().width || window.innerWidth,
         height: window.innerHeight,
         pointer: pointerQuery.matches ? "coarse" : "fine",
       }));
     };
+    const observer = new ResizeObserver(syncLayout);
+    observer.observe(editorRoot);
     syncLayout();
     window.addEventListener("resize", syncLayout);
     pointerQuery.addEventListener?.("change", syncLayout);
     return () => {
+      observer.disconnect();
       window.removeEventListener("resize", syncLayout);
       pointerQuery.removeEventListener?.("change", syncLayout);
     };
@@ -354,7 +360,11 @@ export default function CoverStudio() {
   useEffect(() => {
     const open = layoutMode === "compact" && isCompactEditorOpen;
     document.body.classList.toggle("mobile-editor-open", open);
-    return () => document.body.classList.remove("mobile-editor-open");
+    document.body.classList.toggle("split-editor-open", layoutMode === "split");
+    return () => {
+      document.body.classList.remove("mobile-editor-open");
+      document.body.classList.remove("split-editor-open");
+    };
   }, [isCompactEditorOpen, layoutMode]);
 
   useEffect(() => {
@@ -1208,8 +1218,22 @@ export default function CoverStudio() {
     />
   );
 
+  const mobileToolDock = (
+    <CoverMobileToolDock
+      primary={activePrimaryTool}
+      secondary={activeSecondaryTool}
+      context={mobileToolContext}
+      valueFor={mobileValueFor}
+      onSelectPrimary={selectMobilePrimary}
+      onSelectSecondary={setActiveSecondaryTool}
+      onChange={changeMobileTool}
+      onReset={resetMobileTool}
+      onAction={runMobileToolAction}
+    />
+  );
+
   return (
-    <section className="cover-studio">
+    <section ref={editorRootRef} className="cover-studio">
       {savePreview && (
         <div className="save-preview">
           <div className="save-preview-card">
@@ -1481,7 +1505,8 @@ export default function CoverStudio() {
               ) : null}
             </div>
           </div>
-          <CoverCompactShell
+          <CoverSplitShell
+            mode={layoutMode}
             open={layoutMode === "compact" && isCompactEditorOpen}
             onClose={() => {
               setIsMobileExportOpen(false);
@@ -1492,20 +1517,10 @@ export default function CoverStudio() {
             brushMode={brushMode}
             brushTarget={activeRetouchTarget}
             canvas={coverCanvas}
-            dock={<CoverMobileToolDock
-              primary={activePrimaryTool}
-              secondary={activeSecondaryTool}
-              context={mobileToolContext}
-              valueFor={mobileValueFor}
-              onSelectPrimary={selectMobilePrimary}
-              onSelectSecondary={setActiveSecondaryTool}
-              onChange={changeMobileTool}
-              onReset={resetMobileTool}
-              onAction={runMobileToolAction}
-            />}
+            dock={mobileToolDock}
           />
           <CoverExportSheet
-            open={layoutMode === "compact" && isCompactEditorOpen && isMobileExportOpen}
+            open={layoutMode !== "desktop" && (layoutMode === "split" || isCompactEditorOpen) && isMobileExportOpen}
             busy={isMobileExportBusy}
             onClose={() => setIsMobileExportOpen(false)}
             onExport={handleMobileExport}

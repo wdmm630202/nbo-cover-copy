@@ -1331,7 +1331,7 @@ var NBOCoverCore = (function(exports) {
 	//#region app/cover/core/responsive-layout.ts
 	var MOBILE_KEYBOARD_THRESHOLD = 140;
 	var MOBILE_VIEWPORT_WIDTH_RESET_MIN = 8;
-	var MOBILE_VIEWPORT_WIDTH_RESET_RATIO = 0.03;
+	var MOBILE_VIEWPORT_WIDTH_RESET_RATIO = .03;
 	function updateMobileKeyboardViewport(current, input) {
 		const width = Number.isFinite(input.width) ? Math.max(0, input.width) : 0;
 		const height = Number.isFinite(input.height) ? Math.max(0, input.height) : 0;
@@ -1364,6 +1364,12 @@ var NBOCoverCore = (function(exports) {
 		if (pointer === "fine" && width >= 1180) return "desktop";
 		if (width >= 680 && (width > height || pointer === "fine")) return "split";
 		return "compact";
+	}
+	function resolveCoverLayoutTransition(editorState, environment) {
+		return {
+			mode: resolveCoverLayoutMode(environment),
+			editorState
+		};
 	}
 	//#endregion
 	//#region app/cover/core/tool-registry.ts
@@ -1951,6 +1957,7 @@ var NBOCoverCore = (function(exports) {
 	exports.resetMobileToolSetting = resetMobileToolSetting;
 	exports.resolveCanvasInteractionMode = resolveCanvasInteractionMode;
 	exports.resolveCoverLayoutMode = resolveCoverLayoutMode;
+	exports.resolveCoverLayoutTransition = resolveCoverLayoutTransition;
 	exports.revealCoverRules = revealCoverRules;
 	exports.serializeStaticCoverSettings = serializeStaticCoverSettings;
 	exports.updateCoverSetting = updateCoverSetting;

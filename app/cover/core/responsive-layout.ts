@@ -60,3 +60,13 @@ export function resolveCoverLayoutMode({ width, height, pointer }: LayoutEnviron
   if (width >= 680 && (width > height || pointer === "fine")) return "split";
   return "compact";
 }
+
+export function resolveCoverLayoutTransition<T>(
+  editorState: T,
+  environment: LayoutEnvironment,
+): { mode: CoverLayoutMode; editorState: T } {
+  return {
+    mode: resolveCoverLayoutMode(environment),
+    editorState,
+  };
+}

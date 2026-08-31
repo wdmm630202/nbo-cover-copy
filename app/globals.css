@@ -1402,14 +1402,158 @@ body {
 
 /* Compact 仅改变现有编辑器的展示容器；画布和所有编辑状态仍由 CoverStudio 拥有。 */
 .cover-compact-shell,
+.cover-responsive-shell,
 .cover-compact-preview { display: contents; }
 
 .mobile-editor-topbar,
 .cover-compact-dock,
+.split-tools-header,
 .mobile-secondary-tools,
 .mobile-primary-tools,
 .mobile-export-sheet,
 .mobile-editor-launcher { display: none; }
+
+body.split-editor-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.cover-studio-grid[data-cover-layout="split"] {
+  overflow-x: hidden;
+}
+
+.cover-studio-grid[data-cover-layout="split"] > .studio-controls,
+.cover-studio-grid[data-cover-layout="split"] > .studio-design,
+.cover-studio-grid[data-cover-layout="split"] .studio-preview-panel > .studio-preview-toolbar,
+.cover-studio-grid[data-cover-layout="split"] .studio-preview-panel > .studio-preview-tools {
+  display: none;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .studio-preview-panel {
+  min-width: 0;
+  width: 100%;
+  height: 100dvh;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #171716;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .cover-responsive-shell {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .cover-compact-shell.is-split {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
+  gap: 12px;
+  overflow-x: hidden;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .split-preview {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  position: sticky;
+  top: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #111;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .split-preview .studio-canvas-shell {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .split-tools {
+  min-width: 0;
+  min-height: 0;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 18px;
+  background: rgba(28, 28, 27, .94);
+  scrollbar-width: thin;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .split-tools-header {
+  min-height: 44px;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .split-tools-header button {
+  min-width: 72px;
+  min-height: 44px;
+  border: 1px solid rgba(255, 82, 106, .7);
+  border-radius: 12px;
+  background: rgba(255, 36, 66, .18);
+  color: #fff;
+  font-weight: 750;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .mobile-single-tool-control,
+.cover-studio-grid[data-cover-layout="split"] .mobile-secondary-tools,
+.cover-studio-grid[data-cover-layout="split"] .mobile-primary-tools {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.cover-studio-grid[data-cover-layout="split"] .mobile-single-tool-control { display: block; max-height: none; }
+
+.cover-studio-grid[data-cover-layout="split"] .mobile-brush-status {
+  min-height: 28px;
+  margin: 0;
+  padding: 5px 10px;
+  position: absolute;
+  z-index: 8;
+  top: 14px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px;
+  background: rgba(26, 26, 25, .72);
+  color: rgba(255, 255, 255, .78);
+  font-size: 12px;
+  font-weight: 700;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.cover-studio-grid[data-cover-layout="desktop"] {
+  overflow-x: hidden;
+}
+
+.cover-studio-grid[data-cover-layout="desktop"] .studio-controls,
+.cover-studio-grid[data-cover-layout="desktop"] .studio-design {
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 body.mobile-editor-open {
   overflow: hidden;
