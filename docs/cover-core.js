@@ -99,8 +99,13 @@ var NBOCoverCore = (function(exports) {
 		});
 	}
 	var browserRuntime = null;
+	var renderRequestObserver = null;
 	function configureCoverExportRuntime(runtime) {
 		browserRuntime = runtime;
+	}
+	/** Test/diagnostic seam on the real export path. Null in normal production use. */
+	function setCoverExportRenderRequestObserver(observer) {
+		renderRequestObserver = observer;
 	}
 	async function createCoverExportAssetWithRuntime(request, runtime) {
 		const cancellationError = () => new CoverExportError("EXPORT_CANCELLED", "导出任务已失效");
@@ -126,13 +131,15 @@ var NBOCoverCore = (function(exports) {
 			};
 			let blob = null;
 			try {
-				runtime.drawCover({
+				const renderRequest = {
 					...request.render,
 					canvas,
 					includeGuide: false,
 					outputSize,
 					photoOnly: request.photoOnly
-				});
+				};
+				renderRequestObserver?.(renderRequest);
+				runtime.drawCover(renderRequest);
 				if (request.isCancelled?.()) {
 					release();
 					throw cancellationError();
@@ -1953,6 +1960,7 @@ var NBOCoverCore = (function(exports) {
 	exports.resolveCoverLayoutMode = resolveCoverLayoutMode;
 	exports.revealCoverRules = revealCoverRules;
 	exports.serializeStaticCoverSettings = serializeStaticCoverSettings;
+	exports.setCoverExportRenderRequestObserver = setCoverExportRenderRequestObserver;
 	exports.updateCoverSetting = updateCoverSetting;
 	exports.updateMobileKeyboardViewport = updateMobileKeyboardViewport;
 	return exports;

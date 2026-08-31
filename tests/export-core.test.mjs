@@ -9,6 +9,7 @@ import {
   getOriginalPixelExportPlan,
   getOriginalPixelJpegMaxBytes,
   getOriginalPixelJpegQualities,
+  setCoverExportRenderRequestObserver,
 } from "../app/cover/core/export-core.ts";
 
 const preset = {
@@ -43,6 +44,20 @@ function makeRequest(overrides = {}) {
 function fakeBlob(size, type) {
   return { size, type };
 }
+
+test("导出真实调用路径可被无副作用观察且不改写 render request", async () => {
+  const observed = [];
+  const { runtime, calls } = makeRuntime();
+  setCoverExportRenderRequestObserver((request) => observed.push(request));
+  try {
+    await createCoverExportAssetWithRuntime(makeRequest({ format: "png" }), runtime);
+  } finally {
+    setCoverExportRenderRequestObserver(null);
+  }
+  assert.equal(observed.length, 1);
+  assert.strictEqual(observed[0], calls.render[0]);
+  assert.deepEqual(observed[0].outputSize, { width: 3375, height: 6000 });
+});
 
 function makeRuntime({ encode, render, deferEncode } = {}) {
   const calls = {

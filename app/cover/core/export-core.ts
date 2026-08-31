@@ -151,9 +151,15 @@ function encodeCanvas(
 }
 
 let browserRuntime: CoverExportRuntime | null = null;
+let renderRequestObserver: ((request: CoverRenderInput) => void) | null = null;
 
 export function configureCoverExportRuntime(runtime: CoverExportRuntime) {
   browserRuntime = runtime;
+}
+
+/** Test/diagnostic seam on the real export path. Null in normal production use. */
+export function setCoverExportRenderRequestObserver(observer: ((request: CoverRenderInput) => void) | null) {
+  renderRequestObserver = observer;
 }
 
 export async function createCoverExportAssetWithRuntime(
@@ -192,13 +198,15 @@ export async function createCoverExportAssetWithRuntime(
     };
     let blob: Blob | null = null;
     try {
-      runtime.drawCover({
+      const renderRequest: CoverRenderInput = {
         ...request.render,
         canvas,
         includeGuide: false,
         outputSize,
         photoOnly: request.photoOnly,
-      });
+      };
+      renderRequestObserver?.(renderRequest);
+      runtime.drawCover(renderRequest);
       if (request.isCancelled?.()) {
         release();
         throw cancellationError();
