@@ -48,7 +48,7 @@ test("本机生产服务器缺少 Worker 环境时仍显示验证页", async () 
 });
 
 test("验证后入口在自有页面内运行智能文案应用", async () => {
-  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
+  const [page, layout, packageJson, code, publicEntry, publicCover, publicCoverScript, publicCompareLayout, coverPage, coverStudio, coverRetouchCore, coverCompareLayout, coverConfig, copyWorkspaceSwitch, coverWorkspaceEntry, workspaceSync, aiPage] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -59,6 +59,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
     readFile(new URL("../docs/compare-layout.js", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CoverStudio.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cover/core/retouch-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/compare-layout.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/cover-config.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cover/CopyWorkspaceSwitch.tsx", import.meta.url), "utf8"),
@@ -134,8 +135,11 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverStudio, /getVisibleRetouchStrokes/);
   assert.match(coverStudio, /beforeRetouchStrokes/);
   assert.match(coverStudio, /eraseShadeWithBrush/);
-  assert.match(coverStudio, /quadraticCurveTo/);
-  assert.match(coverStudio, /filter = `blur\(/);
+  assert.match(coverStudio, /from "\.\/core\/retouch-core"/);
+  assert.doesNotMatch(coverStudio, /function eraseShadeWithBrush|const eraseShadeWithBrush/);
+  assert.match(coverRetouchCore, /quadraticCurveTo/);
+  assert.match(coverRetouchCore, /filter = `blur\(/);
+  assert.match(coverRetouchCore, /globalCompositeOperation = "destination-out"/);
   assert.match(coverStudio, /label="亮度"[\s\S]*?min=\{0\}[\s\S]*?max=\{200\}/);
   assert.match(coverStudio, /strokeText/);
   assert.match(coverStudio, /#FEE800/);
@@ -249,8 +253,8 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /id="exportFeedback"/);
   assert.doesNotMatch(publicCoverScript, /请再次点击导出/);
   assert.match(publicCoverScript, /eraseShadeWithBrush/);
-  assert.match(publicCoverScript, /quadraticCurveTo/);
-  assert.match(publicCoverScript, /filter = `blur\(/);
+  assert.match(publicCoverScript, /const \{[\s\S]*?eraseShadeWithBrush[\s\S]*?\} = window\.NBOCoverCore;/);
+  assert.doesNotMatch(publicCoverScript, /function eraseShadeWithBrush|const eraseShadeWithBrush/);
   assert.match(publicCover, /局部涂抹提亮/);
   assert.match(publicCover, /id="brushCursor"/);
   assert.match(publicCover, /id="compareBefore"/);

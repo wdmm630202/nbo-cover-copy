@@ -23,6 +23,10 @@ import {
   updateCoverSetting,
   type CoverSettings,
 } from "./core/editor-settings";
+import {
+  eraseShadeWithBrush,
+  type RetouchStroke,
+} from "./core/retouch-core";
 // The legacy #FEE800 correction now lives in the shared settings normalizer.
 import {
   COVER_COPY_SYNC_CHANNEL,
@@ -66,8 +70,6 @@ type ExportAsset = {
   usedMobileFallback: boolean;
 };
 
-type RetouchPoint = { x: number; y: number };
-type RetouchStroke = { points: RetouchPoint[]; size: number; feather: number; strength: number };
 type CoverScratchKind = "shade" | "stroke" | "compare";
 type CoverScratch = Partial<Record<CoverScratchKind, HTMLCanvasElement>>;
 
@@ -405,53 +407,6 @@ function drawCover(
     context.fillStyle = "rgba(255,110,120,.96)";
     context.textAlign = "left";
     context.fillText("播放量避让区 144px", 30 * guideScale, reserveTop + 38 * guideScale);
-    context.restore();
-  }
-}
-
-function eraseShadeWithBrush(
-  context: CanvasRenderingContext2D,
-  strokeCanvas: HTMLCanvasElement,
-  width: number,
-  height: number,
-  strokes: RetouchStroke[],
-) {
-  if (!strokes.length) return;
-  const strokeContext = strokeCanvas.getContext("2d");
-  if (!strokeContext) return;
-  for (const stroke of strokes) {
-    const radius = Math.max(1, stroke.size * width / 2160);
-    const feather = Math.max(0, Math.min(1, stroke.feather / 100));
-    const strength = Math.max(0, Math.min(1, stroke.strength / 100));
-    const coreRadius = radius * (1 - feather * 0.92);
-    const blurRadius = radius * feather * 0.58;
-    if (!stroke.points.length) continue;
-    strokeContext.clearRect(0, 0, width, height);
-    strokeContext.lineCap = "round";
-    strokeContext.lineJoin = "round";
-    strokeContext.lineWidth = Math.max(1, coreRadius * 2);
-    strokeContext.strokeStyle = `rgba(255,255,255,${strength})`;
-    strokeContext.fillStyle = `rgba(255,255,255,${strength})`;
-    const first = stroke.points[0];
-    strokeContext.beginPath();
-    strokeContext.moveTo(first.x * width, first.y * height);
-    if (stroke.points.length === 1) {
-      strokeContext.arc(first.x * width, first.y * height, coreRadius, 0, Math.PI * 2);
-      strokeContext.fill();
-    } else {
-      for (let index = 1; index < stroke.points.length - 1; index += 1) {
-        const point = stroke.points[index];
-        const next = stroke.points[index + 1];
-        strokeContext.quadraticCurveTo(point.x * width, point.y * height, (point.x + next.x) / 2 * width, (point.y + next.y) / 2 * height);
-      }
-      const last = stroke.points[stroke.points.length - 1];
-      strokeContext.lineTo(last.x * width, last.y * height);
-      strokeContext.stroke();
-    }
-    context.save();
-    context.globalCompositeOperation = "destination-out";
-    context.filter = `blur(${blurRadius}px)`;
-    context.drawImage(strokeCanvas, 0, 0);
     context.restore();
   }
 }

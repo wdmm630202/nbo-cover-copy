@@ -22,6 +22,7 @@ const PRESETS = {
 };
 const {
   DEFAULT_COVER_SETTINGS,
+  eraseShadeWithBrush,
   normalizeCoverSettings,
   serializeStaticCoverSettings,
   updateCoverSetting,
@@ -1493,47 +1494,6 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
     if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
   }
   if (!photoOnly && includeGuide && state.showSafeArea && state.platformId === "douyin") drawGuide(targetContext, width, height);
-}
-
-function eraseShadeWithBrush(ctx, strokeCanvas, width, height, strokes) {
-  if (!strokes.length) return;
-  const strokeContext = strokeCanvas.getContext("2d");
-  if (!strokeContext) return;
-  strokes.forEach((stroke) => {
-    const radius = Math.max(1, stroke.size * width / 2160);
-    const feather = clamp(stroke.feather / 100, 0, 1);
-    const strength = clamp(stroke.strength / 100, 0, 1);
-    const coreRadius = radius * (1 - feather * .92);
-    const blurRadius = radius * feather * .58;
-    if (!stroke.points.length) return;
-    strokeContext.clearRect(0, 0, width, height);
-    strokeContext.lineCap = "round";
-    strokeContext.lineJoin = "round";
-    strokeContext.lineWidth = Math.max(1, coreRadius * 2);
-    strokeContext.strokeStyle = `rgba(255,255,255,${strength})`;
-    strokeContext.fillStyle = `rgba(255,255,255,${strength})`;
-    const first = stroke.points[0];
-    strokeContext.beginPath();
-    strokeContext.moveTo(first.x * width, first.y * height);
-    if (stroke.points.length === 1) {
-      strokeContext.arc(first.x * width, first.y * height, coreRadius, 0, Math.PI * 2);
-      strokeContext.fill();
-    } else {
-      for (let index = 1; index < stroke.points.length - 1; index += 1) {
-        const point = stroke.points[index];
-        const next = stroke.points[index + 1];
-        strokeContext.quadraticCurveTo(point.x * width, point.y * height, (point.x + next.x) / 2 * width, (point.y + next.y) / 2 * height);
-      }
-      const last = stroke.points[stroke.points.length - 1];
-      strokeContext.lineTo(last.x * width, last.y * height);
-      strokeContext.stroke();
-    }
-    ctx.save();
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.filter = `blur(${blurRadius}px)`;
-    ctx.drawImage(strokeCanvas, 0, 0);
-    ctx.restore();
-  });
 }
 
 function drawShade(ctx, width, height) {
