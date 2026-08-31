@@ -21,6 +21,11 @@ const PRESETS = {
   shipinhao: { label: "视频号", ratio: "3:4", width: 1080, height: 1440, note: "竖版内容常用工作尺寸" },
 };
 const {
+  DEFAULT_COVER_SETTINGS,
+  normalizeCoverSettings,
+  updateCoverSetting,
+} = window.NBOCoverCore;
+const {
   drawComparisonEditorialOverlay,
   getComparisonAlignmentPlan,
   getComparisonEvidenceLayout,
@@ -33,8 +38,6 @@ const {
   getOriginalPixelJpegQualities,
   getAdjustmentPanelVisibility,
   getVisibleRetouchStrokes,
-  normalizeComparisonPhotoAdjustments,
-  normalizeComparisonFrameScale,
   resolvePhotoInteractionTargetFromPoint,
   resolveRetouchTarget,
   resolveRetouchTargetFromPoint,
@@ -54,47 +57,7 @@ const {
   getImageDropHint,
 } = window.NBODropUpload;
 const state = {
-  platform: "douyin",
-  template: "middle-left",
-  topText: "男人的",
-  bottomText: "高级感",
-  subtitle: "不被定义的自己",
-  topColor: "#FFFFFF",
-  bottomColor: "#FFFFFF",
-  dividerColor: "#C9A77A",
-  divider: true,
-  subtitleColor: "#FFFFFF",
-  subtitleScale: 100,
-  brightness: 100,
-  zoom: 100,
-  offsetX: 0,
-  offsetXRangeVersion: 2,
-  offsetY: 0,
-  rotation: 0,
-  textScale: 100,
-  bottomTextScale: 100,
-  textScaleLinked: true,
-  textStroke: 0,
-  textShadow: 50,
-  textShadowDefaultVersion: 1,
-  titleScaleVersion: 3,
-  shade: 0,
-  bottomShade: 100,
-  safe: true,
-  compareEnabled: false,
-  beforeZoom: 100,
-  beforeOffsetX: 0,
-  beforeOffsetY: 0,
-  beforeRotation: 0,
-  beforeBrightness: 100,
-  beforeShade: 0,
-  beforeBottomShade: 100,
-  beforeFrameScale: 100,
-  watermarkScale: 100,
-  watermarkAlign: "left",
-  watermarkOpacity: 50,
-  watermarkEnabled: false,
-  watermarkDefaultVersion: 1,
+  ...DEFAULT_COVER_SETTINGS,
   image: null,
   beforeImage: null,
   watermark: null,
@@ -102,12 +65,6 @@ const state = {
   beforeFileName: "",
   watermarkName: "",
 };
-
-function normalizeTemplate(value) {
-  const legacy = { left: "top-left", bottom: "top-center", badge: "middle-left", center: "middle-center", clean: "bottom-left", right: "bottom-right" };
-  const valid = ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"];
-  return legacy[value] || (valid.includes(value) ? value : "top-left");
-}
 
 const DOUYIN_HOME_SAFE = {
   cropTop: 240,
@@ -173,28 +130,6 @@ const syncChannel = "BroadcastChannel" in window
   : null;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-const normalizeComparisonSettings = (value = {}) => {
-  const adjustments = normalizeComparisonPhotoAdjustments({
-    zoom: value.beforeZoom,
-    offsetX: value.beforeOffsetX,
-    offsetY: value.beforeOffsetY,
-    rotation: value.beforeRotation,
-    brightness: value.beforeBrightness,
-    shade: value.beforeShade,
-    bottomShade: value.beforeBottomShade,
-  });
-  return {
-    compareEnabled: value.compareEnabled === true,
-    beforeZoom: adjustments.zoom,
-    beforeOffsetX: adjustments.offsetX,
-    beforeOffsetY: adjustments.offsetY,
-    beforeRotation: adjustments.rotation,
-    beforeBrightness: adjustments.brightness,
-    beforeShade: adjustments.shade,
-    beforeBottomShade: adjustments.bottomShade,
-    beforeFrameScale: normalizeComparisonFrameScale(value.beforeFrameScale),
-  };
-};
 const isMobileTouch = (event) => event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches;
 const activeRetouchTarget = () => resolveRetouchTarget(retouch.target, state.compareEnabled, Boolean(state.beforeImage));
 const activeRetouchStrokes = () => activeRetouchTarget() === "before" ? retouch.beforeStrokes : retouch.strokes;
@@ -698,34 +633,7 @@ $("#accessForm").addEventListener("submit", (event) => {
 try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
   if (saved) {
-    if (Number(saved.watermarkScale) <= 42) saved.watermarkScale = 100;
-    if (saved.bottomColor === "#FEE800") saved.bottomColor = "#FFFFFF";
-    if (Number(saved.watermarkOpacity) === 92) saved.watermarkOpacity = 50;
-    if (Number(saved.shade) === 62) saved.shade = 0;
-    if (saved.watermarkDefaultVersion !== 1) {
-      saved.watermarkEnabled = false;
-      saved.watermarkDefaultVersion = 1;
-    }
-    if (Number(saved.titleScaleVersion ?? 0) < 2) {
-      saved.textScale = Math.round(Number(saved.textScale || 100) / 1.8);
-    }
-    if (Number(saved.titleScaleVersion ?? 0) < 3) {
-      saved.bottomTextScale = Number(saved.textScale || 100);
-      saved.textScaleLinked = true;
-      saved.titleScaleVersion = 3;
-    }
-    if (saved.textShadowDefaultVersion !== 1) {
-      saved.textShadow = 50;
-      saved.textShadowDefaultVersion = 1;
-    }
-    if (saved.offsetXRangeVersion !== 2) {
-      const previousOffsetX = Number(saved.offsetX ?? (saved.offsetXRangeVersion === 1 ? 100 : 0));
-      saved.offsetX = Math.max(-200, Math.min(200, saved.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
-      saved.offsetXRangeVersion = 2;
-    }
-    if (saved.bottomText === "藏在自然状态里") saved.bottomText = "藏在自然状态";
-    saved.template = normalizeTemplate(saved.template);
-    Object.assign(state, saved, normalizeComparisonSettings(saved), {
+    Object.assign(state, normalizeCoverSettings(saved), {
       image: null,
       beforeImage: null,
       watermark: null,
@@ -774,7 +682,7 @@ function loadDefaultWatermark() {
 }
 
 function preset() {
-  return PRESETS[state.platform];
+  return PRESETS[state.platformId];
 }
 
 function getBeforeImageFrame(canvasSize, frameScale = state.beforeFrameScale) {
@@ -841,11 +749,11 @@ function updateUi() {
   $("#topColor").value = state.topColor;
   $("#bottomColor").value = state.bottomColor;
   $("#dividerColor").value = state.dividerColor;
-  $("#dividerToggle").checked = state.divider;
+  $("#dividerToggle").checked = state.showDivider;
   $("#subtitleColor").value = state.subtitleColor;
   $("#subtitleScale").value = state.subtitleScale;
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
-  $("#safeToggle").checked = state.safe;
+  $("#safeToggle").checked = state.showSafeArea;
   $("#compareToggle").checked = state.compareEnabled;
   ["zoom", "offsetX", "offsetY", "beforeZoom", "beforeOffsetX", "beforeOffsetY", "beforeRotation", "beforeBrightness", "beforeShade", "beforeBottomShade", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
     $(`#${id}`).value = state[id];
@@ -897,11 +805,11 @@ function updateUi() {
   $("#alignBeforeFrame").disabled = !state.beforeImage;
   $(".controls").classList.toggle("compare-active", state.compareEnabled);
   $(".design").classList.toggle("compare-active", state.compareEnabled);
-  const overlapWarning = getComparisonOverlapWarning(state.compareEnabled, state.template);
+  const overlapWarning = getComparisonOverlapWarning(state.compareEnabled, state.templateId);
   $("#compareOverlapWarning").textContent = overlapWarning;
   $("#compareOverlapWarning").hidden = !overlapWarning;
-  document.querySelectorAll("[data-platform]").forEach((button) => button.classList.toggle("active", button.dataset.platform === state.platform));
-  document.querySelectorAll("[data-template]").forEach((button) => button.classList.toggle("active", button.dataset.template === state.template));
+  document.querySelectorAll("[data-platform]").forEach((button) => button.classList.toggle("active", button.dataset.platform === state.platformId));
+  document.querySelectorAll("[data-template]").forEach((button) => button.classList.toggle("active", button.dataset.template === state.templateId));
   document.querySelectorAll("[data-watermark-align]").forEach((button) => button.classList.toggle("active", button.dataset.watermarkAlign === state.watermarkAlign));
   $("#useWatermark").classList.toggle("active", state.watermarkEnabled);
   $("#disableWatermark").classList.toggle("active", !state.watermarkEnabled);
@@ -912,7 +820,7 @@ function updateUi() {
   $("#canvasShell").classList.toggle("has-image", Boolean(state.image));
   $("#canvasShell").classList.toggle("is-rotating", imageInteraction.rotationMode);
   $("#canvasShell").classList.toggle("is-brushing", retouch.active);
-  $("#mobileTouchZone").classList.toggle("active", Boolean(state.image) && state.platform === "douyin" && !retouch.active);
+  $("#mobileTouchZone").classList.toggle("active", Boolean(state.image) && state.platformId === "douyin" && !retouch.active);
   $("#retouchToggle").classList.toggle("active", retouch.active);
   $("#retouchToggle").textContent = retouch.active ? "退出涂抹" : "开启涂抹";
   const retouchTarget = activeRetouchTarget();
@@ -1048,7 +956,10 @@ $("#subtitleScale").addEventListener("input", (event) => {
   $("#subtitleScaleValue").textContent = `${state.subtitleScale}%`;
   saveSettings(); draw();
 });
-$("#dividerToggle").addEventListener("change", (event) => { state.divider = event.target.checked; saveSettings(); draw(); });
+$("#dividerToggle").addEventListener("change", (event) => {
+  state.showDivider = event.target.checked;
+  saveSettings(); draw();
+});
 ["zoom", "offsetX", "offsetY", "beforeZoom", "beforeOffsetX", "beforeOffsetY", "beforeRotation", "beforeBrightness", "beforeShade", "beforeBottomShade", "rotation", "textScale", "bottomTextScale", "textStroke", "textShadow", "brightness", "shade", "bottomShade", "watermarkOpacity"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     const rawValue = Number(event.target.value);
@@ -1189,7 +1100,10 @@ document.querySelectorAll("[data-watermark-align]").forEach((button) => button.a
   state.watermarkAlign = button.dataset.watermarkAlign;
   updateUi(); saveSettings(); draw();
 }));
-$("#safeToggle").addEventListener("change", (event) => { state.safe = event.target.checked; saveSettings(); draw(); });
+$("#safeToggle").addEventListener("change", (event) => {
+  state.showSafeArea = event.target.checked;
+  saveSettings(); draw();
+});
 $("#compareToggle").addEventListener("change", (event) => {
   state.compareEnabled = event.target.checked;
   updateUi();
@@ -1296,14 +1210,11 @@ $("#factoryReset").addEventListener("click", () => {
   window.location.replace(`${window.location.pathname}?reset=${Date.now()}`);
 });
 $("#resetSettings").addEventListener("click", () => {
-  Object.assign(state, {
-    platform: "douyin", template: "middle-left", topText: "男人的", bottomText: "高级感",
-    subtitle: "不被定义的自己", topColor: "#FFFFFF", bottomColor: "#FFFFFF",
-    dividerColor: "#C9A77A", divider: true, subtitleColor: "#FFFFFF", subtitleScale: 100, brightness: 100,
-    zoom: 100, offsetX: 0, offsetXRangeVersion: 2, offsetY: 0, rotation: 0, textScale: 100, bottomTextScale: 100, textScaleLinked: true, textStroke: 0, textShadow: 50, textShadowDefaultVersion: 1, titleScaleVersion: 3, shade: 0, bottomShade: 100,
-    safe: true, compareEnabled: false, beforeZoom: 100, beforeOffsetX: 0, beforeOffsetY: 0, beforeRotation: 0, beforeBrightness: 100, beforeShade: 0, beforeBottomShade: 100, beforeFrameScale: 100,
-    watermarkScale: 100, watermarkAlign: "left", watermarkOpacity: 50, watermarkEnabled: false, watermarkDefaultVersion: 1,
-  });
+  Object.assign(state, updateCoverSetting(
+    DEFAULT_COVER_SETTINGS,
+    "platformId",
+    DEFAULT_COVER_SETTINGS.platformId,
+  ));
   retouch.active = false;
   retouch.strokes = [];
   retouch.beforeStrokes = [];
@@ -1344,31 +1255,9 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
     const saved = localStorage.getItem(`${MEMORY_KEY_PREFIX}${slot}`);
     if (!saved) return setStatus(`记忆点 ${slot} 还没有保存设置`);
     const parsed = JSON.parse(saved);
-    if (Number(parsed.watermarkScale) <= 42) parsed.watermarkScale = 100;
-    if (parsed.bottomColor === "#FEE800") parsed.bottomColor = "#FFFFFF";
-    if (Number(parsed.watermarkOpacity) === 92) parsed.watermarkOpacity = 50;
-    if (Number(parsed.titleScaleVersion ?? 0) < 2) {
-      parsed.textScale = Math.round(Number(parsed.textScale || 100) / 1.8);
-    }
-    if (Number(parsed.titleScaleVersion ?? 0) < 3) {
-      parsed.bottomTextScale = Number(parsed.textScale || 100);
-      parsed.textScaleLinked = true;
-      parsed.titleScaleVersion = 3;
-    }
-    if (parsed.textShadowDefaultVersion !== 1) {
-      parsed.textShadow = 50;
-      parsed.textShadowDefaultVersion = 1;
-    }
-    if (parsed.offsetXRangeVersion !== 2) {
-      const previousOffsetX = Number(parsed.offsetX ?? (parsed.offsetXRangeVersion === 1 ? 100 : 0));
-      parsed.offsetX = Math.max(-200, Math.min(200, parsed.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
-      parsed.offsetXRangeVersion = 2;
-    }
-    if (parsed.bottomText === "藏在自然状态里") parsed.bottomText = "藏在自然状态";
-    parsed.template = normalizeTemplate(parsed.template);
     delete parsed.beforeImage;
     delete parsed.beforeFileName;
-    Object.assign(state, parsed, normalizeComparisonSettings(parsed));
+    Object.assign(state, normalizeCoverSettings(parsed, "static-memory"));
     clampBeforeOffsets();
     updateUi(); saveSettings(); draw(); setStatus(`已应用记忆点 ${slot}`);
   } catch {
@@ -1378,7 +1267,7 @@ document.querySelectorAll("[data-load-memory]").forEach((button) => button.addEv
 $("#platforms").addEventListener("click", (event) => {
   const button = event.target.closest("[data-platform]");
   if (!button) return;
-  state.platform = button.dataset.platform;
+  state.platformId = button.dataset.platform;
   clampBeforeOffsets();
   updateUi();
   saveSettings();
@@ -1387,8 +1276,8 @@ $("#platforms").addEventListener("click", (event) => {
 $("#templates").addEventListener("click", (event) => {
   const button = event.target.closest("[data-template]");
   if (!button) return;
-  state.template = button.dataset.template;
-  state.watermarkAlign = state.template.endsWith("-left") ? "left" : state.template.endsWith("-right") ? "right" : "center";
+  state.templateId = button.dataset.template;
+  state.watermarkAlign = state.templateId.endsWith("-left") ? "left" : state.templateId.endsWith("-right") ? "right" : "center";
   updateUi();
   saveSettings();
   draw();
@@ -1612,7 +1501,7 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
     if (state.compareEnabled) drawComparisonEditorialOverlay(targetContext, { width, height }, roundedRectPath, state.beforeFrameScale);
     if (state.watermark && state.watermarkEnabled) drawWatermark(targetContext, width, height);
   }
-  if (!photoOnly && includeGuide && state.safe && state.platform === "douyin") drawGuide(targetContext, width, height);
+  if (!photoOnly && includeGuide && state.showSafeArea && state.platformId === "douyin") drawGuide(targetContext, width, height);
 }
 
 function eraseShadeWithBrush(ctx, strokeCanvas, width, height, strokes) {
@@ -1659,15 +1548,15 @@ function eraseShadeWithBrush(ctx, strokeCanvas, width, height, strokes) {
 function drawShade(ctx, width, height) {
   const alpha = Math.max(0, Math.min(.9, state.shade / 100));
   let gradient;
-  if (state.template.startsWith("bottom-")) {
+  if (state.templateId.startsWith("bottom-")) {
     gradient = ctx.createLinearGradient(0, height * .35, 0, height);
     gradient.addColorStop(0, "rgba(0,0,0,0)");
     gradient.addColorStop(1, `rgba(0,0,0,${alpha})`);
-  } else if (state.template.endsWith("-right")) {
+  } else if (state.templateId.endsWith("-right")) {
     gradient = ctx.createLinearGradient(width * .18, 0, width, 0);
     gradient.addColorStop(0, "rgba(0,0,0,0)");
     gradient.addColorStop(1, `rgba(0,0,0,${alpha})`);
-  } else if (state.template === "middle-center") {
+  } else if (state.templateId === "middle-center") {
     gradient = ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, `rgba(0,0,0,${alpha * .3})`);
     gradient.addColorStop(.5, `rgba(0,0,0,${alpha * .12})`);
@@ -1696,8 +1585,8 @@ function colorWithAlpha(color, alpha) {
 }
 
 function drawText(ctx, width, height) {
-  const right = state.template.endsWith("-right");
-  const center = state.template.endsWith("-center");
+  const right = state.templateId.endsWith("-right");
+  const center = state.templateId.endsWith("-center");
   const align = right ? "right" : center ? "center" : "left";
   const geometryScale = width / 1080;
   const horizontalInset = DOUYIN_HOME_SAFE.horizontalInset * geometryScale;
@@ -1741,7 +1630,7 @@ function drawText(ctx, width, height) {
   const blockTop = -topHeadlineInk.ascent;
   const blockBottom = state.subtitle.trim()
     ? relativeSubtitleBaseline + (subtitleLines - 1) * subtitleLineHeight + subtitleInk.descent
-    : state.divider
+    : state.showDivider
       ? relativeDividerY + dividerThickness
       : relativeActiveBaseline + activeHeadlineInk.descent;
   const isDouyinCanvas = height / width > 1.5;
@@ -1759,9 +1648,9 @@ function drawText(ctx, width, height) {
     ? watermarkBottom - (getWatermarkVisibleBounds(state.watermark).bottom - getWatermarkVisibleBounds(state.watermark).top) * watermarkScale
     : Number.POSITIVE_INFINITY;
   const bottomTextLimit = Math.min(usableBottom, watermarkTop - fixedVerticalGap);
-  const requestedY = state.template.startsWith("top-")
+  const requestedY = state.templateId.startsWith("top-")
     ? usableTop - blockTop
-    : state.template.startsWith("bottom-")
+    : state.templateId.startsWith("bottom-")
       ? bottomTextLimit - blockBottom
       : (cropTop + cropBottom) / 2 - blockTop;
   const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
@@ -1779,7 +1668,7 @@ function drawText(ctx, width, height) {
     if (textStroke > 0) ctx.strokeText(state.bottomText, x, secondBaseline, maxWidth);
     ctx.fillText(state.bottomText, x, secondBaseline, maxWidth);
   }
-  if (state.divider) {
+  if (state.showDivider) {
     const dividerWidth = activeHeadlineFontSize;
     const dividerX = right ? x - dividerWidth : center ? x - dividerWidth / 2 : x;
     ctx.shadowColor = "transparent";
@@ -1801,7 +1690,7 @@ function drawText(ctx, width, height) {
     ctx.shadowOffsetY = width * .006 * textShadow;
     ctx.fillStyle = state.subtitleColor;
     ctx.font = `400 ${subtitleFontSize}px sans-serif`;
-    const subtitleY = state.divider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
+    const subtitleY = state.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
     drawWrapped(ctx, state.subtitle, x, subtitleY, maxWidth, subtitleLineHeight, align);
   }
   ctx.font = `900 ${topFontSize}px sans-serif`;
@@ -1810,7 +1699,7 @@ function drawText(ctx, width, height) {
   const bottomWidth = hasBottomText ? Math.min(maxWidth, ctx.measureText(state.bottomText).width) : 0;
   ctx.font = `400 ${subtitleFontSize}px sans-serif`;
   const subtitleWidth = getWrappedTextWidth(ctx, state.subtitle, maxWidth);
-  const contentWidth = Math.max(topWidth, bottomWidth, state.divider ? activeHeadlineFontSize : 0, subtitleWidth);
+  const contentWidth = Math.max(topWidth, bottomWidth, state.showDivider ? activeHeadlineFontSize : 0, subtitleWidth);
   const left = right ? x - contentWidth : center ? x - contentWidth / 2 : x;
   const bounds = { left, right: left + contentWidth, top: y + blockTop, bottom: y + blockBottom };
   ctx.restore();

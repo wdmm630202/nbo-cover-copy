@@ -12,11 +12,18 @@ import {
 import {
   COVER_RULES_VERSION,
   COVER_TEMPLATES,
-  CoverTemplate,
   DOUYIN_HOME_GRID_SAFE_AREA,
   PLATFORM_PRESETS,
-  PlatformPreset,
+  type CoverTemplate,
+  type PlatformPreset,
 } from "./cover-config";
+import {
+  DEFAULT_COVER_SETTINGS,
+  normalizeCoverSettings,
+  updateCoverSetting,
+  type CoverSettings,
+} from "./core/editor-settings";
+// The legacy #FEE800 correction now lives in the shared settings normalizer.
 import {
   COVER_COPY_SYNC_CHANNEL,
   COVER_COPY_SYNC_KEY,
@@ -50,50 +57,6 @@ import {
   getImageDropHint,
   type ImageDropTarget,
 } from "./drop-upload";
-
-type StudioSettings = {
-  platformId: PlatformPreset["id"];
-  templateId: CoverTemplate["id"];
-  topText: string;
-  bottomText: string;
-  subtitle: string;
-  topColor: string;
-  bottomColor: string;
-  dividerColor: string;
-  showDivider: boolean;
-  subtitleColor: string;
-  subtitleScale: number;
-  brightness: number;
-  zoom: number;
-  offsetX: number;
-  offsetXRangeVersion: number;
-  offsetY: number;
-  rotation: number;
-  textScale: number;
-  bottomTextScale: number;
-  textScaleLinked: boolean;
-  textStroke: number;
-  textShadow: number;
-  textShadowDefaultVersion: number;
-  titleScaleVersion: number;
-  shade: number;
-  bottomShade: number;
-  showSafeArea: boolean;
-  compareEnabled: boolean;
-  beforeZoom: number;
-  beforeOffsetX: number;
-  beforeOffsetY: number;
-  beforeRotation: number;
-  beforeBrightness: number;
-  beforeShade: number;
-  beforeBottomShade: number;
-  beforeFrameScale: number;
-  watermarkScale: number;
-  watermarkAlign: "left" | "center" | "right";
-  watermarkOpacity: number;
-  watermarkEnabled: boolean;
-  watermarkDefaultVersion: number;
-};
 
 type ExportAsset = {
   blob: Blob;
@@ -172,172 +135,6 @@ const getWatermarkBottomGap = (width: number) => Math.round(WATERMARK_BOTTOM_GAP
 function formatExportTimestamp(date = new Date()) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-}
-
-const DEFAULT_SETTINGS: StudioSettings = {
-  platformId: "douyin",
-  templateId: "middle-left",
-  topText: "男人的",
-  bottomText: "高级感",
-  subtitle: "不被定义的自己",
-  topColor: "#FFFFFF",
-  bottomColor: "#FFFFFF",
-  dividerColor: "#C9A77A",
-  showDivider: true,
-  subtitleColor: "#FFFFFF",
-  subtitleScale: 100,
-  brightness: 100,
-  zoom: 100,
-  offsetX: 0,
-  offsetXRangeVersion: 2,
-  offsetY: 0,
-  rotation: 0,
-  textScale: 100,
-  bottomTextScale: 100,
-  textScaleLinked: true,
-  textStroke: 0,
-  textShadow: 50,
-  textShadowDefaultVersion: 1,
-  titleScaleVersion: 3,
-  shade: 0,
-  bottomShade: 100,
-  showSafeArea: true,
-  compareEnabled: false,
-  beforeZoom: 100,
-  beforeOffsetX: 0,
-  beforeOffsetY: 0,
-  beforeRotation: 0,
-  beforeBrightness: 100,
-  beforeShade: 0,
-  beforeBottomShade: 100,
-  beforeFrameScale: 100,
-  watermarkScale: 100,
-  watermarkAlign: "left",
-  watermarkOpacity: 50,
-  watermarkEnabled: false,
-  watermarkDefaultVersion: 1,
-};
-
-function normalizeTemplateId(value: unknown): CoverTemplate["id"] {
-  const legacy: Record<string, CoverTemplate["id"]> = {
-    left: "top-left",
-    bottom: "top-center",
-    badge: "middle-left",
-    center: "middle-center",
-    clean: "bottom-left",
-    right: "bottom-right",
-  };
-  const id = typeof value === "string" ? value : "";
-  if (legacy[id]) return legacy[id];
-  return COVER_TEMPLATES.some((template) => template.id === id)
-    ? id as CoverTemplate["id"]
-    : DEFAULT_SETTINGS.templateId;
-}
-
-function normalizeStudioSettings(value: unknown): StudioSettings {
-  const source: Record<string, unknown> = value && typeof value === "object" && !Array.isArray(value)
-    ? { ...(value as Record<string, unknown>) }
-    : {};
-  if (!Object.keys(DEFAULT_SETTINGS).some((key) => Object.prototype.hasOwnProperty.call(source, key))) {
-    return { ...DEFAULT_SETTINGS };
-  }
-  const numberValue = (key: keyof StudioSettings, min: number, max: number) => {
-    const parsed = Number(source[key]);
-    return Number.isFinite(parsed)
-      ? Math.max(min, Math.min(max, parsed))
-      : DEFAULT_SETTINGS[key] as number;
-  };
-  const booleanValue = (key: keyof StudioSettings) => typeof source[key] === "boolean"
-    ? source[key] as boolean
-    : DEFAULT_SETTINGS[key] as boolean;
-  const textValue = (key: "topText" | "bottomText" | "subtitle", maxLength: number) => typeof source[key] === "string"
-    ? source[key].slice(0, maxLength)
-    : DEFAULT_SETTINGS[key];
-  const colorValue = (key: "topColor" | "bottomColor" | "dividerColor" | "subtitleColor") => {
-    const color = typeof source[key] === "string" ? source[key].toUpperCase() : "";
-    return /^#[0-9A-F]{6}$/.test(color) ? color : DEFAULT_SETTINGS[key];
-  };
-
-  if (source.bottomColor === "#FEE800") source.bottomColor = "#FFFFFF";
-  if (Number(source.watermarkOpacity) === 92) source.watermarkOpacity = 50;
-  if (Number(source.watermarkScale) <= 42) source.watermarkScale = 100;
-  if (Number(source.shade) === 62) source.shade = 0;
-  if (source.watermarkDefaultVersion !== 1) {
-    source.watermarkEnabled = false;
-    source.watermarkDefaultVersion = 1;
-  }
-  if (Number(source.titleScaleVersion ?? 0) < 2) {
-    source.textScale = Math.round(Number(source.textScale || 100) / 1.8);
-  }
-  if (Number(source.titleScaleVersion ?? 0) < 3) {
-    source.bottomTextScale = Number(source.textScale || 100);
-    source.textScaleLinked = true;
-    source.titleScaleVersion = 3;
-  }
-  if (source.textShadowDefaultVersion !== 1) {
-    source.textShadow = 50;
-    source.textShadowDefaultVersion = 1;
-  }
-  if (source.offsetXRangeVersion !== 2) {
-    const previousOffsetX = Number(source.offsetX ?? (source.offsetXRangeVersion === 1 ? 100 : 0));
-    source.offsetX = Math.max(-200, Math.min(200, source.offsetXRangeVersion === 1 ? previousOffsetX - 100 : previousOffsetX));
-    source.offsetXRangeVersion = 2;
-  }
-  if (source.bottomText === "藏在自然状态里") source.bottomText = "藏在自然状态";
-
-  const platformId = typeof source.platformId === "string"
-    && PLATFORM_PRESETS.some((item) => item.id === source.platformId)
-    ? source.platformId as PlatformPreset["id"]
-    : DEFAULT_SETTINGS.platformId;
-  const watermarkAlign = source.watermarkAlign === "left"
-    || source.watermarkAlign === "center"
-    || source.watermarkAlign === "right"
-    ? source.watermarkAlign
-    : DEFAULT_SETTINGS.watermarkAlign;
-
-  return {
-    platformId,
-    templateId: normalizeTemplateId(source.templateId),
-    topText: textValue("topText", 18),
-    bottomText: textValue("bottomText", 18),
-    subtitle: textValue("subtitle", 38),
-    topColor: colorValue("topColor"),
-    bottomColor: colorValue("bottomColor"),
-    dividerColor: colorValue("dividerColor"),
-    showDivider: booleanValue("showDivider"),
-    subtitleColor: colorValue("subtitleColor"),
-    subtitleScale: numberValue("subtitleScale", 60, 160),
-    brightness: numberValue("brightness", 0, 200),
-    zoom: numberValue("zoom", 0, 400),
-    offsetX: numberValue("offsetX", -200, 200),
-    offsetXRangeVersion: 2,
-    offsetY: numberValue("offsetY", -200, 200),
-    rotation: numberValue("rotation", -180, 180),
-    textScale: numberValue("textScale", 0, 200),
-    bottomTextScale: numberValue("bottomTextScale", 0, 200),
-    textScaleLinked: booleanValue("textScaleLinked"),
-    textStroke: numberValue("textStroke", 0, 100),
-    textShadow: numberValue("textShadow", 0, 100),
-    textShadowDefaultVersion: 1,
-    titleScaleVersion: 3,
-    shade: numberValue("shade", 0, 100),
-    bottomShade: numberValue("bottomShade", 0, 100),
-    showSafeArea: booleanValue("showSafeArea"),
-    compareEnabled: booleanValue("compareEnabled"),
-    beforeZoom: numberValue("beforeZoom", 100, 300),
-    beforeOffsetX: numberValue("beforeOffsetX", -100, 100),
-    beforeOffsetY: numberValue("beforeOffsetY", -100, 100),
-    beforeRotation: numberValue("beforeRotation", -180, 180),
-    beforeBrightness: numberValue("beforeBrightness", 0, 200),
-    beforeShade: numberValue("beforeShade", 0, 100),
-    beforeBottomShade: numberValue("beforeBottomShade", 0, 100),
-    beforeFrameScale: numberValue("beforeFrameScale", 100, 120),
-    watermarkScale: numberValue("watermarkScale", 0, 300),
-    watermarkAlign,
-    watermarkOpacity: numberValue("watermarkOpacity", 0, 100),
-    watermarkEnabled: booleanValue("watermarkEnabled"),
-    watermarkDefaultVersion: 1,
-  };
 }
 
 function roundedRectPath(
@@ -419,7 +216,7 @@ function drawComparisonEvidence(
   context: CanvasRenderingContext2D,
   ownerCanvas: HTMLCanvasElement,
   beforeImage: HTMLImageElement | null,
-  settings: StudioSettings,
+  settings: CoverSettings,
   width: number,
   height: number,
   beforeRetouchStrokes: RetouchStroke[],
@@ -506,7 +303,7 @@ function drawCover(
   image: HTMLImageElement | null,
   beforeImage: HTMLImageElement | null,
   watermark: HTMLImageElement | null,
-  settings: StudioSettings,
+  settings: CoverSettings,
   preset: PlatformPreset,
   includeGuide: boolean,
   outputSize?: { width: number; height: number },
@@ -709,7 +506,7 @@ function colorWithAlpha(color: string, alpha: number) {
 
 function drawTemplateText(
   context: CanvasRenderingContext2D,
-  settings: StudioSettings,
+  settings: CoverSettings,
   width: number,
   height: number,
   watermark: HTMLImageElement | null,
@@ -856,7 +653,7 @@ function drawTemplateText(
 function drawWatermark(
   context: CanvasRenderingContext2D,
   watermark: HTMLImageElement,
-  settings: StudioSettings,
+  settings: CoverSettings,
   width: number,
   height: number,
 ) {
@@ -1111,7 +908,7 @@ export default function CoverStudio() {
   const defaultWatermarkRef = useRef<HTMLImageElement | null>(null);
   const mainDropControllerRef = useRef(createImageDropController("main"));
   const beforeDropControllerRef = useRef(createImageDropController("before"));
-  const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<CoverSettings>(DEFAULT_COVER_SETTINGS);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fileName, setFileName] = useState("");
   const [beforeImage, setBeforeImage] = useState<HTMLImageElement | null>(null);
@@ -1205,7 +1002,7 @@ export default function CoverStudio() {
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          setSettings(normalizeStudioSettings(JSON.parse(saved)));
+          setSettings(normalizeCoverSettings(JSON.parse(saved)));
         }
       } catch {
         setNotice("已使用默认封面设置");
@@ -1512,7 +1309,7 @@ export default function CoverStudio() {
       const [, a, b] = points;
       baseline = { mode: "scaleMove", midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2, distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)), offsetX: current.offsetX, offsetY: current.offsetY, zoom: current.zoom };
     };
-    const updateTransform = (patch: Partial<Pick<StudioSettings, "offsetX" | "offsetY" | "zoom" | "rotation">>) => {
+    const updateTransform = (patch: Partial<Pick<CoverSettings, "offsetX" | "offsetY" | "zoom" | "rotation">>) => {
       setSettings((current) => {
         const next = { ...current, ...patch };
         settingsRef.current = next;
@@ -1801,8 +1598,8 @@ export default function CoverStudio() {
   }, [buildExportAsset]);
 
   const updateSetting = useCallback(
-    <Key extends keyof StudioSettings>(key: Key, value: StudioSettings[Key]) => {
-      setSettings((current) => ({ ...current, [key]: value }));
+    <Key extends keyof CoverSettings>(key: Key, value: CoverSettings[Key]) => {
+      setSettings((current) => updateCoverSetting(current, key, value));
     },
     [],
   );
@@ -1867,7 +1664,7 @@ export default function CoverStudio() {
   }, []);
 
   const resetSettings = useCallback(() => {
-    setSettings(DEFAULT_SETTINGS);
+    setSettings(DEFAULT_COVER_SETTINGS);
     setRetouchStrokes([]);
     setBeforeRetouchStrokes([]);
     setRetouchTarget("after");
@@ -1896,7 +1693,7 @@ export default function CoverStudio() {
         setNotice(`记忆点 ${slot} 还没有保存设置`);
         return;
       }
-      setSettings(normalizeStudioSettings(JSON.parse(saved)));
+      setSettings(normalizeCoverSettings(JSON.parse(saved)));
       setNotice(`已应用记忆点 ${slot}`);
     } catch {
       setNotice(`记忆点 ${slot} 读取失败，请重新保存`);
