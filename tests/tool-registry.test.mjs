@@ -129,6 +129,14 @@ test("拍摄前构图、动态边界和画面绑定按目标切换", () => {
 
 test("未开启对比时所有拍摄前入口都不可用且不会映射到主照片", () => {
   const comparisonOff = { comparisonEnabled: false, target: "after" };
+  const composeBefore = getSecondaryTools("compose", { ...comparisonOff, target: "before" });
+  const imageBefore = getSecondaryTools("image", { ...comparisonOff, target: "before" });
+  assert.deepEqual(composeBefore, []);
+  assert.deepEqual(imageBefore, []);
+  assert.ok(Object.isFrozen(composeBefore));
+  assert.ok(Object.isFrozen(imageBefore));
+  assert.throws(() => { composeBefore.push({ id: "bad" }); }, TypeError);
+  assert.throws(() => { imageBefore.push({ id: "bad" }); }, TypeError);
   assert.deepEqual(getSecondaryTools("compose", { ...comparisonOff, target: "before" }), []);
   assert.deepEqual(getSecondaryTools("image", { ...comparisonOff, target: "before" }), []);
   assert.ok(!getSecondaryTools("photo", comparisonOff).some((item) => item.id === "uploadBefore"));

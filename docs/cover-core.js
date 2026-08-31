@@ -18,6 +18,7 @@ var NBOCoverCore = (function(exports) {
 	function immutableTools(tools) {
 		return deepFreeze(tools.map((tool) => ({ ...tool })));
 	}
+	var EMPTY_TOOLS = deepFreeze([]);
 	var PRIMARY_TOOLS = deepFreeze([
 		{
 			id: "photo",
@@ -531,14 +532,14 @@ var NBOCoverCore = (function(exports) {
 		if (primary === "photo") return immutableTools(context.comparisonEnabled ? SECONDARY_TOOLS.photo : SECONDARY_TOOLS.photo.filter((tool) => tool.id !== "uploadBefore"));
 		if (primary === "compose") {
 			if (context.target === "before") {
-				if (!context.comparisonEnabled) return [];
+				if (!context.comparisonEnabled) return EMPTY_TOOLS;
 				return immutableTools(SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || beforeComposeIds.has(tool.id)));
 			}
 			return immutableTools(SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || !beforeComposeIds.has(tool.id)));
 		}
 		if (primary === "image") {
 			if (context.target === "before") {
-				if (!context.comparisonEnabled) return [];
+				if (!context.comparisonEnabled) return EMPTY_TOOLS;
 				return immutableTools(SECONDARY_TOOLS.image.map((tool) => ({
 					...tool,
 					settingKey: beforeImageSettingKeys[tool.id]

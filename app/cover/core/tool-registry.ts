@@ -29,6 +29,8 @@ function immutableTools(tools: readonly ToolDefinition[]): readonly ToolDefiniti
   return deepFreeze(tools.map((tool) => ({ ...tool })));
 }
 
+const EMPTY_TOOLS = deepFreeze([] as const);
+
 export const PRIMARY_TOOLS = deepFreeze([
   { id: "photo", label: "照片" }, { id: "compose", label: "构图" },
   { id: "text", label: "文字" }, { id: "image", label: "画面" },
@@ -129,7 +131,7 @@ export function getSecondaryTools(primary: PrimaryToolId, context: ToolContext):
 
   if (primary === "compose") {
     if (context.target === "before") {
-      if (!context.comparisonEnabled) return [];
+      if (!context.comparisonEnabled) return EMPTY_TOOLS;
       return immutableTools(SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || beforeComposeIds.has(tool.id)));
     }
     return immutableTools(SECONDARY_TOOLS.compose.filter((tool) => tool.id === "target" || !beforeComposeIds.has(tool.id)));
@@ -137,7 +139,7 @@ export function getSecondaryTools(primary: PrimaryToolId, context: ToolContext):
 
   if (primary === "image") {
     if (context.target === "before") {
-      if (!context.comparisonEnabled) return [];
+      if (!context.comparisonEnabled) return EMPTY_TOOLS;
       return immutableTools(SECONDARY_TOOLS.image.map((tool) => ({
         ...tool,
         settingKey: beforeImageSettingKeys[tool.id],
