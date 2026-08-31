@@ -15,6 +15,8 @@ import {
   PLATFORM_PRESETS,
 } from "./cover-config";
 import CoverCanvasSurface from "./CoverCanvasSurface";
+import CoverCompactShell from "./CoverCompactShell";
+import CoverExportSheet from "./CoverExportSheet";
 import {
   DEFAULT_COVER_SETTINGS,
   normalizeCoverSettings,
@@ -33,6 +35,10 @@ import {
   getExportFileName,
   type CoverExportAsset,
 } from "./core/static-entry";
+import {
+  resolveCoverLayoutMode,
+  type CoverLayoutMode,
+} from "./core/responsive-layout";
 // The legacy #FEE800 correction now lives in the shared settings normalizer.
 import {
   COVER_COPY_SYNC_CHANNEL,
@@ -209,6 +215,9 @@ export default function CoverStudio() {
   const [retouchTarget, setRetouchTarget] = useState<RetouchTarget>("after");
   const [adjustmentTarget, setAdjustmentTarget] = useState<RetouchTarget>("after");
   const [showRetouchBefore, setShowRetouchBefore] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<CoverLayoutMode>("desktop");
+  const [isCompactEditorOpen, setIsCompactEditorOpen] = useState(false);
+  const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
   const settingsRef = useRef(settings);
   const beforeImageRef = useRef(beforeImage);
   const rotationModeRef = useRef(rotationMode);
@@ -268,6 +277,40 @@ export default function CoverStudio() {
   const activeRetouchTarget = resolveRetouchTarget(retouchTarget, settings.compareEnabled, Boolean(beforeImage));
   const activeRetouchStrokes = activeRetouchTarget === "before" ? beforeRetouchStrokes : retouchStrokes;
   const adjustmentPanels = getAdjustmentPanelVisibility(settings.compareEnabled, adjustmentTarget);
+
+  useEffect(() => {
+    const pointerQuery = window.matchMedia("(pointer: coarse)");
+    const syncLayout = () => {
+      setLayoutMode(resolveCoverLayoutMode({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        pointer: pointerQuery.matches ? "coarse" : "fine",
+      }));
+    };
+    syncLayout();
+    window.addEventListener("resize", syncLayout);
+    pointerQuery.addEventListener?.("change", syncLayout);
+    return () => {
+      window.removeEventListener("resize", syncLayout);
+      pointerQuery.removeEventListener?.("change", syncLayout);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (layoutMode === "compact" && image) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- an eligible Compact viewport opens the presentation shell without remounting editor state
+      setIsCompactEditorOpen(true);
+      return;
+    }
+    setIsCompactEditorOpen(false);
+    setIsMobileExportOpen(false);
+  }, [image, layoutMode]);
+
+  useEffect(() => {
+    const open = layoutMode === "compact" && isCompactEditorOpen;
+    document.body.classList.toggle("mobile-editor-open", open);
+    return () => document.body.classList.remove("mobile-editor-open");
+  }, [isCompactEditorOpen, layoutMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -876,6 +919,41 @@ export default function CoverStudio() {
     setExportMessage(`${resolutionMessage}，请长按图片存储到照片`);
   };
 
+  const coverCanvas = (
+    <CoverCanvasSurface
+      canvasRef={canvasRef}
+      canvasShellRef={canvasShellRef}
+      mobileTouchZoneRef={mobileTouchZoneRef}
+      transformHudRef={transformHudRef}
+      snapHorizontalRef={snapHorizontalRef}
+      snapVerticalRef={snapVerticalRef}
+      mobileGestureCancelRef={mobileGestureCancelRef}
+      preset={preset}
+      image={image}
+      mobileTouchActive={Boolean(image) && settings.platformId === "douyin" && !brushMode}
+      beforeImageRef={beforeImageRef}
+      settingsRef={settingsRef}
+      rotationMode={rotationMode}
+      rotationModeRef={rotationModeRef}
+      brushMode={brushMode}
+      brushModeRef={brushModeRef}
+      brushSettingsRef={brushSettingsRef}
+      brushCursor={brushCursor}
+      brushSize={brushSize}
+      setSettings={setSettings}
+      setRotationMode={setRotationMode}
+      setBrushCursor={setBrushCursor}
+      setRetouchTarget={setRetouchTarget}
+      setAdjustmentTarget={setAdjustmentTarget}
+      setRetouchStrokes={setRetouchStrokes}
+      setBeforeRetouchStrokes={setBeforeRetouchStrokes}
+      setShowRetouchBefore={setShowRetouchBefore}
+      setNotice={setNotice}
+      snapRotation={snapRotation}
+      showTransformHint={showTransformHint}
+    />
+  );
+
   return (
     <section className="cover-studio">
       {savePreview && (
@@ -901,7 +979,7 @@ export default function CoverStudio() {
           </div>
         </div>
       )}
-      <div className={`cover-studio-grid ${settings.compareEnabled ? "is-comparing" : ""}`}>
+      <div className={`cover-studio-grid ${settings.compareEnabled ? "is-comparing" : ""}`} data-cover-layout={layoutMode}>
         <aside className="studio-panel studio-controls">
           <div className="studio-panel-heading">
             <span>01</span>
@@ -1113,7 +1191,7 @@ export default function CoverStudio() {
           </div>
         </aside>
 
-        <section className="studio-preview-panel">
+        <section className={`studio-preview-panel${isCompactEditorOpen ? " is-compact-open" : ""}`}>
           <div className="studio-preview-toolbar">
             <div>
               <strong>实时封面预览</strong>
@@ -1144,39 +1222,24 @@ export default function CoverStudio() {
                 <span />
                 前后对比
               </label>
+              {layoutMode === "compact" && image && !isCompactEditorOpen ? (
+                <button className="mobile-editor-launcher" type="button" onClick={() => setIsCompactEditorOpen(true)}>继续手机编辑</button>
+              ) : null}
             </div>
           </div>
-          <CoverCanvasSurface
-            canvasRef={canvasRef}
-            canvasShellRef={canvasShellRef}
-            mobileTouchZoneRef={mobileTouchZoneRef}
-            transformHudRef={transformHudRef}
-            snapHorizontalRef={snapHorizontalRef}
-            snapVerticalRef={snapVerticalRef}
-            mobileGestureCancelRef={mobileGestureCancelRef}
-            preset={preset}
-            image={image}
-            mobileTouchActive={Boolean(image) && settings.platformId === "douyin" && !brushMode}
-            beforeImageRef={beforeImageRef}
-            settingsRef={settingsRef}
-            rotationMode={rotationMode}
-            rotationModeRef={rotationModeRef}
-            brushMode={brushMode}
-            brushModeRef={brushModeRef}
-            brushSettingsRef={brushSettingsRef}
-            brushCursor={brushCursor}
-            brushSize={brushSize}
-            setSettings={setSettings}
-            setRotationMode={setRotationMode}
-            setBrushCursor={setBrushCursor}
-            setRetouchTarget={setRetouchTarget}
-            setAdjustmentTarget={setAdjustmentTarget}
-            setRetouchStrokes={setRetouchStrokes}
-            setBeforeRetouchStrokes={setBeforeRetouchStrokes}
-            setShowRetouchBefore={setShowRetouchBefore}
-            setNotice={setNotice}
-            snapRotation={snapRotation}
-            showTransformHint={showTransformHint}
+          <CoverCompactShell
+            open={layoutMode === "compact" && isCompactEditorOpen}
+            onClose={() => {
+              setIsMobileExportOpen(false);
+              setIsCompactEditorOpen(false);
+            }}
+            onOpenExport={() => setIsMobileExportOpen(true)}
+            canvas={coverCanvas}
+            dock={<span className="mobile-tool-placeholder">编辑工具将在下一步接入</span>}
+          />
+          <CoverExportSheet
+            open={layoutMode === "compact" && isCompactEditorOpen && isMobileExportOpen}
+            onClose={() => setIsMobileExportOpen(false)}
           />
           <div ref={previewToolsRef} className="studio-preview-tools">
             <div className="studio-template-area">

@@ -23,6 +23,7 @@ const {
   getBeforeOffsetLimits,
   normalizeCoverSettings,
   releaseCoverScratchCanvases,
+  resolveCoverLayoutMode,
   resolveCanvasInteractionMode,
   serializeStaticCoverSettings,
   updateCoverSetting,
@@ -65,6 +66,13 @@ const $ = (selector) => document.querySelector(selector);
 const canvas = $("#coverCanvas");
 const canvasShell = $("#canvasShell");
 const previewTools = $("#previewTools");
+const studioGrid = $(".studio-grid");
+const mobileEditorTopbar = $("#mobileEditorTopbar");
+const mobileSecondaryTools = $("#mobileSecondaryTools");
+const mobilePrimaryTools = $("#mobilePrimaryTools");
+const mobileExportSheet = $("#mobileExportSheet");
+const mobileEditorLauncher = $("#openMobileEditor");
+const coverPointerQuery = window.matchMedia("(pointer: coarse)");
 const accessGate = $("#accessGate");
 const coverPage = $("#coverPage");
 let syncedCopy = null;
@@ -76,6 +84,9 @@ let previewDrawFrame = 0;
 let saveSettingsTimer = 0;
 let imageInteraction = { rotationMode: false, drag: null };
 let adjustmentTarget = "after";
+let coverLayoutMode = "desktop";
+let compactEditorOpen = false;
+let mobileExportOpen = false;
 const mobileGesture = { pointers: new Map(), holdTimer: 0, active: false, anchorId: null, holdOrigin: null, baseline: null };
 const rotationSnapAngles = [-180, -90, 0, 90, 180];
 let transformHintTimer = 0;
@@ -119,6 +130,57 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const isMobileTouch = (event) => event.pointerType === "touch" && window.matchMedia("(max-width: 780px) and (pointer: coarse)").matches;
 const activeRetouchTarget = () => resolveRetouchTarget(retouch.target, state.compareEnabled, Boolean(state.beforeImage));
 const activeRetouchStrokes = () => activeRetouchTarget() === "before" ? retouch.beforeStrokes : retouch.strokes;
+
+function renderMobileEditorLayout() {
+  const open = coverLayoutMode === "compact" && Boolean(state.image) && compactEditorOpen;
+  studioGrid.dataset.coverLayout = coverLayoutMode;
+  studioGrid.classList.toggle("is-mobile-editor-open", open);
+  document.body.classList.toggle("mobile-editor-open", open);
+  mobileEditorTopbar.hidden = !open;
+  mobileSecondaryTools.hidden = !open;
+  mobilePrimaryTools.hidden = !open;
+  mobileExportSheet.hidden = !(open && mobileExportOpen);
+  mobileEditorLauncher.hidden = !(coverLayoutMode === "compact" && state.image && !open);
+}
+
+function syncMobileEditorLayout() {
+  const previousMode = coverLayoutMode;
+  const pointer = coverPointerQuery.matches ? "coarse" : "fine";
+  coverLayoutMode = resolveCoverLayoutMode({ width: window.innerWidth, height: window.innerHeight, pointer });
+  if (coverLayoutMode !== "compact") {
+    compactEditorOpen = false;
+    mobileExportOpen = false;
+  } else if (previousMode !== "compact" && state.image) {
+    compactEditorOpen = true;
+  }
+  renderMobileEditorLayout();
+}
+
+function openCompactEditor() {
+  if (coverLayoutMode !== "compact" || !state.image) return;
+  compactEditorOpen = true;
+  mobileExportOpen = false;
+  renderMobileEditorLayout();
+}
+
+function closeCompactEditor() {
+  compactEditorOpen = false;
+  mobileExportOpen = false;
+  renderMobileEditorLayout();
+}
+
+$("#closeMobileEditor").addEventListener("click", closeCompactEditor);
+mobileEditorLauncher.addEventListener("click", openCompactEditor);
+$("#openMobileExport").addEventListener("click", () => {
+  mobileExportOpen = true;
+  renderMobileEditorLayout();
+});
+$("#closeMobileExport").addEventListener("click", () => {
+  mobileExportOpen = false;
+  renderMobileEditorLayout();
+});
+window.addEventListener("resize", syncMobileEditorLayout);
+coverPointerQuery.addEventListener?.("change", syncMobileEditorLayout);
 
 function mobileGestureBaseline() {
   const points = [...mobileGesture.pointers.values()];
@@ -575,6 +637,7 @@ function applySyncedImage(quiet = false) {
     state.fileName = syncedImage.fileName;
     $("#uploadTitle").textContent = "更换照片";
     $("#fileName").textContent = syncedImage.fileName;
+    openCompactEditor();
     draw();
     if (!quiet) setStatus("文案页封面照片已同步，文字和构图保持不变");
   };
@@ -863,6 +926,7 @@ function loadFile(file) {
     $("#uploadTitle").textContent = "更换照片";
     $("#fileName").textContent = file.name;
     setStatus("照片已载入，可以调整构图和文字");
+    openCompactEditor();
     URL.revokeObjectURL(url);
     draw();
   };
@@ -1473,4 +1537,5 @@ $("#openPreviewImage").addEventListener("click", async () => {
   }
 });
 
+syncMobileEditorLayout();
 draw();

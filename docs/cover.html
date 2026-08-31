@@ -33,7 +33,7 @@
       </header>
 
       <section class="studio">
-        <div class="studio-grid">
+        <div class="studio-grid" data-cover-layout="desktop">
           <aside class="panel controls">
             <div class="panel-heading"><b>01</b><span><strong>照片与文字</strong><small>先放原片，再放两行主文案</small></span></div>
             <div class="status" aria-live="polite" aria-atomic="true"><i></i><span id="statusText">上传照片后即可制作</span></div>
@@ -106,11 +106,17 @@
           </aside>
 
           <section class="preview-panel">
+            <header id="mobileEditorTopbar" class="mobile-editor-topbar" hidden>
+              <button id="closeMobileEditor" type="button">返回</button>
+              <strong>南铂封面</strong>
+              <button id="openMobileExport" type="button">导出</button>
+            </header>
             <div class="preview-toolbar">
               <span><strong>实时封面预览</strong><small id="previewRatio">抖音 · 9:16</small></span>
               <div class="preview-switches">
                 <label class="switch"><input id="safeToggle" type="checkbox" checked /><i></i>安全区</label>
                 <label class="switch"><input id="compareToggle" type="checkbox" /><i></i>前后对比</label>
+                <button class="mobile-editor-launcher" id="openMobileEditor" type="button" hidden>继续手机编辑</button>
               </div>
             </div>
             <div class="canvas-shell ratio-9-16" id="canvasShell">
@@ -121,6 +127,19 @@
               <span class="snap-guide vertical" id="snapVertical" aria-hidden="true"></span>
               <span class="brush-cursor" id="brushCursor" aria-hidden="true"></span>
             </div>
+            <nav id="mobileSecondaryTools" class="mobile-secondary-tools" aria-label="当前工具" hidden>
+              <span class="mobile-tool-placeholder">预览始终保留在上方</span>
+            </nav>
+            <nav id="mobilePrimaryTools" class="mobile-primary-tools" aria-label="编辑分类" hidden>
+              <span class="mobile-tool-placeholder">编辑工具将在下一步接入</span>
+            </nav>
+            <section id="mobileExportSheet" class="mobile-export-sheet" aria-label="选择导出格式" hidden>
+              <div>
+                <strong>选择导出格式</strong>
+                <p>导出选项将在这里显示，当前不会自动生成图片。</p>
+                <button id="closeMobileExport" type="button">完成</button>
+              </div>
+            </section>
             <div class="preview-tools" id="previewTools">
               <div class="template-area">
                 <div class="templates" id="templates">

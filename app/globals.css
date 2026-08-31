@@ -1400,6 +1400,208 @@ body {
   .studio-template-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
+/* Compact 仅改变现有编辑器的展示容器；画布和所有编辑状态仍由 CoverStudio 拥有。 */
+.cover-compact-shell,
+.cover-compact-preview { display: contents; }
+
+.mobile-editor-topbar,
+.cover-compact-dock,
+.mobile-secondary-tools,
+.mobile-primary-tools,
+.mobile-export-sheet,
+.mobile-editor-launcher { display: none; }
+
+body.mobile-editor-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+.cover-compact-shell.is-open {
+  width: 100%;
+  height: 100dvh;
+  padding: 0 12px;
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #171716;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+}
+
+.cover-compact-shell.is-open .mobile-editor-topbar {
+  min-height: calc(56px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 0 0;
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr);
+  align-items: center;
+  gap: 8px;
+  background: rgba(28, 28, 27, .88);
+}
+
+.mobile-editor-topbar strong {
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -.015em;
+  text-align: center;
+}
+
+.mobile-editor-action,
+.mobile-editor-launcher {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-editor-action:first-child { justify-self: start; }
+.mobile-editor-action:last-child { justify-self: end; }
+.mobile-editor-export-action { color: #ff526a; }
+.mobile-editor-action:active,
+.mobile-editor-launcher:active {
+  transform: scale(.96);
+  background: rgba(255, 255, 255, .1);
+}
+
+.cover-compact-shell.is-open .cover-compact-preview {
+  min-height: 0;
+  padding: 8px 0;
+  display: grid;
+  flex: 1 1 auto;
+  place-items: center;
+  overflow: hidden;
+}
+
+.cover-compact-shell.is-open .studio-canvas-shell {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  flex: 0 1 auto;
+}
+
+.cover-compact-shell.is-open .cover-compact-dock {
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  background: rgba(28, 28, 27, .9);
+}
+
+.cover-compact-shell.is-open .mobile-secondary-tools,
+.cover-compact-shell.is-open .mobile-primary-tools {
+  min-height: 56px;
+  padding: 6px 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cover-compact-shell.is-open .mobile-secondary-tools::-webkit-scrollbar,
+.cover-compact-shell.is-open .mobile-primary-tools::-webkit-scrollbar { display: none; }
+
+.mobile-tool-placeholder {
+  min-height: 44px;
+  padding: 0 15px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .7);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.studio-preview-panel.is-compact-open > .studio-preview-toolbar,
+.studio-preview-panel.is-compact-open > .studio-preview-tools { display: none; }
+
+.mobile-editor-launcher {
+  border: 1px solid rgba(255, 255, 255, .2);
+  background: rgba(255, 255, 255, .08);
+}
+
+.cover-studio-grid[data-cover-layout="compact"] .mobile-editor-launcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-export-sheet:not([hidden]) {
+  min-height: 100dvh;
+  padding: 20px 12px calc(12px + env(safe-area-inset-bottom));
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: grid;
+  align-items: end;
+  overflow: hidden;
+  background: rgba(0, 0, 0, .48);
+  color: #fff;
+  transition: opacity 160ms ease-out;
+}
+
+.mobile-export-sheet > div {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 20px;
+  background: rgba(36, 36, 35, .94);
+  box-shadow: 0 -18px 44px rgba(0, 0, 0, .28);
+}
+
+.mobile-export-sheet strong { display: block; font-size: 17px; }
+.mobile-export-sheet p { margin: 8px 0 14px; color: rgba(255, 255, 255, .66); font-size: 13px; line-height: 1.5; }
+.mobile-export-sheet button { width: 100%; }
+
+@supports ((-webkit-backdrop-filter: blur(18px)) or (backdrop-filter: blur(18px))) {
+  .mobile-editor-topbar,
+  .cover-compact-dock,
+  .mobile-export-sheet > div {
+    -webkit-backdrop-filter: blur(18px) saturate(130%);
+    backdrop-filter: blur(18px) saturate(130%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover-compact-shell,
+  .mobile-editor-action,
+  .mobile-editor-launcher,
+  .mobile-export-sheet { transition: none !important; }
+  .mobile-editor-action:active,
+  .mobile-editor-launcher:active { transform: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mobile-editor-topbar,
+  .cover-compact-dock,
+  .mobile-export-sheet,
+  .mobile-export-sheet > div {
+    background: #20201f;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 @media (max-width: 780px) {
   .workspace-nav {
     width: 100%;
