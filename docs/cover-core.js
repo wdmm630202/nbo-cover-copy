@@ -723,14 +723,13 @@ var NBOCoverCore = (function(exports) {
 		}
 		canvas.width = width;
 		canvas.height = height;
-		context.clearRect(0, 0, width, height);
 		context.fillStyle = "#151515";
 		context.fillRect(0, 0, width, height);
 		if (image) {
 			const radians = settings.rotation * Math.PI / 180;
 			const rotatedWidth = Math.abs(image.naturalWidth * Math.cos(radians)) + Math.abs(image.naturalHeight * Math.sin(radians));
 			const rotatedHeight = Math.abs(image.naturalWidth * Math.sin(radians)) + Math.abs(image.naturalHeight * Math.cos(radians));
-			const scale = Math.max(width / rotatedWidth, height / rotatedHeight) * (settings.zoom / 100);
+			const scale = Math.max(width / rotatedWidth, height / rotatedHeight) * settings.zoom / 100;
 			const imageWidth = image.naturalWidth * scale;
 			const imageHeight = image.naturalHeight * scale;
 			context.save();
@@ -851,7 +850,6 @@ var NBOCoverCore = (function(exports) {
 		const bottomBaseFont = Math.max(1, Math.round(width * .074 * 2.1 * (settings.bottomTextScale / 100)));
 		context.save();
 		context.textAlign = textAlign;
-		context.textBaseline = "alphabetic";
 		const textStroke = Math.max(0, Math.min(1, settings.textStroke / 100));
 		const textShadow = Math.max(0, Math.min(1, settings.textShadow / 100));
 		context.lineJoin = "round";
