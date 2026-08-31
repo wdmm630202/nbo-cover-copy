@@ -29,7 +29,6 @@ const {
   normalizeCoverSettings,
   releaseCoverScratchCanvases,
   resolveCoverLayoutMode,
-  resolveCoverLayoutTransition,
   resolveCanvasInteractionMode,
   serializeStaticCoverSettings,
   resetMobileToolSetting,
@@ -204,12 +203,11 @@ function syncMobileKeyboardViewport() {
 function syncMobileEditorLayout() {
   const previousMode = coverLayoutMode;
   const pointer = coverPointerQuery.matches ? "coarse" : "fine";
-  const transition = resolveCoverLayoutTransition(state, {
+  coverLayoutMode = resolveCoverLayoutMode({
     width: studioGrid.getBoundingClientRect().width || window.innerWidth,
     height: window.innerHeight,
     pointer,
   });
-  coverLayoutMode = transition.mode;
   if (coverLayoutMode !== "compact") {
     compactEditorOpen = false;
     mobileExportOpen = false;

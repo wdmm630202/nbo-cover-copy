@@ -153,7 +153,7 @@ test("React 与静态页都观察编辑器根尺寸并清理监听", async () =>
   assert.match(studio, /observer\.disconnect\(\)/);
   assert.match(staticSource, /new ResizeObserver\(syncMobileEditorLayout\)/);
   assert.match(staticSource, /coverLayoutObserver\.observe\(studioGrid\)/);
-  assert.match(staticSource, /resolveCoverLayoutTransition\(state,/);
+  assert.match(staticSource, /resolveCoverLayoutMode\(\{/);
 });
 
 test("Split 左侧预览固定且只有右侧工具垂直滚动", async () => {

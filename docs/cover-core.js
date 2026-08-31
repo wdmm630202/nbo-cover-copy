@@ -1365,12 +1365,6 @@ var NBOCoverCore = (function(exports) {
 		if (width >= 680 && (width > height || pointer === "fine")) return "split";
 		return "compact";
 	}
-	function resolveCoverLayoutTransition(editorState, environment) {
-		return {
-			mode: resolveCoverLayoutMode(environment),
-			editorState
-		};
-	}
 	//#endregion
 	//#region app/cover/core/tool-registry.ts
 	function deepFreeze(value) {
@@ -1957,7 +1951,6 @@ var NBOCoverCore = (function(exports) {
 	exports.resetMobileToolSetting = resetMobileToolSetting;
 	exports.resolveCanvasInteractionMode = resolveCanvasInteractionMode;
 	exports.resolveCoverLayoutMode = resolveCoverLayoutMode;
-	exports.resolveCoverLayoutTransition = resolveCoverLayoutTransition;
 	exports.revealCoverRules = revealCoverRules;
 	exports.serializeStaticCoverSettings = serializeStaticCoverSettings;
 	exports.updateCoverSetting = updateCoverSetting;
