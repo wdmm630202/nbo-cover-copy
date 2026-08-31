@@ -2976,3 +2976,9 @@ footer {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Compact 编辑必须在首次落指前接管画布；普通页面仍沿用上方的 pan-y。 */
+.cover-compact-shell.is-open .studio-canvas-shell.has-image canvas,
+.cover-compact-shell.is-open .studio-mobile-touch-zone.is-active {
+  touch-action: none;
+}

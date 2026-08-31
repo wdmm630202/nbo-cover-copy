@@ -540,3 +540,9 @@ body.mobile-editor-open {
   .export-row > span { grid-column: 1/-1; }
   .export-row button { width: 100%; height: 48px; font-size: 12px; }
 }
+
+/* Compact 编辑必须在首次落指前接管画布；普通页面仍沿用上方的 pan-y。 */
+.studio-grid[data-cover-layout="compact"].is-mobile-editor-open .canvas-shell.has-image canvas,
+.studio-grid[data-cover-layout="compact"].is-mobile-editor-open .mobile-touch-zone.active {
+  touch-action: none;
+}

@@ -103,3 +103,15 @@ test("实现不依赖 Fullscreen API 且保留桌面三栏选择器", async () =
   assert.match(appCss, /\.mobile-editor-action:active[\s\S]{0,120}transform:\s*scale\(/);
   assert.match(staticCss, /\.mobile-editor-topbar button:active[\s\S]{0,120}transform:\s*scale\(/);
 });
+
+test("Compact 打开前画布触控即由编辑器接管且普通页面仍可纵向滚动", async () => {
+  const [appCss, staticCss] = await Promise.all([
+    read("../app/globals.css"),
+    read("../docs/cover.css"),
+  ]);
+
+  assert.match(appCss, /\.cover-compact-shell\.is-open \.studio-canvas-shell\.has-image canvas,[\s\S]{0,180}\.cover-compact-shell\.is-open \.studio-mobile-touch-zone\.is-active[\s\S]{0,80}touch-action:\s*none/);
+  assert.match(staticCss, /\.studio-grid\[data-cover-layout="compact"\]\.is-mobile-editor-open \.canvas-shell\.has-image canvas,[\s\S]{0,220}\.studio-grid\[data-cover-layout="compact"\]\.is-mobile-editor-open \.mobile-touch-zone\.active[\s\S]{0,80}touch-action:\s*none/);
+  assert.match(appCss, /\.studio-canvas-shell\.has-image canvas\s*\{\s*touch-action:\s*pan-y/);
+  assert.match(staticCss, /\.canvas-shell\.has-image canvas\s*\{\s*touch-action:\s*pan-y/);
+});
