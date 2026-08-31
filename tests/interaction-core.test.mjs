@@ -112,3 +112,17 @@ test("静态壳只复用共享模式解析和不可变追加且保留取消捕�
   assert.match(source, /mode === "rotate"/);
   assert.match(source, /mode === "scaleMove"/);
 });
+
+test("涂抹指针取消会收尾当前笔迹而不清空两个目标", async () => {
+  const [surface, staticSource] = await Promise.all([
+    readFile(new URL("../app/cover/CoverCanvasSurface.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../docs/cover.js", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(surface, /pointercancel/);
+  assert.match(surface, /finishPointer/);
+  assert.match(staticSource, /pointercancel/);
+  assert.match(staticSource, /finishCanvasPointer/);
+  assert.doesNotMatch(surface, /pointercancel[\s\S]{0,240}setRetouchStrokes\(\[\]\)/);
+  assert.doesNotMatch(staticSource, /pointercancel[\s\S]{0,240}retouch\.(?:strokes|beforeStrokes)\s*=\s*\[\]/);
+});

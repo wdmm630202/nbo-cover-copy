@@ -94,6 +94,14 @@ const MEMORY_NAMES_KEY = "nbo-cover-studio-memory-names";
 
 const ROTATION_SNAP_ANGLES = [-180, -90, 0, 90, 180];
 const ROTATION_SNAP_DISTANCE = 3;
+const MOBILE_KEYBOARD_THRESHOLD = 140;
+
+function isTextControlFocused() {
+  const active = document.activeElement;
+  if (active instanceof HTMLTextAreaElement) return true;
+  if (!(active instanceof HTMLInputElement)) return false;
+  return ["", "text", "search", "email", "tel", "url", "password", "number"].includes(active.type);
+}
 
 function snapRotation(value: number) {
   const nearest = ROTATION_SNAP_ANGLES.reduce((best, angle) =>
@@ -209,6 +217,7 @@ export default function CoverStudio() {
   const [exportReady, setExportReady] = useState({ jpeg: false, png: false });
   const exportGenerationRef = useRef(0);
   const exportCacheRef = useRef<{ generation: number; jpeg: CoverExportAsset | null; png: CoverExportAsset | null }>({ generation: 0, jpeg: null, png: null });
+  const mobileExportBusyRef = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [beforeDragging, setBeforeDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
@@ -231,6 +240,8 @@ export default function CoverStudio() {
   const [layoutMode, setLayoutMode] = useState<CoverLayoutMode>("desktop");
   const [isCompactEditorOpen, setIsCompactEditorOpen] = useState(false);
   const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
+  const [isMobileExportBusy, setIsMobileExportBusy] = useState(false);
+  const [isMobileKeyboardOpen, setIsMobileKeyboardOpen] = useState(false);
   const [activePrimaryTool, setActivePrimaryTool] = useState<PrimaryToolId>("compose");
   const [activeSecondaryTool, setActiveSecondaryTool] = useState<string | null>("target");
   const settingsRef = useRef(settings);
@@ -238,6 +249,7 @@ export default function CoverStudio() {
   const rotationModeRef = useRef(rotationMode);
   const brushModeRef = useRef(brushMode);
   const brushSettingsRef = useRef({ size: brushSize, feather: brushFeather, strength: brushStrength });
+  const mobileViewportBaselineRef = useRef(0);
 
   const showTransformHint = (text: string, guide: "horizontal" | "vertical" | null = null) => {
     const hud = transformHudRef.current;
@@ -342,6 +354,42 @@ export default function CoverStudio() {
     const open = layoutMode === "compact" && isCompactEditorOpen;
     document.body.classList.toggle("mobile-editor-open", open);
     return () => document.body.classList.remove("mobile-editor-open");
+  }, [isCompactEditorOpen, layoutMode]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const editorOpen = layoutMode === "compact" && isCompactEditorOpen;
+    if (!viewport || !editorOpen) {
+      document.body.classList.remove("is-keyboard-open");
+      document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
+      mobileViewportBaselineRef.current = 0;
+      const resetTimer = window.setTimeout(() => setIsMobileKeyboardOpen(false), 0);
+      return () => window.clearTimeout(resetTimer);
+    }
+    mobileViewportBaselineRef.current = Math.max(mobileViewportBaselineRef.current, viewport.height);
+    const syncKeyboardViewport = () => {
+      const focused = isTextControlFocused();
+      if (!focused) mobileViewportBaselineRef.current = Math.max(mobileViewportBaselineRef.current, viewport.height);
+      const keyboardHeight = focused
+        ? Math.max(0, mobileViewportBaselineRef.current - viewport.height)
+        : 0;
+      const open = focused && keyboardHeight >= MOBILE_KEYBOARD_THRESHOLD;
+      document.body.classList.toggle("is-keyboard-open", open);
+      document.documentElement.style.setProperty("--mobile-keyboard-height", `${open ? Math.round(keyboardHeight) : 0}px`);
+      setIsMobileKeyboardOpen(open);
+    };
+    const handleFocusOut = () => window.setTimeout(syncKeyboardViewport, 0);
+    viewport.addEventListener("resize", syncKeyboardViewport);
+    document.addEventListener("focusin", syncKeyboardViewport);
+    document.addEventListener("focusout", handleFocusOut);
+    syncKeyboardViewport();
+    return () => {
+      viewport.removeEventListener("resize", syncKeyboardViewport);
+      document.removeEventListener("focusin", syncKeyboardViewport);
+      document.removeEventListener("focusout", handleFocusOut);
+      document.body.classList.remove("is-keyboard-open");
+      document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
+    };
   }, [isCompactEditorOpen, layoutMode]);
 
   useEffect(() => {
@@ -947,6 +995,19 @@ export default function CoverStudio() {
     setExportMessage(`${resolutionMessage}，请长按图片存储到照片`);
   };
 
+  const handleMobileExport = async (format: "png" | "jpeg", photoOnly: boolean) => {
+    if (mobileExportBusyRef.current) return;
+    mobileExportBusyRef.current = true;
+    setIsMobileExportBusy(true);
+    try {
+      await exportCover(format, photoOnly);
+    } finally {
+      mobileExportBusyRef.current = false;
+      setIsMobileExportBusy(false);
+      setIsMobileExportOpen(false);
+    }
+  };
+
   const changeBeforeZoom = (value: number) => setSettings((current) => {
     const rawLimits = getBeforeOffsetLimits(beforeImage, getBeforeImageFrame(preset, current.beforeFrameScale), value, current.beforeRotation);
     const limits = { x: Math.floor(rawLimits.x), y: Math.floor(rawLimits.y) };
@@ -1036,7 +1097,18 @@ export default function CoverStudio() {
       case "beforeOffsetX": updateSetting("beforeOffsetX", Math.max(-beforeOffsetLimits.x, Math.min(beforeOffsetLimits.x, Number(value)))); return;
       case "beforeOffsetY": updateSetting("beforeOffsetY", Math.max(-beforeOffsetLimits.y, Math.min(beforeOffsetLimits.y, Number(value)))); return;
       case "beforeRotation": changeBeforeRotation(Number(value)); return;
-      case "retouchEnabled": setBrushMode(Boolean(value)); setRotationMode(false); setShowRetouchBefore(false); return;
+      case "retouchEnabled": {
+        const enabled = Boolean(value);
+        setBrushMode(enabled);
+        setRotationMode(false);
+        setShowRetouchBefore(false);
+        setNotice(enabled
+          ? settings.compareEnabled && beforeImage
+            ? "已开启涂抹，落笔位置会自动识别主照片或拍摄前照片"
+            : "已开启主照片涂抹，请在照片上按住绘制"
+          : "已退出涂抹，可继续移动照片");
+        return;
+      }
       case "retouchTarget": setRetouchTarget(value === "before" ? "before" : "after"); setShowRetouchBefore(false); return;
       case "brushSize": setBrushSize(Math.max(20, Math.min(400, Number(value)))); return;
       case "brushFeather": setBrushFeather(Math.max(0, Math.min(100, Number(value)))); return;
@@ -1413,6 +1485,9 @@ export default function CoverStudio() {
               setIsCompactEditorOpen(false);
             }}
             onOpenExport={() => setIsMobileExportOpen(true)}
+            keyboardOpen={isMobileKeyboardOpen}
+            brushMode={brushMode}
+            brushTarget={activeRetouchTarget}
             canvas={coverCanvas}
             dock={<CoverMobileToolDock
               primary={activePrimaryTool}
@@ -1428,7 +1503,9 @@ export default function CoverStudio() {
           />
           <CoverExportSheet
             open={layoutMode === "compact" && isCompactEditorOpen && isMobileExportOpen}
+            busy={isMobileExportBusy}
             onClose={() => setIsMobileExportOpen(false)}
+            onExport={handleMobileExport}
           />
           <div ref={previewToolsRef} className="studio-preview-tools">
             <div className="studio-template-area">

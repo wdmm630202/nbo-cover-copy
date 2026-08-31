@@ -176,3 +176,76 @@ test("Compact 打开前画布触控即由编辑器接管且普通页面仍可纵
   assert.match(appCss, /\.studio-canvas-shell\.has-image canvas\s*\{\s*touch-action:\s*pan-y/);
   assert.match(staticCss, /\.canvas-shell\.has-image canvas\s*\{\s*touch-action:\s*pan-y/);
 });
+
+test("手机涂抹状态在预览内持续可见且两端共用业务状态", async () => {
+  const [studio, shell, surface, html, staticSource] = await Promise.all([
+    read("../app/cover/CoverStudio.tsx"),
+    read("../app/cover/CoverCompactShell.tsx"),
+    read("../app/cover/CoverCanvasSurface.tsx"),
+    read("../docs/cover.html"),
+    read("../docs/cover.js"),
+  ]);
+
+  assert.match(shell, /mobileBrushStatus/);
+  assert.match(studio, /brushMode=\{brushMode\}/);
+  assert.match(studio, /brushTarget=\{activeRetouchTarget\}/);
+  assert.match(html, /id="mobileBrushStatus"/);
+  assert.match(staticSource, /mobileBrushStatus[\s\S]{0,500}retouch\.active/);
+  assert.match(surface, /resolveRetouchTargetFromPoint/);
+  assert.doesNotMatch([studio, shell, staticSource].join("\n"), /destination-out|createRadialGradient/);
+});
+
+test("文本键盘只在视口下降 140px 且聚焦时压缩工具区，预览仍保留", async () => {
+  const [studio, staticSource, appCss, staticCss] = await Promise.all([
+    read("../app/cover/CoverStudio.tsx"),
+    read("../docs/cover.js"),
+    read("../app/globals.css"),
+    read("../docs/cover.css"),
+  ]);
+
+  for (const source of [studio, staticSource]) {
+    assert.match(source, /visualViewport/);
+    assert.match(source, /MOBILE_KEYBOARD_THRESHOLD\s*=\s*140/);
+    assert.match(source, /isTextControlFocused/);
+    assert.match(source, /--mobile-keyboard-height/);
+    assert.match(source, /is-keyboard-open/);
+  }
+  for (const css of [appCss, staticCss]) {
+    assert.match(css, /is-keyboard-open[\s\S]{0,500}(?:cover-compact-preview|canvas-shell)/);
+    assert.match(css, /is-keyboard-open[\s\S]{0,900}mobile-single-tool-control/);
+    assert.match(css, /--mobile-keyboard-height/);
+    assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]{0,900}font-size:\s*16px/);
+  }
+});
+
+test("手机导出 Sheet 精确提供四种共享导出并在 busy 时防重复", async () => {
+  const [studio, sheet, html, staticSource] = await Promise.all([
+    read("../app/cover/CoverStudio.tsx"),
+    read("../app/cover/CoverExportSheet.tsx"),
+    read("../docs/cover.html"),
+    read("../docs/cover.js"),
+  ]);
+
+  assert.match(sheet, /busy:\s*boolean/);
+  assert.match(sheet, /onExport:\s*\(format:\s*"png"\s*\|\s*"jpeg",\s*photoOnly:\s*boolean\)/);
+  for (const mapping of [
+    /onExport\("png",\s*true\)/,
+    /onExport\("jpeg",\s*true\)/,
+    /onExport\("png",\s*false\)/,
+    /onExport\("jpeg",\s*false\)/,
+  ]) assert.match(sheet, mapping);
+  assert.match(sheet, /disabled=\{busy\}/);
+  assert.match(studio, /busy=\{isMobileExportBusy\}/);
+  assert.match(studio, /onExport=\{handleMobileExport\}/);
+  assert.match(studio, /mobileExportBusyRef\.current/);
+  for (const id of ["mobileExportOriginalPng", "mobileExportOriginalJpg", "mobileExportDesignPng", "mobileExportDesignJpg"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(staticSource, /mobileExportOriginalPng[\s\S]{0,140}runMobileExport\("png",\s*true\)/);
+  assert.match(staticSource, /mobileExportOriginalJpg[\s\S]{0,140}runMobileExport\("jpeg",\s*true\)/);
+  assert.match(staticSource, /mobileExportDesignPng[\s\S]{0,140}runMobileExport\("png",\s*false\)/);
+  assert.match(staticSource, /mobileExportDesignJpg[\s\S]{0,140}runMobileExport\("jpeg",\s*false\)/);
+  assert.match(staticSource, /mobileExportBusy/);
+  assert.match(staticSource, /navigator\.share/);
+  assert.match(staticSource, /savePreview/);
+});

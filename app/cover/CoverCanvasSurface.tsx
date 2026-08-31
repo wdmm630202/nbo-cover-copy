@@ -220,7 +220,7 @@ export default function CoverCanvasSurface({
       pendingPointerMove = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
       if (!pointerMoveFrame) pointerMoveFrame = window.requestAnimationFrame(applyPointerMove);
     };
-    const endDrag = (event: PointerEvent) => {
+    const finishPointer = (event: PointerEvent) => {
       if (pendingPointerMove?.pointerId === event.pointerId) {
         if (pointerMoveFrame) window.cancelAnimationFrame(pointerMoveFrame);
         applyPointerMove();
@@ -294,8 +294,8 @@ export default function CoverCanvasSurface({
 
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
-    canvas.addEventListener("pointerup", endDrag);
-    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("pointerup", finishPointer);
+    canvas.addEventListener("pointercancel", finishPointer);
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     canvas.addEventListener("dblclick", handleDoubleClick);
     canvas.addEventListener("pointerleave", handlePointerLeave);
@@ -303,8 +303,8 @@ export default function CoverCanvasSurface({
       if (pointerMoveFrame) window.cancelAnimationFrame(pointerMoveFrame);
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointermove", handlePointerMove);
-      canvas.removeEventListener("pointerup", endDrag);
-      canvas.removeEventListener("pointercancel", endDrag);
+      canvas.removeEventListener("pointerup", finishPointer);
+      canvas.removeEventListener("pointercancel", finishPointer);
       canvas.removeEventListener("wheel", handleWheel);
       canvas.removeEventListener("dblclick", handleDoubleClick);
       canvas.removeEventListener("pointerleave", handlePointerLeave);

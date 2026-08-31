@@ -126,6 +126,7 @@
               <span class="snap-guide horizontal" id="snapHorizontal" aria-hidden="true"></span>
               <span class="snap-guide vertical" id="snapVertical" aria-hidden="true"></span>
               <span class="brush-cursor" id="brushCursor" aria-hidden="true"></span>
+              <p id="mobileBrushStatus" class="mobile-brush-status" role="status" aria-live="polite">涂抹关闭 · 主照片</p>
             </div>
             <section id="mobileSingleToolControl" class="mobile-single-tool-control" aria-live="polite" hidden></section>
             <nav id="mobileSecondaryTools" class="mobile-secondary-tools" aria-label="当前工具" hidden>
@@ -135,8 +136,14 @@
             <section id="mobileExportSheet" class="mobile-export-sheet" aria-label="选择导出格式" hidden>
               <div>
                 <strong>选择导出格式</strong>
-                <p>导出选项将在这里显示，当前不会自动生成图片。</p>
-                <button id="closeMobileExport" type="button">完成</button>
+                <p id="mobileExportStatus" role="status" aria-live="polite">导出后会打开系统分享；取消后仍可长按成品保存。</p>
+                <div class="mobile-export-options">
+                  <button id="mobileExportOriginalPng" type="button">原图 PNG</button>
+                  <button id="mobileExportOriginalJpg" type="button">原图 JPG</button>
+                  <button id="mobileExportDesignPng" type="button">设计 PNG</button>
+                  <button id="mobileExportDesignJpg" type="button">设计 JPG</button>
+                </div>
+                <button id="closeMobileExport" class="mobile-export-close" type="button">取消</button>
               </div>
             </section>
             <div class="preview-tools" id="previewTools">

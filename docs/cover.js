@@ -7,6 +7,7 @@ const COPY_SYNC_CHANNEL = "nbo-cover-copy-sync-channel-v1";
 const IMAGE_MESSAGE_TYPE = "NBO_COVER_IMAGE_READY";
 const IMAGE_REQUEST_TYPE = "NBO_COVER_IMAGE_REQUEST";
 const ACCESS_DAYS = 180;
+const MOBILE_KEYBOARD_THRESHOLD = 140;
 const PRESETS = {
   douyin: { label: "抖音", ratio: "9:16", width: 1080, height: 1920, note: "竖屏封面，带居中 3:4 主页安全区" },
   xiaohongshu: { label: "小红书", ratio: "3:4", width: 1080, height: 1440, note: "适合图文与竖版内容封面" },
@@ -55,6 +56,13 @@ function canShareExportFile(file) {
   if (typeof navigator.share !== "function") return false;
   return typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] });
 }
+
+function isTextControlFocused() {
+  const active = document.activeElement;
+  if (active instanceof HTMLTextAreaElement) return true;
+  if (!(active instanceof HTMLInputElement)) return false;
+  return ["", "text", "search", "email", "tel", "url", "password", "number"].includes(active.type);
+}
 const {
   createImageDropController,
   getImageDropHint,
@@ -79,6 +87,7 @@ const mobileSecondaryTools = $("#mobileSecondaryTools");
 const mobilePrimaryTools = $("#mobilePrimaryTools");
 const mobileSingleToolControl = $("#mobileSingleToolControl");
 const mobileExportSheet = $("#mobileExportSheet");
+const mobileBrushStatus = $("#mobileBrushStatus");
 const mobileEditorLauncher = $("#openMobileEditor");
 const coverPointerQuery = window.matchMedia("(pointer: coarse)");
 const accessGate = $("#accessGate");
@@ -95,6 +104,9 @@ let adjustmentTarget = "after";
 let coverLayoutMode = "desktop";
 let compactEditorOpen = false;
 let mobileExportOpen = false;
+let mobileExportBusy = false;
+let mobileKeyboardOpen = false;
+let mobileViewportBaseline = 0;
 let activePrimaryTool = "compose";
 let activeSecondaryTool = "target";
 const mobileGesture = { pointers: new Map(), holdTimer: 0, active: false, anchorId: null, holdOrigin: null, baseline: null };
@@ -146,13 +158,39 @@ function renderMobileEditorLayout() {
   studioGrid.dataset.coverLayout = coverLayoutMode;
   studioGrid.classList.toggle("is-mobile-editor-open", open);
   document.body.classList.toggle("mobile-editor-open", open);
+  studioGrid.classList.toggle("is-keyboard-open", open && mobileKeyboardOpen);
   mobileEditorTopbar.hidden = !open;
   mobileSingleToolControl.hidden = !open;
   mobileSecondaryTools.hidden = !open;
   mobilePrimaryTools.hidden = !open;
   mobileExportSheet.hidden = !(open && mobileExportOpen);
   mobileEditorLauncher.hidden = !(coverLayoutMode === "compact" && state.image && !open);
+  ["mobileExportOriginalPng", "mobileExportOriginalJpg", "mobileExportDesignPng", "mobileExportDesignJpg", "closeMobileExport"].forEach((id) => {
+    document.getElementById(id).disabled = mobileExportBusy;
+  });
+  $("#mobileExportStatus").textContent = mobileExportBusy
+    ? "正在生成原始像素成品…"
+    : "导出后会打开系统分享；取消后仍可长按成品保存。";
   if (open) renderMobileToolDock();
+}
+
+function syncMobileKeyboardViewport() {
+  const viewport = window.visualViewport;
+  const editorOpen = coverLayoutMode === "compact" && compactEditorOpen && Boolean(state.image);
+  if (!viewport || !editorOpen) {
+    mobileKeyboardOpen = false;
+    mobileViewportBaseline = 0;
+    document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
+    renderMobileEditorLayout();
+    return;
+  }
+  if (!mobileViewportBaseline) mobileViewportBaseline = viewport.height;
+  const focused = isTextControlFocused();
+  if (!focused) mobileViewportBaseline = Math.max(mobileViewportBaseline, viewport.height);
+  const keyboardHeight = focused ? Math.max(0, mobileViewportBaseline - viewport.height) : 0;
+  mobileKeyboardOpen = focused && keyboardHeight >= MOBILE_KEYBOARD_THRESHOLD;
+  document.documentElement.style.setProperty("--mobile-keyboard-height", `${mobileKeyboardOpen ? Math.round(keyboardHeight) : 0}px`);
+  renderMobileEditorLayout();
 }
 
 function syncMobileEditorLayout() {
@@ -162,6 +200,8 @@ function syncMobileEditorLayout() {
   if (coverLayoutMode !== "compact") {
     compactEditorOpen = false;
     mobileExportOpen = false;
+    mobileKeyboardOpen = false;
+    mobileViewportBaseline = 0;
   } else if (previousMode !== "compact" && state.image) {
     compactEditorOpen = true;
   }
@@ -172,12 +212,16 @@ function openCompactEditor() {
   if (coverLayoutMode !== "compact" || !state.image) return;
   compactEditorOpen = true;
   mobileExportOpen = false;
+  mobileViewportBaseline = window.visualViewport?.height || window.innerHeight;
   renderMobileEditorLayout();
 }
 
 function closeCompactEditor() {
   compactEditorOpen = false;
   mobileExportOpen = false;
+  mobileKeyboardOpen = false;
+  mobileViewportBaseline = 0;
+  document.documentElement.style.setProperty("--mobile-keyboard-height", "0px");
   renderMobileEditorLayout();
 }
 
@@ -193,6 +237,9 @@ $("#closeMobileExport").addEventListener("click", () => {
 });
 window.addEventListener("resize", syncMobileEditorLayout);
 coverPointerQuery.addEventListener?.("change", syncMobileEditorLayout);
+window.visualViewport?.addEventListener("resize", syncMobileKeyboardViewport);
+document.addEventListener("focusin", syncMobileKeyboardViewport);
+document.addEventListener("focusout", () => window.setTimeout(syncMobileKeyboardViewport, 0));
 
 const STATIC_MOBILE_TOOL_DELEGATIONS = Object.freeze({
   uploadMain: "fileInput", uploadBefore: "beforeFileInput", comparison: "compareToggle", safeArea: "safeToggle", syncCover: "syncCoverImage",
@@ -529,7 +576,7 @@ canvas.addEventListener("pointermove", (event) => {
   saveSettings(); draw();
 });
 
-const endImageDrag = (event) => {
+const finishCanvasPointer = (event) => {
   if (retouch.pointerId === event.pointerId) {
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     retouch.pointerId = null;
@@ -541,8 +588,8 @@ const endImageDrag = (event) => {
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   imageInteraction.drag = null;
 };
-canvas.addEventListener("pointerup", endImageDrag);
-canvas.addEventListener("pointercancel", endImageDrag);
+canvas.addEventListener("pointerup", finishCanvasPointer);
+canvas.addEventListener("pointercancel", finishCanvasPointer);
 canvas.addEventListener("pointerleave", () => $("#brushCursor").classList.remove("visible"));
 
 const mobileTouchZone = $("#mobileTouchZone");
@@ -1060,6 +1107,8 @@ function updateUi() {
   $("#retouchTargetAfter").classList.toggle("active", retouchTarget === "after");
   $("#retouchTargetBefore").classList.toggle("active", retouchTarget === "before");
   $("#retouchNote").textContent = `落笔自动识别照片 · 当前管理：${retouchTarget === "before" ? "拍摄前照片" : "主照片"}`;
+  mobileBrushStatus.classList.toggle("active", retouch.active);
+  mobileBrushStatus.textContent = `${retouch.active ? "涂抹开启" : "涂抹关闭"} · ${retouchTarget === "before" ? "拍摄前照片" : "主照片"}`;
   $("#brushSizeValue").value = retouch.size;
   $("#brushFeatherValue").value = retouch.feather;
   $("#brushStrengthValue").value = retouch.strength;
@@ -1522,6 +1571,24 @@ $("#exportOriginalJpg").addEventListener("click", () => exportCover("jpeg", true
 $("#exportJpg").addEventListener("click", () => exportCover("jpeg"));
 $("#exportPng").addEventListener("click", () => exportCover("png"));
 
+async function runMobileExport(format, photoOnly) {
+  if (mobileExportBusy) return;
+  mobileExportBusy = true;
+  renderMobileEditorLayout();
+  try {
+    await exportCover(format, photoOnly);
+  } finally {
+    mobileExportBusy = false;
+    mobileExportOpen = false;
+    renderMobileEditorLayout();
+  }
+}
+
+$("#mobileExportOriginalPng").addEventListener("click", () => runMobileExport("png", true));
+$("#mobileExportOriginalJpg").addEventListener("click", () => runMobileExport("jpeg", true));
+$("#mobileExportDesignPng").addEventListener("click", () => runMobileExport("png", false));
+$("#mobileExportDesignJpg").addEventListener("click", () => runMobileExport("jpeg", false));
+
 function setStatus(message) {
   $("#statusText").textContent = message;
 }
@@ -1529,6 +1596,7 @@ function setStatus(message) {
 function setExportStatus(message) {
   setStatus(message);
   $("#exportFeedback").textContent = message;
+  $("#mobileExportStatus").textContent = message;
 }
 
 function describeExportResolution(asset) {
