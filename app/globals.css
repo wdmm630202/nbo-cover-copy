@@ -1544,17 +1544,6 @@ body.split-editor-open {
   pointer-events: none;
 }
 
-.cover-studio-grid[data-cover-layout="desktop"] {
-  overflow-x: hidden;
-}
-
-.cover-studio-grid[data-cover-layout="desktop"] .studio-controls,
-.cover-studio-grid[data-cover-layout="desktop"] .studio-design {
-  max-height: calc(100dvh - 96px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
 body.mobile-editor-open {
   overflow: hidden;
   overscroll-behavior: none;

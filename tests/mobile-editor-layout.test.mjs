@@ -167,11 +167,10 @@ test("Split 左侧预览固定且只有右侧工具垂直滚动", async () => {
     assert.match(css, /data-cover-layout="split"[\s\S]{0,2200}split-preview[\s\S]{0,500}position:\s*sticky/);
     assert.match(css, /data-cover-layout="split"[\s\S]{0,2600}split-tools[\s\S]{0,500}overflow-y:\s*auto/);
     assert.match(css, /data-cover-layout="split"[\s\S]{0,2600}overflow-x:\s*hidden/);
-    assert.match(css, /data-cover-layout="desktop"/);
   }
 });
 
-test("Desktop 仍保留三栏、双面板滚动和原有交互接线", async () => {
+test("Desktop 严格保留旧版一页三栏和原有交互接线", async () => {
   const [studio, surface, appCss, html, staticCss, staticSource] = await Promise.all([
     read("../app/cover/CoverStudio.tsx"),
     read("../app/cover/CoverCanvasSurface.tsx"),
@@ -185,8 +184,7 @@ test("Desktop 仍保留三栏、双面板滚动和原有交互接线", async () 
     assert.match(css, /(?:cover-)?studio-grid\s*\{[\s\S]{0,180}grid-template-columns:\s*330px\s+minmax\(420px,\s*1fr\)\s+350px/);
     assert.match(css, /grid-template-columns:\s*300px\s+minmax\(580px,\s*1fr\)\s+390px/);
     assert.doesNotMatch(css, /data-cover-layout="desktop"\][^{]*\{[^}]*grid-template-columns/);
-    assert.match(css, /data-cover-layout="desktop"[\s\S]{0,1200}(?:studio-controls|controls)[\s\S]{0,250}overflow-y:\s*auto/);
-    assert.match(css, /data-cover-layout="desktop"[\s\S]{0,1600}(?:studio-design|design)[\s\S]{0,250}overflow-y:\s*auto/);
+    assert.doesNotMatch(css, /data-cover-layout="desktop"[\s\S]{0,1600}(?:max-height|overflow-y)/);
   }
   for (const token of ["studio-controls", "studio-preview-panel", "studio-design", "exportCover("]) assert.match(studio, new RegExp(token.replace("(", "\\(")));
   assert.match(surface, /canvas\.addEventListener\("wheel"/);
