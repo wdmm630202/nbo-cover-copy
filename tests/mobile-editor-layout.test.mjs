@@ -182,7 +182,9 @@ test("Desktop 严格保留旧版一页三栏和原有交互接线", async () => 
 
   for (const css of [appCss, staticCss]) {
     assert.match(css, /(?:cover-)?studio-grid\s*\{[\s\S]{0,180}grid-template-columns:\s*330px\s+minmax\(420px,\s*1fr\)\s+350px/);
+    assert.match(css, /@media\s*\(min-width:\s*1181px\)\s*and\s*\(min-height:\s*1100px\)/);
     assert.match(css, /grid-template-columns:\s*300px\s+minmax\(580px,\s*1fr\)\s+390px/);
+    assert.match(css, /@media\s*\(max-width:\s*1180px\),\s*\(pointer:\s*coarse\)[\s\S]{0,260}(?:cover-)?studio-grid\[data-cover-layout="split"\]/);
     assert.doesNotMatch(css, /data-cover-layout="desktop"\][^{]*\{[^}]*grid-template-columns/);
     assert.doesNotMatch(css, /data-cover-layout="desktop"[\s\S]{0,1600}(?:max-height|overflow-y)/);
   }

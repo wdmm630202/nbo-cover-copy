@@ -1311,7 +1311,7 @@ body {
   line-height: 1.7;
 }
 
-@media (min-width: 1181px) and (min-height: 1000px) {
+@media (min-width: 1181px) and (min-height: 1100px) {
   .cover-page { padding-bottom: 8px; }
   .cover-studio-header { min-height: 58px; }
   .cover-studio-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
@@ -1413,6 +1413,8 @@ body {
 .mobile-export-sheet,
 .mobile-editor-launcher { display: none; }
 
+/* 跨设备编辑壳只在窄屏或触控设备生效，电脑端继续使用修改前的三栏基线。 */
+@media (max-width: 1180px), (pointer: coarse) {
 body.split-editor-open {
   overflow: hidden;
   overscroll-behavior: none;
@@ -1847,6 +1849,7 @@ body.mobile-editor-open {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
 }
 
 @media (max-width: 780px) {

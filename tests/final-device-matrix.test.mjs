@@ -368,7 +368,7 @@ test("静态真实页在 18 个目标尺寸保持外壳、预览、工具与编�
       if (result.mode === "desktop") {
         assert.equal(result.desktopPanelFlow.controlsMaxHeight, "none", `${result.width}×${result.height} 电脑左栏不得新增视口限高`);
         assert.equal(result.desktopPanelFlow.designMaxHeight, "none", `${result.width}×${result.height} 电脑右栏不得新增视口限高`);
-        if (result.height >= 1000) {
+        if (result.height >= 1100) {
           assert.equal(result.desktopPanelFlow.controlsOverflowY, "auto", `${result.width}×${result.height} 前后对比左栏应沿用旧版滚动策略`);
           assert.equal(result.desktopPanelFlow.designOverflowY, "hidden", `${result.width}×${result.height} 大屏右栏应沿用旧版一页压缩布局`);
           assert.ok(result.desktopPanelFlow.footer.bottom <= result.snapshot.viewport.bottom + 1, `${result.width}×${result.height} 长期规范未在同一页显示`);
