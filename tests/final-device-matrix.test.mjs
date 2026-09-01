@@ -24,6 +24,7 @@ const MATRIX = [
   [1024, 768, "coarse", "split"], [1194, 834, "coarse", "split"],
   [1366, 1024, "coarse", "split"], [1280, 800, "fine", "desktop"],
   [1440, 900, "fine", "desktop"], [1920, 1080, "fine", "desktop"],
+  [2360, 1082, "fine", "desktop"],
   [2560, 1366, "fine", "desktop"],
 ];
 
@@ -80,7 +81,7 @@ async function evaluate(send, expression, awaitPromise = false) {
   return response.result.value;
 }
 
-test("静态真实页在 17 个目标尺寸保持外壳、预览、工具与编辑状态", { timeout: 45000 }, async (t) => {
+test("静态真实页在 18 个目标尺寸保持外壳、预览、工具与编辑状态", { timeout: 45000 }, async (t) => {
   try {
     await access(CHROME);
   } catch {
@@ -339,7 +340,7 @@ test("静态真实页在 17 个目标尺寸保持外壳、预览、工具与编�
       results.push(result);
     }
 
-    assert.equal(results.length, 17);
+    assert.equal(results.length, 18);
     for (const result of results) {
       assert.ok(result.overflow <= 1, `${result.width}×${result.height} 水平溢出 ${result.overflow}px`);
       try {
@@ -367,7 +368,7 @@ test("静态真实页在 17 个目标尺寸保持外壳、预览、工具与编�
       if (result.mode === "desktop") {
         assert.equal(result.desktopPanelFlow.controlsMaxHeight, "none", `${result.width}×${result.height} 电脑左栏不得新增视口限高`);
         assert.equal(result.desktopPanelFlow.designMaxHeight, "none", `${result.width}×${result.height} 电脑右栏不得新增视口限高`);
-        if (result.height >= 1100) {
+        if (result.height >= 1000) {
           assert.equal(result.desktopPanelFlow.controlsOverflowY, "auto", `${result.width}×${result.height} 前后对比左栏应沿用旧版滚动策略`);
           assert.equal(result.desktopPanelFlow.designOverflowY, "hidden", `${result.width}×${result.height} 大屏右栏应沿用旧版一页压缩布局`);
           assert.ok(result.desktopPanelFlow.footer.bottom <= result.snapshot.viewport.bottom + 1, `${result.width}×${result.height} 长期规范未在同一页显示`);

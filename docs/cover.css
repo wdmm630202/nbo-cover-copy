@@ -234,7 +234,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .standard li { color: #6e6761; font-size: 11px; line-height: 1.6; }
 .standard li b { margin-right: 5px; color: #24211f; }
 .standard > p { grid-column: 2; margin: 0; color: #99928b; font-size: 9px; line-height: 1.7; }
-@media (min-width: 1181px) and (min-height: 1100px) {
+@media (min-width: 1181px) and (min-height: 1000px) {
   .cover-page { padding-bottom: 8px; }
   .studio-header { min-height: 58px; }
   .brand-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
