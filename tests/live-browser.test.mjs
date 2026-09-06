@@ -58,6 +58,21 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.deepEqual(pixels.firstCorner,[200,157,84,255],'素颜首帧必须无留白填满画布');
     assert.ok(pixels.beforeLandingDelta<0.25,`素颜落位产生突变：${pixels.beforeLandingDelta}`);
     assert.equal(pixels.afterLandingDelta,0,'精修落位与完成阶段的照片应逐像素衔接');
+    const parity=await page.evaluate(async()=>{
+      const source=document.createElement('canvas');source.width=80;source.height=120;
+      const ctx=source.getContext('2d');ctx.fillStyle='#688ea0';ctx.fillRect(0,0,80,120);
+      ctx.fillStyle='#e0c89e';ctx.fillRect(20,30,40,70);
+      const image=new Image();image.src=source.toDataURL();await image.decode();
+      const results=[];
+      for(const height of [1920,1440]) for(const showDivider of [true,false]) {
+        const settings=NBOCoverCore.getLiveSettings({...state,topText:'男士素人改造',bottomText:'原来普通男生',subtitle:'也能拍成这样',showDivider,textStroke:18,textShadow:64,dividerColor:'#c49e67',zoom:116,offsetX:-7,beforeBrightness:92});
+        const draw=live=>{const canvas=document.createElement('canvas');NBOCoverCore.drawCover({canvas,image,beforeImage:image,watermark:image,settings,preset:{id:height===1920?'douyin':'xiaohongshu',width:1080,height},includeGuide:false,live});return canvas.getContext('2d').getImageData(0,0,1080,height).data;};
+        const normal=draw(undefined),final=draw({time:3});
+        results.push({height,showDivider,differentChannels:final.reduce((sum,value,index)=>sum+Number(value!==normal[index]),0)});
+      }
+      return results;
+    });
+    for(const result of parity) assert.equal(result.differentChannels,0,`Live 成品的文字、渐变横线、虚线和前后按钮必须复用原显示效果：${JSON.stringify(result)}`);
     assert.deepEqual(errors,[]);
   } finally {await browser.close();await new Promise(r=>server.close(r));}
 });

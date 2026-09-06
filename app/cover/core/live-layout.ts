@@ -1,5 +1,3 @@
-// @ts-expect-error Node's direct TypeScript tests require an explicit extension.
-import { getComparisonEvidenceLayout } from "../compare-layout.ts";
 import type { CoverSettings } from "./editor-settings";
 
 export const LIVE_LOCKED_VALUES = Object.freeze({
@@ -53,22 +51,6 @@ export function updateLiveSettings<T extends CoverSettings>(
     result[key] = updated[key] === active[key] ? original[key] : normalizeLiveLine(updated[key]);
   }
   return result;
-}
-
-export function getLiveLayout(size: { width: number; height: number }) {
-  const s = size.width / 1080;
-  const { frame } = getComparisonEvidenceLayout(size, LIVE_LOCKED_VALUES.beforeFrameScale);
-  const left = 54 * s;
-  return {
-    left,
-    top: frame.y,
-    textWidth: frame.x - 32 * s - left,
-    headlineSize: Math.round(size.width * 0.074 * 2.1 * 0.45),
-    subtitleSize: Math.round(size.width * 0.061 * 1.14),
-    rowStep: 108 * s,
-    subtitleTop: frame.y + 245 * s,
-    animation: { x: left, y: frame.y + 330 * s, width: Math.min(450 * s, frame.x - 36 * s - left), height: 200 * s },
-  };
 }
 
 export function getLiveMotionState(time: number) {

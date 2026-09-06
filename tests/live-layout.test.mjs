@@ -37,17 +37,26 @@ test('Live 锁定值不覆盖原设置，关闭后原字号、版式和对比状
   assert.deepEqual(original, snapshot);
 });
 
-test('9:16 和 3:4 中三行文字顶端与素颜框对齐，动画只占左下指定区域', () => {
+test('9:16 和 3:4 使用原文字排版与素颜框顶对齐，动画只占文字下方区域', async () => {
   assert.ok(live, '缺少 Live 排版模块');
   for (const height of [1920, 1440]) {
-    const layout = live.getLiveLayout({ width: 1080, height });
+    const environment = createTraceEnvironment();
+    const core = loadCurrentCore(await readFile(new URL('../docs/cover-core.js', import.meta.url), 'utf8'), environment);
+    const settings = live.getLiveSettings(DEFAULT_COVER_SETTINGS, live.LIVE_DEFAULT_TEXT);
+    const canvas = environment.createCanvas('live');
+    const text = core.drawCoverText(canvas.getContext('2d'), settings, 1080, height, null);
+    core.drawCover({ canvas, image: null, beforeImage: null, watermark: null, settings,
+      preset: { id: height === 1920 ? 'douyin' : 'xiaohongshu', width: 1080, height }, includeGuide: false,
+      live: { animation: { image: { __name: 'animation' }, source: { x: 0, y: 0, width: 450, height: 200 } } } });
+    const animation = environment.recorder.log.find(([name, source]) => name === 'drawImage' && source === 'animation');
+    const [x, y, w, h] = animation.slice(6);
     const { frame, safe } = getComparisonEvidenceLayout({ width: 1080, height }, 114.4);
-    assert.equal(layout.top, frame.y);
-    assert.ok(layout.animation.y > layout.top + 300);
-    assert.ok(layout.animation.x >= safe.x);
-    assert.ok(layout.animation.x + layout.animation.width < frame.x);
-    assert.ok(layout.animation.y + layout.animation.height < safe.y + safe.height);
-    assert.ok(layout.textWidth >= layout.headlineSize * 6);
+    assert.ok(Math.abs(text.top - frame.y) < 1, '原文字顶端与素颜框误差应小于一个像素');
+    assert.ok(text.right < frame.x);
+    assert.ok(y > text.bottom);
+    assert.ok(x >= safe.x);
+    assert.ok(x + w < frame.x);
+    assert.ok(y + h < safe.y + safe.height);
   }
 });
 

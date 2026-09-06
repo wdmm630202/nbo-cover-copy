@@ -34,8 +34,8 @@ Mac 保存流程：解压 Live 文件包 → 打开「南铂实况保存助手�
 
 ## 维护和验证
 
-- `app/cover/core/live-layout.ts`：锁定值、排版与三段时间线。
-- `app/cover/core/render-core.ts`：照片、涂抹、文字、胶囊、水印共用绘制；Live 只增加条件分支。
+- `app/cover/core/live-layout.ts`：默认文案、锁定值与三段时间线。
+- `app/cover/core/render-core.ts`：照片、涂抹、字体、字号、行距、渐变横线、虚线框、前后胶囊和水印均复用原绘制；Live 动画位置从原文字边界计算，不另设一套文字排版。
 - `public/live/`：控件、动画图集、JPG / MOV 封装和 Mac 助手发布包；`docs/live/` 为静态镜像。
 - `pnpm build:cover-core` 同时更新静态核心与 Live 资源；`pnpm test` 构建、类型检查并运行完整回归；`pnpm lint` 检查规范。
 - `pnpm build:live-helper` 在 Mac 上构建通用架构助手；随后运行 `pnpm build:cover-core` 同步静态下载资源。

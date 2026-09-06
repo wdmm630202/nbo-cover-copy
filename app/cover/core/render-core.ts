@@ -11,7 +11,7 @@ import {
 } from "../compare-layout";
 import type { CoverSettings } from "./editor-settings";
 import { eraseShadeWithBrush, type RetouchStroke } from "./retouch-core";
-import { getLiveLayout, getLiveSettings, getLiveMotionState } from "./live-layout";
+import { getLiveSettings, getLiveMotionState } from "./live-layout";
 
 export type CoverLiveFrame = {
   image: CanvasImageSource;
@@ -330,11 +330,9 @@ export function drawCover({
       drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, beforeRetouchStrokes);
     }
     if (live) { context.save(); context.globalAlpha = motion?.overlayOpacity ?? 1; }
-    if (live) {
-      drawLiveText(context, settings, width, height);
-      if (live.animation) drawLiveAnimation(context, live.animation, width, height);
-    } else {
-      drawCoverText(context, settings, width, height, watermark);
+    const textBounds = drawCoverText(context, settings, width, height, watermark);
+    if (live?.animation) {
+      drawLiveAnimation(context, live.animation, width, height, textBounds, settings.beforeFrameScale);
     }
     if (settings.compareEnabled) {
       drawComparisonEditorialOverlay(context, { width, height }, roundedRectPath, settings.beforeFrameScale);
@@ -421,42 +419,16 @@ function drawLiveIntro(input: CoverRenderInput, motion: ReturnType<typeof getLiv
   }, width, height, input.beforeRetouchStrokes ?? [], { frame, progress: p });
 }
 
-function drawLiveText(context: CanvasRenderingContext2D, settings: CoverSettings, width: number, height: number) {
-  const layout = getLiveLayout({ width, height });
-  context.save();
-  context.textAlign = "left";
-  context.textBaseline = "alphabetic";
-  context.lineJoin = "round";
-  const stroke = settings.textStroke / 100;
-  const shadow = settings.textShadow / 100;
-  context.lineWidth = width * 0.012 * stroke;
-  context.strokeStyle = `rgba(0,0,0,${0.92 * stroke})`;
-  context.shadowColor = `rgba(0,0,0,${0.78 * shadow})`;
-  context.shadowBlur = width * 0.024 * shadow;
-  context.shadowOffsetX = width * 0.004 * shadow;
-  context.shadowOffsetY = width * 0.006 * shadow;
-  const rows = [
-    { text: settings.topText, top: layout.top, size: layout.headlineSize, weight: 900, color: settings.topColor },
-    { text: settings.bottomText, top: layout.top + layout.rowStep, size: layout.headlineSize, weight: 900, color: settings.bottomColor },
-    { text: settings.subtitle, top: layout.subtitleTop, size: layout.subtitleSize, weight: 400, color: settings.subtitleColor },
-  ];
-  for (const row of rows) {
-    context.font = `${row.weight} ${row.size}px sans-serif`;
-    const ink = measureInkBounds(context, row.text || "国");
-    context.fillStyle = row.color;
-    if (stroke > 0) context.strokeText(row.text, layout.left, row.top + ink.ascent);
-    context.fillText(row.text, layout.left, row.top + ink.ascent);
-  }
-  if (settings.showDivider) {
-    context.shadowColor = "transparent";
-    context.fillStyle = settings.dividerColor;
-    context.fillRect(layout.left, layout.top + 216 * width / 1080, layout.headlineSize, 4 * width / 1080);
-  }
-  context.restore();
-}
-
-function drawLiveAnimation(context: CanvasRenderingContext2D, frame: CoverLiveFrame, width: number, height: number) {
-  const bounds = getLiveLayout({ width, height }).animation;
+function drawLiveAnimation(
+  context: CanvasRenderingContext2D, frame: CoverLiveFrame, width: number, height: number,
+  textBounds: ReturnType<typeof drawCoverText>, beforeFrameScale: number,
+) {
+  const s = width / 1080;
+  const { frame: beforeFrame } = getComparisonEvidenceLayout({ width, height }, beforeFrameScale);
+  const bounds = {
+    x: textBounds.left, y: textBounds.bottom + 24 * s,
+    width: Math.min(450 * s, beforeFrame.x - 36 * s - textBounds.left), height: 200 * s,
+  };
   const source = frame.source;
   const scale = Math.min(bounds.width / source.width, bounds.height / source.height);
   const w = source.width * scale;

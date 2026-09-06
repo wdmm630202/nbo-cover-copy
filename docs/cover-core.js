@@ -588,26 +588,6 @@ var NBOCoverCore = (function(exports) {
 		for (const key of LIVE_TEXT_KEYS) result[key] = updated[key] === active[key] ? original[key] : normalizeLiveLine(updated[key]);
 		return result;
 	}
-	function getLiveLayout(size) {
-		const s = size.width / 1080;
-		const { frame } = getComparisonEvidenceLayout(size, LIVE_LOCKED_VALUES.beforeFrameScale);
-		const left = 54 * s;
-		return {
-			left,
-			top: frame.y,
-			textWidth: frame.x - 32 * s - left,
-			headlineSize: Math.round(size.width * .074 * 2.1 * .45),
-			subtitleSize: Math.round(size.width * .061 * 1.14),
-			rowStep: 108 * s,
-			subtitleTop: frame.y + 245 * s,
-			animation: {
-				x: left,
-				y: frame.y + 330 * s,
-				width: Math.min(450 * s, frame.x - 36 * s - left),
-				height: 200 * s
-			}
-		};
-	}
 	function getLiveMotionState(time) {
 		const t = Math.max(0, Math.min(89 / 30, Number.isFinite(time) ? time : 0));
 		const second = Math.min(2, Math.floor(t));
@@ -885,10 +865,8 @@ var NBOCoverCore = (function(exports) {
 					context.save();
 					context.globalAlpha = motion?.overlayOpacity ?? 1;
 				}
-				if (live) {
-					drawLiveText(context, settings, width, height);
-					if (live.animation) drawLiveAnimation(context, live.animation, width, height);
-				} else drawCoverText(context, settings, width, height, watermark);
+				const textBounds = drawCoverText(context, settings, width, height, watermark);
+				if (live?.animation) drawLiveAnimation(context, live.animation, width, height, textBounds, settings.beforeFrameScale);
 				if (settings.compareEnabled) drawComparisonEditorialOverlay(context, {
 					width,
 					height
@@ -1000,65 +978,18 @@ var NBOCoverCore = (function(exports) {
 			progress: p
 		});
 	}
-	function drawLiveText(context, settings, width, height) {
-		const layout = getLiveLayout({
+	function drawLiveAnimation(context, frame, width, height, textBounds, beforeFrameScale) {
+		const s = width / 1080;
+		const { frame: beforeFrame } = getComparisonEvidenceLayout({
 			width,
 			height
-		});
-		context.save();
-		context.textAlign = "left";
-		context.textBaseline = "alphabetic";
-		context.lineJoin = "round";
-		const stroke = settings.textStroke / 100;
-		const shadow = settings.textShadow / 100;
-		context.lineWidth = width * .012 * stroke;
-		context.strokeStyle = `rgba(0,0,0,${.92 * stroke})`;
-		context.shadowColor = `rgba(0,0,0,${.78 * shadow})`;
-		context.shadowBlur = width * .024 * shadow;
-		context.shadowOffsetX = width * .004 * shadow;
-		context.shadowOffsetY = width * .006 * shadow;
-		const rows = [
-			{
-				text: settings.topText,
-				top: layout.top,
-				size: layout.headlineSize,
-				weight: 900,
-				color: settings.topColor
-			},
-			{
-				text: settings.bottomText,
-				top: layout.top + layout.rowStep,
-				size: layout.headlineSize,
-				weight: 900,
-				color: settings.bottomColor
-			},
-			{
-				text: settings.subtitle,
-				top: layout.subtitleTop,
-				size: layout.subtitleSize,
-				weight: 400,
-				color: settings.subtitleColor
-			}
-		];
-		for (const row of rows) {
-			context.font = `${row.weight} ${row.size}px sans-serif`;
-			const ink = measureInkBounds(context, row.text || "国");
-			context.fillStyle = row.color;
-			if (stroke > 0) context.strokeText(row.text, layout.left, row.top + ink.ascent);
-			context.fillText(row.text, layout.left, row.top + ink.ascent);
-		}
-		if (settings.showDivider) {
-			context.shadowColor = "transparent";
-			context.fillStyle = settings.dividerColor;
-			context.fillRect(layout.left, layout.top + 216 * width / 1080, layout.headlineSize, 4 * width / 1080);
-		}
-		context.restore();
-	}
-	function drawLiveAnimation(context, frame, width, height) {
-		const bounds = getLiveLayout({
-			width,
-			height
-		}).animation;
+		}, beforeFrameScale);
+		const bounds = {
+			x: textBounds.left,
+			y: textBounds.bottom + 24 * s,
+			width: Math.min(450 * s, beforeFrame.x - 36 * s - textBounds.left),
+			height: 200 * s
+		};
 		const source = frame.source;
 		const scale = Math.min(bounds.width / source.width, bounds.height / source.height);
 		const w = source.width * scale;
@@ -2195,7 +2126,6 @@ var NBOCoverCore = (function(exports) {
 	exports.getBeforeOffsetLimits = getBeforeOffsetLimits;
 	exports.getExportAttemptSizes = getExportAttemptSizes;
 	exports.getExportFileName = getExportFileName;
-	exports.getLiveLayout = getLiveLayout;
 	exports.getLiveMotionState = getLiveMotionState;
 	exports.getLiveSettings = getLiveSettings;
 	exports.getMobileRetouchTargetChoices = getMobileRetouchTargetChoices;
