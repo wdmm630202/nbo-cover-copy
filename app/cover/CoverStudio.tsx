@@ -1505,22 +1505,6 @@ export default function CoverStudio() {
         </aside>
 
         <section className={`studio-preview-panel${isCompactEditorOpen ? " is-compact-open" : ""}`}>
-          <CoverLiveControls onController={bindLiveController}
-            onAssetsChanged={() => setLiveAssetVersion((version) => version + 1)}
-            onToggle={(enabled) => {
-              if (enabled) setEditorSettings((current) => ({ ...current, liveText: { ...LIVE_DEFAULT_TEXT } }));
-              liveEnabledRef.current = enabled;
-              setLiveEnabled(enabled);
-            }}
-            onRefresh={() => livePreviewRef.current()}
-            captureRender={() => {
-              if (!image) throw new Error("请先上传主照片");
-              if (!beforeImage) throw new Error("请先添加拍摄前素颜照");
-              const input = { image, beforeImage, watermark: settings.watermarkEnabled ? watermark : null,
-                settings: { ...settings }, preset, retouchStrokes: structuredClone(retouchStrokes), beforeRetouchStrokes: structuredClone(beforeRetouchStrokes) };
-              return { width: preset.width, height: preset.height,
-                render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: preset, live }); } };
-            }} />
           <div className="studio-preview-toolbar">
             <div>
               <strong>实时封面预览</strong>
@@ -1553,6 +1537,22 @@ export default function CoverStudio() {
                 <span />
                 前后对比
               </label>
+              <CoverLiveControls onController={bindLiveController}
+                onAssetsChanged={() => setLiveAssetVersion((version) => version + 1)}
+                onToggle={(enabled) => {
+                  if (enabled) setEditorSettings((current) => ({ ...current, liveText: { ...LIVE_DEFAULT_TEXT } }));
+                  liveEnabledRef.current = enabled;
+                  setLiveEnabled(enabled);
+                }}
+                onRefresh={() => livePreviewRef.current()}
+                captureRender={() => {
+                  if (!image) throw new Error("请先上传主照片");
+                  if (!beforeImage) throw new Error("请先添加拍摄前素颜照");
+                  const input = { image, beforeImage, watermark: settings.watermarkEnabled ? watermark : null,
+                    settings: { ...settings }, preset, retouchStrokes: structuredClone(retouchStrokes), beforeRetouchStrokes: structuredClone(beforeRetouchStrokes) };
+                  return { width: preset.width, height: preset.height,
+                    render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: preset, live }); } };
+                }} />
               {layoutMode === "compact" && image && !isCompactEditorOpen ? (
                 <button className="mobile-editor-launcher" type="button" onClick={() => setIsCompactEditorOpen(true)}>继续手机编辑</button>
               ) : null}

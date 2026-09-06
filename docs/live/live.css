@@ -1,8 +1,15 @@
 .preview-panel,.studio-preview-panel{position:relative}
-.live-control-host{position:absolute;top:48px;right:12px;z-index:8;width:116px;font-family:inherit;}
+.live-control-host{display:contents;font-family:inherit;}
 .live-control-host button{width:100%;min-height:30px;padding:5px 8px;border:1px solid #605c55;border-radius:8px;background:#292825;color:#dfd0b2;font:600 10px/1.4 sans-serif;cursor:pointer}
-.live-control-host .live-toggle[aria-pressed="true"]{background:#d4c0a0;color:#242321;border-color:#d4c0a0}
-.live-options{margin-top:6px;display:grid;gap:6px}
+/* Keep Live alongside the existing preview switches at every viewport size. */
+.preview-toolbar,.studio-preview-toolbar{position:relative;gap:12px;flex-wrap:wrap}
+.preview-switches,.studio-preview-switches{flex-wrap:wrap;row-gap:8px}
+.live-control-host .live-toggle{position:relative;display:inline-flex;align-items:center;gap:8px;width:auto;min-height:18px;padding:0;border:0;border-radius:0;background:transparent;color:rgba(255,255,255,.72);font:inherit;font-size:10px;white-space:nowrap;flex-shrink:0}
+.live-toggle::before{content:"";display:block;flex:none;width:32px;height:18px;border-radius:999px;background:#6b6762;transition:background .16s}
+.live-toggle::after{content:"";position:absolute;left:2px;top:calc(50% - 7px);width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .16s}
+.live-control-host .live-toggle[aria-pressed="true"]::before{background:var(--red,#ff2442)}
+.live-control-host .live-toggle[aria-pressed="true"]::after{transform:translateX(14px)}
+.live-options{position:absolute;top:100%;right:0;z-index:8;width:116px;margin-top:6px;display:grid;gap:6px}
 .live-options[hidden],.live-control-host [hidden]{display:none!important}
 .live-control-host .live-export{background:#ff2442;border-color:#ff2442;color:#fff}
 .live-control-host button:disabled{opacity:.45;cursor:not-allowed}
@@ -17,21 +24,19 @@
 .live-status{font-size:9px;line-height:1.6;color:#d9c6a5;overflow-wrap:anywhere}
 .is-live-mode [data-live-lock],.is-live-mode [data-live-lock] *{cursor:not-allowed!important}
 .is-live-mode [data-live-lock]{opacity:.42;filter:grayscale(1)}
-@media(max-width:900px){.live-control-host{top:54px;right:8px;width:92px}.live-control-host button{min-height:34px}.live-details[open]{margin-left:-98px}}
-.mobile-editor-open .live-control-host,.split-editor-open .live-control-host,.studio-preview-panel.is-compact-open .live-control-host{top:58px;right:8px}
-@media(prefers-reduced-motion:reduce){.live-control-host *{scroll-behavior:auto}}
-/* Narrow workbenches reserve a row in Live mode so actions do not cover the photo. */
+@media(prefers-reduced-motion:reduce){.live-control-host *,.live-toggle::before,.live-toggle::after{transition:none;scroll-behavior:auto}}
 @media(max-width:1500px){
-  .is-live-mode .live-control-host{top:60px;left:12px;right:12px;width:auto;display:flex;justify-content:flex-end;align-items:flex-start;gap:6px}
-  .is-live-mode .live-control-host button{width:88px;min-height:32px}
-  .is-live-mode .live-options:not([hidden]){display:contents}
-  .is-live-mode .live-details{width:88px}
-  .is-live-mode .live-details[open]{position:absolute;top:38px;right:0;width:230px;margin-left:0;z-index:10}
-  .is-live-mode .live-status{position:absolute;top:35px;right:0;left:0;text-align:right}
-  .is-live-mode .canvas-shell,.is-live-mode .studio-canvas-shell{margin-top:52px}
+  .live-options{left:0;width:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;gap:6px}
+  .live-options button,.live-options .live-details{width:88px;min-height:32px}
+  .live-options .live-details[open]{position:absolute;top:38px;right:0;width:230px;margin-left:0;z-index:10}
+  .live-options .live-status{flex-basis:100%;text-align:right}
+  .is-live-mode .canvas-shell,.is-live-mode .studio-canvas-shell{margin-top:68px}
 }
-@media(max-width:900px){
-  .is-live-mode .live-control-host{top:58px;left:8px;right:8px;gap:4px}
-  .is-live-mode .live-control-host button{width:76px;min-height:34px}
-  .is-live-mode .live-details{width:76px}
-}
+
+/* Full-screen editors hide the regular toolbar; keep their Live entry accessible. */
+:is(.studio-grid[data-cover-layout="split"],.studio-grid.is-mobile-editor-open,.cover-studio-grid[data-cover-layout="split"],.cover-studio-grid:has(.is-compact-open)) :is(.preview-toolbar,.studio-preview-toolbar){display:contents!important}
+:is(.studio-grid[data-cover-layout="split"],.studio-grid.is-mobile-editor-open,.cover-studio-grid[data-cover-layout="split"],.cover-studio-grid:has(.is-compact-open)) :is(.preview-toolbar,.studio-preview-toolbar)>:not(.preview-switches,.studio-preview-switches){display:none}
+:is(.studio-grid[data-cover-layout="split"],.studio-grid.is-mobile-editor-open,.cover-studio-grid[data-cover-layout="split"],.cover-studio-grid:has(.is-compact-open)) :is(.preview-switches,.studio-preview-switches){display:contents}
+:is(.studio-grid[data-cover-layout="split"],.studio-grid.is-mobile-editor-open,.cover-studio-grid[data-cover-layout="split"],.cover-studio-grid:has(.is-compact-open)) :is(.preview-switches,.studio-preview-switches)>:not(.live-control-host){display:none}
+:is(.studio-grid[data-cover-layout="split"],.studio-grid.is-mobile-editor-open,.cover-studio-grid[data-cover-layout="split"],.cover-studio-grid:has(.is-compact-open)) .live-control-host{display:block;position:absolute;top:58px;right:8px;z-index:8}
+:is(.studio-grid[data-cover-layout="split"],.studio-grid.is-mobile-editor-open,.cover-studio-grid[data-cover-layout="split"],.cover-studio-grid:has(.is-compact-open)) .live-options{left:auto;width:250px}
