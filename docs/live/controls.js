@@ -1,5 +1,7 @@
+import { createLiveSaver, saveLivePair } from './save.js';
 // Shared Live UI. Mounted only on demand by the static and React shells.
 export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{},motionAt,captureRender,assetBase=new URL('./',import.meta.url)}) {
+  const saver=createLiveSaver();
   let enabled=false,atlas=null,frameTime=3,animationId=0,loadGeneration=0,disposed=false,abort=null,busy=false;
   host.innerHTML=`<button type="button" class="live-toggle" aria-pressed="false">制作 Live</button>
     <div class="live-options" hidden>
@@ -9,7 +11,8 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       <details class="live-details"><summary>动画与保存</summary><div class="live-settings-panel">
         <label>动画样式<select aria-label="Live 动画样式"><option value="focus">帅气合焦</option><option value="cute">Q萌验证成功</option><option value="simple">简洁验证成功</option></select></label>
         <p>三行文字，每行最多 6 字。字号与对齐已锁定，其余参数可继续调整。</p>
-        <p>导出为 3 秒实况文件包。解压后，用 Mac「南铂实况保存助手」将配对文件存入苹果「照片」，再同步或分享至 iPhone。</p>
+        <p>电脑 Chrome 可直接保存到桌面文件夹，无需解压。首次导出请选择桌面并允许保存；当前页面会复用该位置。其他浏览器下载文件包。</p>
+        <p>要在 iPhone 相册长按播放，仍需用保存助手将文件夹导入苹果「照片」。</p>
         <a class="live-helper" href="${new URL('南铂实况保存助手.zip',assetBase).href}" download>下载 Mac 保存助手</a>
       </div></details>
       <output class="live-status" aria-live="polite"></output>
@@ -65,6 +68,10 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     exportButton.disabled=play.disabled=select.disabled=true;cancel.hidden=false;status.textContent='正在生成实况 0%';
     const image=atlas,style=select.value;
     try {
+      status.textContent='请选择桌面或其他保存文件夹';
+      const directory=await saver.choose();
+      if(disposed||!enabled||abort.signal.aborted)return;
+      status.textContent='正在生成实况 0%';
       const {exportLivePhoto}=await import('./export.js');
       const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,assetBase,signal:abort.signal,
         onProgress:value=>{status.textContent=`正在生成实况 ${value}%`;},
@@ -72,10 +79,16 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
           snapshot.render(canvas,frameFor(image,time,style));
         }});
       if(disposed||!enabled||abort.signal.aborted)return;
-      const url=URL.createObjectURL(result.zip),link=document.createElement('a');link.href=url;link.download=result.name;link.click();
-      setTimeout(()=>URL.revokeObjectURL(url),30000);
-      status.textContent='文件包已生成；存入苹果照片后可按住播放';
-      q('details').open=true;
+      if(directory){
+        status.textContent='正在保存到文件夹…';
+        const folderName=await saveLivePair(directory,result,abort.signal);
+        if(disposed||!enabled||abort.signal.aborted)return;
+        status.textContent=`已保存到「${directory.name}」中的「${folderName}」，无需解压`;
+      }else{
+        const url=URL.createObjectURL(result.zip),link=document.createElement('a');link.href=url;link.download=result.name;link.click();
+        setTimeout(()=>URL.revokeObjectURL(url),30000);
+        status.textContent='文件包已下载；电脑 Chrome 可直接保存到桌面文件夹';
+      }
     }catch(error){
       if(!disposed&&enabled)status.textContent=error.name==='AbortError'?'已取消导出':(/[\u3400-\u9fff]/.test(error.message)?error.message:'实况导出失败，请重试');
     }finally{
