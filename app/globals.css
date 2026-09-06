@@ -1084,7 +1084,7 @@ body {
 .studio-retouch > button, .studio-retouch-actions button, .studio-retouch-compare button, .studio-retouch-target button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
 .studio-retouch > button.is-active { border-color: var(--red); background: var(--red); color: #fff; }
 .studio-retouch-actions, .studio-retouch-compare, .studio-retouch-target { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.studio-retouch-target { padding: 4px; border-radius: 11px; background: #eeeae6; }
+.studio-retouch-target { padding: 3px; border-radius: 11px; background: #eeeae6; }
 .studio-retouch-target button { min-height: 28px; border-color: transparent; background: transparent; }
 .studio-retouch-compare button.is-active, .studio-retouch-target button.is-active { border-color: #202020; background: #202020; color: #fff; }
 .studio-retouch-note { color: #9b9188; font-size: 8px; text-align: center; }
@@ -1353,8 +1353,7 @@ body {
   .studio-export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
   .studio-design { display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; }
   .studio-design .studio-panel-heading { margin-bottom: 7px; }
-  .studio-design > .studio-factory-reset, .studio-design > .studio-reset { width: calc(100% - 18px); margin-inline: 9px; min-height: 52px; border-radius: 10px; }
-  .studio-design > .studio-factory-reset, .studio-design > .studio-reset { font-size: 18px; }
+  .studio-design > .studio-factory-reset, .studio-design > .studio-reset { width: calc(100% - 18px); margin-inline: 9px; border-radius: 10px; }
   .studio-design > .studio-reset { margin-bottom: 10px; }
   .studio-template-grid { width: 100%; height: auto; aspect-ratio: 1; gap: 6px; }
   .studio-template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
@@ -1374,7 +1373,7 @@ body {
   .studio-retouch .studio-slider-number { width: 100% !important; min-width: 0; }
   .studio-retouch .studio-slider-reset { padding: 0; }
   .studio-retouch-heading, .studio-retouch > button { grid-column: 1 / -1; }
-  .studio-retouch > button, .studio-retouch-actions button, .studio-retouch-compare button, .studio-retouch-target button { min-height: 25px; }
+  .studio-retouch-actions button, .studio-retouch-compare button { min-height: 25px; }
   .studio-retouch-target, .studio-retouch-compare, .studio-retouch-note, .studio-retouch-actions { grid-column: 1 / -1; }
   .studio-retouch-note { align-self: center; line-height: 1.35; }
   .studio-watermark-align > span { margin-bottom: 3px; font-size: 8px; }

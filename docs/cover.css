@@ -199,7 +199,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .retouch-panel > button, .retouch-panel section button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
 .retouch-panel > button.active { border-color: var(--red); background: var(--red); color: #fff; }
 .retouch-panel section { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.retouch-panel .retouch-target { padding: 4px; border-radius: 11px; background: #eeeae6; }
+.retouch-panel .retouch-target { padding: 3px; border-radius: 11px; background: #eeeae6; }
 .retouch-panel .retouch-target button { min-height: 28px; border-color: transparent; background: transparent; }
 .retouch-panel .retouch-compare button.active, .retouch-panel .retouch-target button.active { border-color: #202020; background: #202020; color: #fff; }
 .retouch-panel > small { color: #9b9188; font-size: 8px; text-align: center; }
@@ -276,8 +276,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
   .design { display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; }
   .design .panel-heading { margin-bottom: 7px; }
-  .design > .factory-reset, .design > .reset-settings { width: calc(100% - 18px); margin-inline: 9px; min-height: 52px; border-radius: 10px; }
-  .design > .factory-reset, .design > .reset-settings { font-size: 18px; }
+  .design > .factory-reset, .design > .reset-settings { width: calc(100% - 18px); margin-inline: 9px; border-radius: 10px; }
   .design > .reset-settings { margin-bottom: 10px; }
   .templates { width: 100%; height: auto; aspect-ratio: 1; gap: 6px; }
   .template { min-height: 0; aspect-ratio: 1; padding: 6px; border-radius: 9px; }
@@ -309,7 +308,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .retouch-panel .slider-number-wrap input { width: 100% !important; min-width: 0; }
   .retouch-panel .slider-reset { padding: 0; }
   .retouch-panel > div:first-child, .retouch-panel > button { grid-column: 1 / -1; }
-  .retouch-panel > button, .retouch-panel section button { min-height: 25px; }
+  .retouch-panel section button { min-height: 25px; }
   .retouch-panel .retouch-target, .retouch-panel .retouch-compare, .retouch-panel > small, .retouch-panel > section:last-child { grid-column: 1 / -1; }
   .retouch-panel > small { align-self: center; line-height: 1.35; }
   .watermark-align > span { margin-bottom: 3px; font-size: 8px; }
