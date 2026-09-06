@@ -19,3 +19,5 @@ export * from "./retouch-core";
 export * from "./responsive-layout";
 export * from "./tool-registry";
 export * from "./live-layout";
+
+export * from "./phone-editor";

@@ -14,6 +14,7 @@ import {
   COVER_TEMPLATES,
   PLATFORM_PRESETS,
 } from "./cover-config";
+import CoverPhoneEditor from "./CoverPhoneEditor";
 import CoverCanvasSurface from "./CoverCanvasSurface";
 import CoverLiveControls, { type LiveController } from "./CoverLiveControls";
 import { getLiveSettings, updateLiveSettings, LIVE_DEFAULT_TEXT, type LiveText } from "./core/live-layout";
@@ -249,6 +250,7 @@ export default function CoverStudio() {
   const mobileExportBusyRef = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [beforeDragging, setBeforeDragging] = useState(false);
+  const [phonePreview, setPhonePreview] = useState({ active: false, guides: false });
   const [notice, setNotice] = useState("上传照片后即可制作");
   const [savePreview, setSavePreview] = useState<{ url: string; asset: CoverExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
@@ -587,9 +589,9 @@ export default function CoverStudio() {
         image,
         beforeImage,
         watermark: settings.watermarkEnabled ? watermark : null,
-        settings,
+        settings: phonePreview.active ? {...settings, showSafeArea: phonePreview.guides} : settings,
         preset,
-        includeGuide: true,
+        includeGuide: phonePreview.active ? phonePreview.guides : true,
         outputSize: previewSize,
         retouchStrokes: visibleAfterStrokes,
         beforeRetouchStrokes: visibleBeforeStrokes,
@@ -599,7 +601,7 @@ export default function CoverStudio() {
     livePreviewRef.current = renderPreview;
     const frame = window.requestAnimationFrame(renderPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [activeRetouchTarget, beforeImage, beforeRetouchStrokes, image, preset, retouchStrokes, settings, showRetouchBefore, watermark]);
+  }, [activeRetouchTarget, beforeImage, beforeRetouchStrokes, image, preset, retouchStrokes, settings, showRetouchBefore, watermark, phonePreview]);
 
   const buildExportAsset = useCallback(async (
     format: "jpeg" | "png",
@@ -1512,6 +1514,24 @@ export default function CoverStudio() {
         </aside>
 
         <section className={`studio-preview-panel${isCompactEditorOpen ? " is-compact-open" : ""}`}>
+          <CoverPhoneEditor adapter={{
+            read: () => ({settings, image, beforeImage, watermark, live: liveEnabled, brush: brushMode, notice, busy: isMobileExportBusy}),
+            value: (tool) => mobileValueFor(tool) as MobileToolPresentation,
+            change: changeMobileTool, reset: resetMobileTool, action: runMobileToolAction,
+            beginEdit: () => {
+              const saved = {storedSettings, liveText};
+              const strokes = structuredClone({retouchStrokes, beforeRetouchStrokes});
+              return () => {
+                setEditorSettings(saved); setImage(image); setBeforeImage(beforeImage);
+                setFileName(fileName); setBeforeFileName(beforeFileName); setWatermark(watermark); setWatermarkKind(watermarkKind);
+                setRetouchStrokes(strokes.retouchStrokes); setBeforeRetouchStrokes(strokes.beforeRetouchStrokes);
+                setBrushSize(brushSize); setBrushFeather(brushFeather); setBrushStrength(brushStrength); setBrushMode(false);
+              };
+            },
+            preview: (active, guides) => setPhonePreview((current) => current.active === active && current.guides === guides ? current : {active, guides}),
+            back: () => { const link = document.querySelector<HTMLButtonElement>(".cover-studio-header-actions button"); if (link) link.click(); else window.open("/", "nbo-copy-studio"); },
+            export: handleMobileExport,
+          }} />
           <div className="studio-preview-toolbar">
             <div>
               <strong>实时封面预览</strong>

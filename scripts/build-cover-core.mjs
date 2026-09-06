@@ -1,3 +1,4 @@
+import { copyFile } from "node:fs/promises";
 import { build } from "vite";
 
 await build({
@@ -14,3 +15,5 @@ await build({
     },
   },
 });
+
+await copyFile("app/cover/phone.css", "docs/phone.css");

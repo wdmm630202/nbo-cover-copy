@@ -13,6 +13,7 @@ const PRESETS = {
   shipinhao: { label: "视频号", ratio: "3:4", width: 1080, height: 1440, note: "竖版内容常用工作尺寸" },
 };
 const {
+  mountPhoneEditor,
   LIVE_LOCKED_VALUES,
   LIVE_DEFAULT_TEXT,
   LIVE_TEXT_KEYS,
@@ -82,6 +83,9 @@ const rawState = {
   beforeFileName: "",
   watermarkName: "",
 };
+let phoneEditor = null;
+let phonePreview = false;
+let phoneGuides = false;
 let liveEnabled = false;
 let liveText = { ...LIVE_DEFAULT_TEXT };
 let liveController = null;
@@ -349,6 +353,8 @@ function mobileToolPresentation(tool) {
   if (tool.id === "target") { value = adjustmentTarget; choices = [{ value: "after", label: "主照片与文字" }, ...(state.compareEnabled ? [{ value: "before", label: "拍摄前照片" }] : [])]; }
   if (tool.id === "retouchEnabled") value = retouch.active;
   if (tool.id === "retouchTarget") { value = activeRetouchTarget(); choices = getMobileRetouchTargetChoices(Boolean(state.beforeImage)); }
+  if (tool.id === "retouchBefore") value = retouch.compareBefore;
+  if (tool.id === "retouchAfter") value = !retouch.compareBefore;
   if (tool.id === "brushSize") value = retouch.size;
   if (tool.id === "brushFeather") value = retouch.feather;
   if (tool.id === "brushStrength") value = retouch.strength;
@@ -1077,6 +1083,7 @@ function syncBeforeTransformControls() {
 }
 
 function updateUi() {
+  phoneEditor?.update();
   $("#topText").value = state.topText;
   $("#bottomText").value = state.bottomText;
   $("#subtitle").value = state.subtitle;
@@ -1671,6 +1678,7 @@ $("#mobileExportDesignPng").addEventListener("click", () => runMobileExport("png
 $("#mobileExportDesignJpg").addEventListener("click", () => runMobileExport("jpeg", false));
 
 function setStatus(message) {
+  phoneEditor?.update();
   $("#statusText").textContent = message;
 }
 
@@ -1718,9 +1726,9 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
     image: state.image,
     beforeImage: state.beforeImage,
     watermark: state.watermarkEnabled ? state.watermark : null,
-    settings: state,
+    settings: isPreview && phonePreview ? {...state, showSafeArea: phoneGuides} : state,
     preset: { id: state.platformId, ...current },
-    includeGuide,
+    includeGuide: isPreview && phonePreview ? phoneGuides : includeGuide,
     outputSize: outputSize || (isPreview ? previewSize : current),
     photoOnly,
     retouchStrokes: visibleAfterStrokes,
@@ -1938,3 +1946,24 @@ $("#startLive").addEventListener("click", async (event) => {
     setStatus("Live 组件加载失败，请刷新后重试");
   }
 });
+
+// The phone shell delegates to the same tools as the desktop controls.
+const phoneRoot = document.createElement("div");
+phoneRoot.className = "phone-root";
+document.querySelector(".preview-panel").prepend(phoneRoot);
+phoneEditor = mountPhoneEditor(phoneRoot, () => ({
+  read: () => ({settings: {...state}, image: state.image, beforeImage: state.beforeImage, watermark: state.watermark,
+    live: liveEnabled, brush: retouch.active, notice: $("#statusText").textContent, busy: mobileExportBusy}),
+  value: mobileToolPresentation, change: applyMobileToolChange,
+  reset: resetMobileTool, action: runMobileToolAction,
+  beginEdit() {
+    const saved = {...rawState}, savedText = {...liveText};
+    const strokes = structuredClone({strokes: retouch.strokes, beforeStrokes: retouch.beforeStrokes});
+    const brush = {size: retouch.size, feather: retouch.feather, strength: retouch.strength};
+    return () => { Object.assign(rawState, saved); liveText = savedText; Object.assign(retouch, strokes, brush, {active: false});
+      updateUi(); saveSettings(); draw(); };
+  },
+  preview(active, guides) { phonePreview = active; phoneGuides = guides; draw(); },
+  back: () => $("#copyWorkspaceSwitch").click(),
+  export: runMobileExport,
+}));

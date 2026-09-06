@@ -16,9 +16,8 @@ import {
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const MATRIX = [
-  [320, 568, "coarse", "compact"], [375, 667, "coarse", "compact"],
-  [390, 844, "coarse", "compact"], [430, 932, "coarse", "compact"],
-  [667, 375, "coarse", "compact"], [844, 390, "coarse", "split"],
+  // Five phone sizes now have the dedicated shared phone workflow acceptance.
+  [844, 390, "coarse", "split"],
   [932, 430, "coarse", "split"], [768, 1024, "coarse", "compact"],
   [834, 1194, "coarse", "compact"], [1024, 1366, "coarse", "compact"],
   [1024, 768, "coarse", "split"], [1194, 834, "coarse", "split"],
@@ -81,7 +80,7 @@ async function evaluate(send, expression, awaitPromise = false) {
   return response.result.value;
 }
 
-test("静态真实页在 18 个目标尺寸保持外壳、预览、工具与编辑状态", { timeout: 45000 }, async (t) => {
+test("静态真实页在 13 个平板和电脑尺寸保持外壳、预览、工具与编辑状态", { timeout: 45000 }, async (t) => {
   try {
     await access(CHROME);
   } catch {
@@ -124,7 +123,7 @@ test("静态真实页在 18 个目标尺寸保持外壳、预览、工具与编�
     await send("Runtime.enable");
     await send("Page.enable");
     await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
-    await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    await send("Emulation.setDeviceMetricsOverride", { width: 834, height: 1194, deviceScaleFactor: 1, mobile: true });
     await waitFor(() => evaluate(send, "document.readyState === 'complete' && Boolean(document.querySelector('#coverPage'))"), 7000, "静态封面页");
     await evaluate(send, `localStorage.setItem("nbo_cover_access_until", String(Date.now() + 86400000)); true;`);
     await send("Page.reload", { ignoreCache: true });
@@ -340,7 +339,7 @@ test("静态真实页在 18 个目标尺寸保持外壳、预览、工具与编�
       results.push(result);
     }
 
-    assert.equal(results.length, 18);
+    assert.equal(results.length, 13);
     for (const result of results) {
       assert.ok(result.overflow <= 1, `${result.width}×${result.height} 水平溢出 ${result.overflow}px`);
       try {
