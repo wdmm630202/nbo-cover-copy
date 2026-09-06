@@ -263,7 +263,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(publicCover, /compare-layout\.js/);
   assert.match(publicCover, /NBO南铂封面制作台/);
   assert.doesNotMatch(publicCover, /class="intro"/);
-  assert.match(publicCover, /cover\.css\?v=20260906-compare-fit/);
+  assert.match(publicCover, /cover\.css\?v=20260906-export-align/);
   assert.match(publicCover, /id="mobileTouchZone"/);
   assert.match(publicCoverScript, /mobileGesture/);
   assert.match(publicCoverScript, /mode: "rotate"/);
@@ -316,7 +316,7 @@ test("验证后入口在自有页面内运行智能文案应用", async () => {
   assert.match(coverExportCore, /19\.9 \* 1024 \* 1024/);
   assert.match(coverExportCore, /createCoverExportAsset/);
   assert.match(publicCoverScript, /正在尝试生成原始像素/);
-  assert.match(publicCover, /id="exportFeedback"/);
+  assert.match(publicCover, /id="statusText"/);
   assert.doesNotMatch(publicCoverScript, /请再次点击导出/);
   assert.doesNotMatch(publicCoverScript, /eraseShadeWithBrush/);
   assert.match(publicCoverScript, /const \{[\s\S]*?drawCover[\s\S]*?\} = window\.NBOCoverCore;/);

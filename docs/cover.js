@@ -1674,7 +1674,6 @@ function setStatus(message) {
 
 function setExportStatus(message) {
   setStatus(message);
-  $("#exportFeedback").textContent = message;
   $("#mobileExportStatus").textContent = message;
 }
 

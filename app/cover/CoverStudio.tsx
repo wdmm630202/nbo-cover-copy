@@ -249,7 +249,6 @@ export default function CoverStudio() {
   const [dragging, setDragging] = useState(false);
   const [beforeDragging, setBeforeDragging] = useState(false);
   const [notice, setNotice] = useState("上传照片后即可制作");
-  const [exportFeedback, setExportFeedback] = useState("手机导出后会打开成品预览，可长按存储到照片");
   const [savePreview, setSavePreview] = useState<{ url: string; asset: CoverExportAsset } | null>(null);
   const [syncedCopy, setSyncedCopy] = useState<CoverCopySync | null>(null);
   const [syncedImage, setSyncedImage] = useState<CoverImageSync | null>(null);
@@ -921,7 +920,6 @@ export default function CoverStudio() {
 
   const setExportMessage = (message: string) => {
     setNotice(message);
-    setExportFeedback(message);
   };
 
   const describeExportResolution = (asset: CoverExportAsset) => asset.usedMobileFallback
@@ -1606,7 +1604,6 @@ export default function CoverStudio() {
               {comparisonOverlapWarning ? <p className="studio-compare-warning">{comparisonOverlapWarning}</p> : null}
             </div>
             <div className="studio-export-row">
-              <p className="studio-export-feedback" role="status" aria-live="polite">{exportFeedback}</p>
               <button type="button" className="export-original" onClick={() => exportCover("png", true)}>导出原图 PNG</button>
               <button type="button" className="export-original" onClick={() => exportCover("jpeg", true)}>导出原图 JPG</button>
               <button type="button" className="export-secondary" disabled={Boolean(image) && !exportReady.png} onClick={() => exportCover("png")}>
