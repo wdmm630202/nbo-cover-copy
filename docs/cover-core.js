@@ -2101,32 +2101,30 @@ var NBOCoverCore = (function(exports) {
 	//#endregion
 	//#region app/cover/core/phone-editor.ts
 	var mainActions = [
-		["photo", "换图"],
-		["text", "文案"],
-		["layout", "排版"],
-		["adjust", "调整"],
-		["more", "更多"]
+		["compose", "构图"],
+		["text", "文字"],
+		["image", "画面"],
+		["retouch", "涂抹"],
+		["watermark", "水印"]
 	];
-	var groupTitles = {
-		compose: "位置与大小",
-		image: "亮度与压暗",
-		text: "文字样式",
-		retouch: "局部提亮",
-		more: "水印与记忆"
-	};
 	var titles = {
-		start: "南铂封面",
-		home: "南铂封面",
-		photo: "更换照片",
-		text: "编辑文案",
-		layout: "选择排版",
-		adjust: "调整照片",
-		more: "更多工具",
-		group: "更多工具",
-		tool: "调整",
+		compose: "位置与大小",
+		text: "文字",
+		image: "画面",
+		retouch: "局部涂抹提亮",
+		watermark: "水印",
+		more: "版式与更多",
 		export: "导出成品",
 		stickers: "动画贴图",
 		rules: "封面规范"
+	};
+	var defaults = {
+		compose: "zoom",
+		text: "topText",
+		image: "brightness",
+		retouch: "brushSize",
+		watermark: "watermarkEnabled",
+		more: "template"
 	};
 	function mountPhoneEditor(root, owner) {
 		const append = (parent, ...children) => children.forEach((child) => parent.appendChild(child));
@@ -2136,30 +2134,35 @@ var NBOCoverCore = (function(exports) {
 		const liveHost = panel.querySelector(".live-control-host, #liveControlHost");
 		const pointer = matchMedia("(pointer: coarse)");
 		let active = false, guides = false, frame = 0, disposed = false;
-		let screen = owner().read().image ? "home" : "start";
-		let group = "compose", selectedTool = "", target = "after";
-		let rollback = null, pendingMode = null;
+		let workspace = "compose", selectedTool = "zoom", target = "after";
+		let rollback = null, pendingMode = false;
 		let renderKey = "", lastNotice = "", message = "";
 		let renderedImage = null, renderedBefore = null;
-		const header = document.createElement("header");
-		header.className = "phone-header";
-		const start = document.createElement("section");
-		start.className = "phone-start";
-		const hint = document.createElement("div");
-		hint.className = "phone-hint";
-		const dock = document.createElement("section");
-		dock.className = "phone-dock";
-		const selection = document.createElement("div");
-		selection.className = "phone-selection";
+		const element = (tag, className) => Object.assign(document.createElement(tag), { className });
+		const header = element("header", "phone-header");
+		const photos = element("aside", "phone-photo-rail");
+		photos.setAttribute("aria-label", "照片入口");
+		const shortcuts = element("aside", "phone-shortcut-rail");
+		shortcuts.setAttribute("aria-label", "预览快捷开关");
+		const hint = element("div", "phone-hint");
+		hint.setAttribute("role", "status");
+		const dock = element("section", "phone-dock");
+		dock.setAttribute("aria-label", "当前工具调整");
+		const nav = element("nav", "phone-main-actions");
+		nav.setAttribute("aria-label", "常用工具");
+		const selection = element("div", "phone-selection");
 		selection.hidden = true;
-		append(root, header, start, hint, dock, selection);
+		append(root, header, photos, shortcuts, hint, dock, nav, selection);
 		let refreshInputs = [];
 		const state = () => owner().read();
 		const tools = (primary) => getSecondaryTools(primary, {
 			comparisonEnabled: state().settings.compareEnabled,
 			target
 		});
-		const find = (id) => PRIMARY_TOOLS.flatMap((p) => tools(p.id)).find((t) => t.id === id);
+		const find = (id) => PRIMARY_TOOLS.flatMap((p) => getSecondaryTools(p.id, {
+			comparisonEnabled: true,
+			target
+		})).find((t) => t.id === id);
 		const button = (label, fn, className = "") => {
 			const b = document.createElement("button");
 			b.type = "button";
@@ -2169,18 +2172,9 @@ var NBOCoverCore = (function(exports) {
 			return b;
 		};
 		const text = (label, className = "") => {
-			const p = document.createElement("p");
+			const p = element("p", className);
 			p.textContent = label;
-			p.className = className;
 			return p;
-		};
-		const change = (t, value) => {
-			if (t.kind === "range") {
-				const p = owner().value(t);
-				value = Math.max(p.min ?? t.min ?? -Infinity, Math.min(p.max ?? t.max ?? Infinity, Number(value)));
-			}
-			owner().change(t, value);
-			update();
 		};
 		function begin() {
 			const undo = owner().beginEdit(), savedGuides = guides;
@@ -2192,58 +2186,50 @@ var NBOCoverCore = (function(exports) {
 				if (style && style.getAttribute("aria-pressed") !== "true") style.click();
 			};
 		}
+		const change = (t, value) => {
+			if (!rollback) rollback = begin();
+			if (t.kind === "range") {
+				const p = owner().value(t);
+				value = Math.max(p.min ?? t.min ?? -Infinity, Math.min(p.max ?? t.max ?? Infinity, Number(value)));
+			}
+			owner().change(t, value);
+			update();
+		};
 		const stopBrush = () => {
-			if (state().brush) change(find("retouchEnabled"), false);
+			if (state().brush) owner().change(find("retouchEnabled"), false);
 		};
-		const commit = () => {
-			rollback = null;
-			stopBrush();
-		};
-		function open(next, primary, id) {
-			if (!rollback && ![
-				"start",
-				"home",
-				"export"
-			].includes(next)) rollback = begin();
-			if (screen === "group" && group === "retouch" && !(next === "tool" && primary === "retouch")) stopBrush();
-			screen = next;
-			if (primary) group = primary;
-			if (id) selectedTool = id;
+		function open(next, id = defaults[next] || "") {
+			if (workspace !== next) {
+				rollback = null;
+				if (next !== "retouch") stopBrush();
+			}
+			workspace = next;
+			selectedTool = id;
+			message = "";
 			renderKey = "";
 			update();
 		}
-		function finish(cancel = false) {
+		function undo() {
 			stopBrush();
-			if (cancel) rollback?.();
+			rollback?.();
 			rollback = null;
-			screen = state().image ? "home" : "start";
 			message = "";
 			renderKey = "";
 			update();
 		}
 		function setTarget(next) {
+			if (target !== next) rollback = null;
 			target = next;
-			change(find("target"), next);
-			if (state().settings.compareEnabled) change(find("retouchTarget"), next);
+			owner().change(find("target"), next);
+			if (state().settings.compareEnabled) owner().change(find("retouchTarget"), next);
 			renderKey = "";
 			update();
 		}
-		function targetPicker(parent) {
-			if (!state().settings.compareEnabled) return;
-			const row = document.createElement("div");
-			row.className = "phone-segment";
-			row.setAttribute("aria-label", "正在调整的照片");
-			for (const [id, label] of [["after", "精修照"], ["before", "素颜照"]]) {
-				const b = button(label, () => setTarget(id));
-				b.setAttribute("aria-pressed", String(target === id));
-				append(row, b);
-			}
-			append(parent, row);
-		}
 		async function mode(next) {
 			if (pendingMode) return;
-			commit();
-			pendingMode = next;
+			rollback = null;
+			stopBrush();
+			pendingMode = true;
 			message = "";
 			update();
 			try {
@@ -2254,93 +2240,101 @@ var NBOCoverCore = (function(exports) {
 					while (state().live !== wantLive && Date.now() < deadline && !disposed) await new Promise((r) => setTimeout(r, 80));
 					if (state().live !== wantLive) throw new Error("Live 加载未完成，请检查网络后重试");
 				}
-				if (!wantLive) change(find("comparison"), next === "前后对比");
+				if (next === "普通封面" || next === "前后对比") owner().change(find("comparison"), next === "前后对比");
 				target = "after";
+				if (!wantLive && workspace === "stickers") open("compose");
 			} catch (error) {
 				message = error instanceof Error ? error.message : "切换失败，请重试";
 			} finally {
-				pendingMode = null;
+				pendingMode = false;
 				renderKey = "";
 				update();
 			}
 		}
-		function modes(parent) {
-			const row = document.createElement("div");
-			row.className = "phone-segment phone-modes";
-			row.setAttribute("aria-label", "成品形式");
-			for (const label of [
-				"普通封面",
-				"前后对比",
-				"Live"
-			]) {
-				const current = state().live ? "Live" : state().settings.compareEnabled ? "前后对比" : "普通封面";
-				const b = button(label, () => void mode(label));
-				b.setAttribute("aria-pressed", String(label === current));
-				b.disabled = Boolean(pendingMode);
-				append(row, b);
-			}
-			append(parent, row);
-		}
-		function photoCards(parent) {
-			const row = document.createElement("div");
-			row.className = "phone-photos";
+		function photoRail() {
 			for (const [id, label, img] of [[
-				"uploadMain",
-				"精修照",
+				"after",
+				"主照片",
 				state().image
-			], ...state().settings.compareEnabled ? [[
-				"uploadBefore",
+			], [
+				"before",
 				"素颜照",
 				state().beforeImage
-			]] : []]) {
-				const b = button(`${img ? "更换" : "添加"}${label}`, () => owner().action(find(id)), "phone-photo");
+			]]) {
+				const b = button(label, () => {
+					if (id === "before" && !state().settings.compareEnabled) owner().change(find("comparison"), true);
+					setTarget(id);
+					if (!img) owner().action(find(id === "after" ? "uploadMain" : "uploadBefore"));
+					if (![
+						"compose",
+						"image",
+						"retouch"
+					].includes(workspace)) open("compose");
+				}, "phone-photo");
+				b.setAttribute("aria-pressed", String(target === id));
 				if (img) {
 					const thumb = document.createElement("canvas");
-					thumb.width = 120;
-					thumb.height = 120;
-					const c = thumb.getContext("2d");
-					const scale = Math.max(120 / img.naturalWidth, 120 / img.naturalHeight);
-					c.drawImage(img, (120 - img.naturalWidth * scale) / 2, (120 - img.naturalHeight * scale) / 2, img.naturalWidth * scale, img.naturalHeight * scale);
+					thumb.width = 80;
+					thumb.height = 80;
+					const c = thumb.getContext("2d"), scale = Math.max(80 / img.naturalWidth, 80 / img.naturalHeight);
+					c.drawImage(img, (80 - img.naturalWidth * scale) / 2, (80 - img.naturalHeight * scale) / 2, img.naturalWidth * scale, img.naturalHeight * scale);
 					b.insertBefore(thumb, b.firstChild);
 				} else {
-					const plus = document.createElement("span");
+					const plus = element("span", "phone-plus");
 					plus.textContent = "+";
-					plus.className = "phone-plus";
 					plus.setAttribute("aria-hidden", "true");
 					b.insertBefore(plus, b.firstChild);
 				}
-				append(row, b);
+				append(photos, b);
 			}
-			append(parent, row);
+			append(photos, button("换照片", () => owner().action(find(target === "before" ? "uploadBefore" : "uploadMain")), "phone-rail-action"));
 		}
-		function toolButton(t, parent) {
-			const b = button(t.label, () => {
-				if (t.id === "coverRules") open("rules");
-				else if (t.kind === "action" && !t.id.startsWith("memory")) {
-					owner().action(t);
-					update();
-				} else open("tool", t.primary, t.id);
+		function toggle(label, pressed, fn, disabled = false) {
+			const b = button(label, fn, "phone-rail-action");
+			b.setAttribute("aria-pressed", String(pressed));
+			b.disabled = disabled;
+			append(shortcuts, b);
+		}
+		function liveAction(selector, label, parent) {
+			const original = liveHost.querySelector(selector);
+			const b = button(label, () => {
+				original?.click();
+				update();
 			});
-			const sync = () => {
-				const p = owner().value(t);
-				b.disabled = Boolean(p.disabled);
-				if (["retouchBefore", "retouchAfter"].includes(t.id)) b.setAttribute("aria-pressed", String(Boolean(p.value)));
-			};
-			sync();
-			refreshInputs.push(sync);
+			b.disabled = !original || original.disabled;
 			append(parent, b);
 		}
-		function toolList(primary, parent, filter = () => true) {
-			const grid = document.createElement("div");
-			grid.className = "phone-tool-grid";
-			tools(primary).filter(filter).forEach((t) => toolButton(t, grid));
-			append(parent, grid);
+		function availableTools() {
+			if (workspace === "watermark") return tools("more").filter((t) => /watermark/i.test(t.id));
+			if (workspace === "more") return [
+				...tools("layout"),
+				...tools("more").filter((t) => !/watermark/i.test(t.id)),
+				find("syncCover"),
+				find("syncCopy")
+			];
+			if ([
+				"export",
+				"stickers",
+				"rules"
+			].includes(workspace)) return [];
+			return tools(workspace).filter((t) => ![
+				"target",
+				"retouchTarget",
+				"retouchEnabled"
+			].includes(t.id));
+		}
+		function perform(t) {
+			if (t.id === "coverRules") open("rules");
+			else {
+				if (!rollback) rollback = begin();
+				owner().action(t);
+				update();
+			}
 		}
 		function renderTool(t, parent) {
 			const p = owner().value(t), label = t.label.replace("拍摄前", "素颜照");
 			if (t.kind === "range") {
-				const row = document.createElement("div");
-				row.className = "phone-value-row";
+				const row = element("div", "phone-value-row");
 				const range = document.createElement("input");
 				range.type = "range";
 				range.setAttribute("aria-label", label);
@@ -2348,9 +2342,6 @@ var NBOCoverCore = (function(exports) {
 				number.type = "number";
 				number.inputMode = "decimal";
 				number.setAttribute("aria-label", `${label}数值`);
-				range.min = number.min = String(p.min ?? t.min ?? 0);
-				range.max = number.max = String(p.max ?? t.max ?? 100);
-				range.step = number.step = "0.1";
 				const apply = (input) => {
 					if (input.value === "" || !Number.isFinite(input.valueAsNumber)) return;
 					const n = Math.max(Number(range.min), Math.min(Number(range.max), input.valueAsNumber));
@@ -2359,25 +2350,28 @@ var NBOCoverCore = (function(exports) {
 				};
 				range.oninput = () => apply(range);
 				number.oninput = () => apply(number);
-				const sync = () => {
-					const value = owner().value(t);
-					for (const input of [range, number]) {
-						if (document.activeElement !== input) input.value = String(value.value);
-						input.disabled = Boolean(value.disabled);
-					}
-				};
-				sync();
-				refreshInputs.push(sync);
 				const reset = button("复位", () => {
+					if (!rollback) rollback = begin();
 					owner().reset(t);
 					update();
 				}, "phone-reset");
-				reset.disabled = Boolean(p.disabled);
+				const sync = () => {
+					const value = owner().value(t);
+					for (const input of [range, number]) {
+						input.min = String(value.min ?? t.min ?? 0);
+						input.max = String(value.max ?? t.max ?? 100);
+						input.step = "0.1";
+						if (document.activeElement !== input) input.value = String(value.value);
+						input.disabled = Boolean(value.disabled);
+					}
+					reset.disabled = Boolean(value.disabled);
+				};
+				sync();
+				refreshInputs.push(sync);
 				append(row, text(label), number, text(t.suffix ?? ""), reset);
 				append(parent, row, range);
 			} else if (t.kind === "text" || t.kind === "color") {
-				const labelNode = document.createElement("label");
-				labelNode.className = "phone-field";
+				const labelNode = element("label", "phone-field");
 				append(labelNode, text(label));
 				const input = document.createElement("input");
 				input.type = t.kind === "color" ? "color" : "text";
@@ -2393,49 +2387,84 @@ var NBOCoverCore = (function(exports) {
 				refreshInputs.push(sync);
 				append(labelNode, input);
 				append(parent, labelNode);
+				if (t.kind === "text") append(parent, text("点下方切换上行、下行和小字，修改实时生效", "phone-note"));
 			} else if (t.kind === "choice") {
-				const choices = document.createElement("div");
-				choices.className = "phone-tool-grid";
+				const choices = element("div", "phone-tool-grid");
 				choices.setAttribute("aria-label", label);
 				for (const c of p.choices ?? []) {
-					const b = button(c.label, () => {
-						change(t, c.value);
-						renderKey = "";
-					});
-					b.disabled = Boolean(p.disabled);
-					b.setAttribute("aria-pressed", String(p.value === c.value));
+					const b = button(c.label, () => change(t, c.value));
+					const sync = () => {
+						const value = owner().value(t);
+						b.disabled = Boolean(value.disabled);
+						b.setAttribute("aria-pressed", String(value.value === c.value));
+					};
+					sync();
+					refreshInputs.push(sync);
 					append(choices, b);
 				}
 				append(parent, choices);
 			} else if (t.kind === "toggle") {
-				const b = button(`${label} · ${p.value ? "已开启" : "已关闭"}`, () => {
-					change(t, !p.value);
-					renderKey = "";
-				});
-				b.setAttribute("aria-pressed", String(Boolean(p.value)));
-				b.disabled = Boolean(p.disabled);
+				const b = button("", () => change(t, !owner().value(t).value));
+				const sync = () => {
+					const value = owner().value(t);
+					b.textContent = `${label} · ${value.value ? "已开启" : "已关闭"}`;
+					b.setAttribute("aria-pressed", String(Boolean(value.value)));
+					b.disabled = Boolean(value.disabled);
+				};
+				sync();
+				refreshInputs.push(sync);
 				append(parent, b);
 			} else if (t.id.startsWith("memory")) {
 				append(parent, text(String(p.value || label)));
+				const row = element("div", "phone-tool-grid");
 				for (const [id, name] of [
 					["load", "应用"],
-					["save", "保存当前设置"],
+					["save", "保存"],
 					["rename", "重命名"]
-				]) append(parent, button(name, () => {
-					change(t, id);
-					update();
-				}));
-			} else toolButton(t, parent);
-			if (p.disabled && state().live) append(parent, text("Live 已固定字号与对齐，可修改三行文字。", "phone-note"));
+				]) append(row, button(name, () => change(t, id)));
+				append(parent, row);
+			} else append(parent, button(t.label, () => perform(t)));
+			if (p.disabled && state().live) append(parent, text("Live 固定字号与对齐，三行文字仍可修改", "phone-note"));
 		}
-		function liveAction(selector, label, parent) {
-			const original = liveHost.querySelector(selector);
-			const b = button(label, () => {
-				original?.click();
-				update();
-			});
-			b.disabled = !original || original.disabled;
-			append(parent, b);
+		function renderExport(parent) {
+			const s = state(), ready = Boolean(s.image && (!s.settings.compareEnabled || s.beforeImage));
+			const row = element("div", "phone-tool-grid phone-export-grid");
+			for (const [format, label, photoOnly] of [
+				[
+					"jpeg",
+					"高清 JPG",
+					false
+				],
+				[
+					"png",
+					"PNG",
+					false
+				],
+				[
+					"jpeg",
+					"原图 JPG",
+					true
+				],
+				[
+					"png",
+					"原图 PNG",
+					true
+				]
+			]) {
+				const b = button(s.busy ? "正在生成…" : label, () => void owner().export(format, photoOnly).finally(update), photoOnly ? "" : "phone-primary");
+				b.disabled = !ready || s.busy;
+				append(row, b);
+			}
+			append(parent, row);
+			if (!ready) append(parent, text("请先添加主照片和已开启的素颜对比照", "phone-note"));
+			if (s.live) {
+				const native = liveHost.querySelector(".live-export")?.textContent === "保存实况";
+				liveAction(".live-export", native ? "保存实况" : "导出 Live", parent);
+				if (!liveHost.querySelector(".live-cancel")?.hidden) liveAction(".live-cancel", "取消导出", parent);
+				append(parent, text(native ? "保存到苹果「照片」，长按播放。" : "Live 为照片与视频配对文件，需用 Mac 保存助手导入苹果「照片」。", "phone-note"));
+				const helper = liveHost.querySelector(".live-helper");
+				if (!native && helper) append(parent, helper.cloneNode(true));
+			}
 		}
 		function render() {
 			frame = 0;
@@ -2446,10 +2475,6 @@ var NBOCoverCore = (function(exports) {
 				renderedBefore = s.beforeImage;
 				renderKey = "";
 			}
-			if (!s.image && screen !== "start") {
-				screen = "start";
-				rollback = null;
-			}
 			if (!s.settings.compareEnabled) target = "after";
 			else if (s.brush) target = owner().value(find("retouchTarget")).value === "before" ? "before" : "after";
 			if (s.notice !== lastNotice) {
@@ -2457,9 +2482,10 @@ var NBOCoverCore = (function(exports) {
 				message = /失败|错误|请先|不支持|不能|无法|已保存|已应用|还没有|已恢复|已移除|已同步/.test(s.notice) ? s.notice : "";
 			}
 			const liveStatus = liveHost.querySelector("output")?.textContent ?? "";
+			const list = availableTools();
+			if (list.length && !list.some((t) => t.id === selectedTool)) selectedTool = list[0].id;
 			const key = JSON.stringify([
-				screen,
-				group,
+				workspace,
 				selectedTool,
 				target,
 				Boolean(s.image),
@@ -2469,173 +2495,134 @@ var NBOCoverCore = (function(exports) {
 				pendingMode,
 				s.busy,
 				s.brush,
+				guides,
 				liveStatus,
 				message
 			]);
-			root.dataset.screen = screen;
-			panel.classList.toggle("phone-at-start", screen === "start");
+			root.dataset.workspace = workspace;
 			root.dataset.target = target;
 			if (key === renderKey) {
 				refreshInputs.forEach((fn) => fn());
 				positionSelection();
 				return;
 			}
+			const oldStrip = dock.querySelector(".phone-tool-strip"), scroll = oldStrip?.scrollLeft ?? 0;
+			const oldStripKey = oldStrip?.getAttribute("data-tools");
 			renderKey = key;
 			refreshInputs = [];
-			header.replaceChildren();
-			start.replaceChildren();
-			hint.replaceChildren();
-			dock.replaceChildren();
-			const editing = ![
-				"start",
-				"home",
-				"export"
-			].includes(screen);
-			append(header, button(editing ? "取消" : screen === "export" ? "返回" : screen === "home" ? "照片" : "文案页", () => {
-				if (editing) finish(true);
-				else if (screen === "export") open("home");
-				else if (screen === "home") open("start");
-				else owner().back();
-			}));
-			const h = document.createElement("strong");
-			h.textContent = screen === "tool" ? find(selectedTool)?.label ?? "调整" : screen === "group" ? groupTitles[group] || titles.group : titles[screen];
-			append(header, h);
-			const right = button(editing ? "完成" : "导出", () => editing ? finish() : open("export"), "phone-accent");
-			right.disabled = !editing && !s.image;
-			append(header, right);
-			start.hidden = screen !== "start";
-			dock.hidden = screen === "start";
-			hint.hidden = screen === "start";
-			if (screen === "start") {
-				append(start, text("先选成品，再放照片", "phone-heading"), text("照片只在当前设备处理", "phone-note"));
-				modes(start);
-				photoCards(start);
-				append(start, text(s.live ? "两张照片 → 三行文案 → 3 秒 Live" : s.settings.compareEnabled ? "精修照做主画面，素颜照做前后对比" : "放入精修照，修改文字即可导出", "phone-note"));
-				const go = button(pendingMode ? "正在准备 Live…" : "开始编辑", () => open("home"), "phone-primary");
-				go.disabled = !s.image || s.settings.compareEnabled && !s.beforeImage || Boolean(pendingMode);
-				append(start, go);
-			} else {
-				append(hint, text(screen === "home" ? "轻点文字或照片，直接编辑" : screen === "text" ? "三行文案 · 实时预览" : screen === "layout" ? "成品尺寸与标题位置" : screen === "stickers" ? "选择贴图，完成后应用" : screen === "group" && group === "text" ? "文字样式 · 实时预览" : s.brush ? `正在涂抹：${target === "after" ? "精修照" : "素颜照"}` : `正在编辑：${target === "after" ? "精修照" : "素颜照"}`));
-				if (screen === "home") {
-					if (s.live) {
-						const row = document.createElement("div");
-						row.className = "phone-live-row";
-						liveAction(".live-play", "播放 Live", row);
-						append(row, button("动画贴图", () => open("stickers")));
-						append(dock, row);
-					}
-					const nav = document.createElement("nav");
-					nav.className = "phone-main-actions";
-					nav.setAttribute("aria-label", "常用工具");
-					for (const [id, label] of mainActions) append(nav, button(label, () => open(id)));
-					append(dock, nav);
-				} else if (screen === "photo") photoCards(dock);
-				else if (screen === "text") {
-					for (const id of [
-						"topText",
-						"bottomText",
-						"subtitle"
-					]) renderTool(find(id), dock);
-					append(dock, button("文字样式", () => open("group", "text")));
-				} else if (screen === "layout") {
-					renderTool(find("platform"), dock);
-					append(dock, text("标题位置", "phone-note"));
-					renderTool(find("template"), dock);
-				} else if (screen === "adjust") {
-					targetPicker(dock);
-					const row = document.createElement("div");
-					row.className = "phone-tool-grid";
-					for (const [id, label] of [
-						["compose", "位置与大小"],
-						["image", "亮度与压暗"],
-						["retouch", "局部提亮"]
-					]) append(row, button(label, () => {
-						open("group", id);
-						if (id === "retouch" && !s.brush) change(find("retouchEnabled"), true);
-					}));
-					append(dock, row);
-				} else if (screen === "group") {
-					if ([
-						"compose",
-						"image",
-						"retouch"
-					].includes(group)) targetPicker(dock);
-					if (group === "compose") append(dock, text("拖动照片移动，双指缩放；也可点选精确调整。", "phone-note"));
-					toolList(group, dock, (t) => ![
-						"target",
-						"retouchTarget",
-						"retouchEnabled"
-					].includes(t.id) && !(group === "text" && t.kind === "text"));
-				} else if (screen === "tool") {
-					const t = find(selectedTool);
-					if (t) renderTool(t, dock);
-					append(dock, button("返回工具", () => open("group", group), "phone-back"));
-				} else if (screen === "more") {
-					const grid = document.createElement("div");
-					grid.className = "phone-tool-grid";
-					append(grid, button("成品形式", () => {
-						commit();
-						open("start");
-					}));
-					append(grid, button(`安全区 · ${guides ? "显示" : "隐藏"}`, () => {
-						guides = !guides;
-						owner().preview(active, guides);
+			[
+				header,
+				photos,
+				shortcuts,
+				hint,
+				dock,
+				nav
+			].forEach((e) => e.replaceChildren());
+			const back = button("撤销", undo);
+			back.title = "撤回当前工具的调整";
+			const syncUndo = () => {
+				back.disabled = !rollback;
+			};
+			syncUndo();
+			refreshInputs.push(syncUndo);
+			const title = document.createElement("strong");
+			title.textContent = "南铂封面";
+			const more = button("更多", () => open("more"));
+			more.setAttribute("aria-pressed", String(["more", "rules"].includes(workspace)));
+			const save = button("导出", () => open("export"), "phone-accent");
+			save.disabled = !s.image;
+			save.setAttribute("aria-pressed", String(workspace === "export"));
+			append(header, back, title, more, save);
+			photoRail();
+			toggle("安全区", guides, () => {
+				guides = !guides;
+				owner().preview(active, guides);
+				update();
+			});
+			toggle("前后对比", s.settings.compareEnabled, () => void mode(s.settings.compareEnabled ? "普通封面" : "前后对比"), s.live || pendingMode);
+			toggle("Live", s.live, () => void mode(s.live ? "关闭 Live" : "Live"), pendingMode);
+			if (s.live) {
+				liveAction(".live-play", "播放", shortcuts);
+				toggle("贴图", workspace === "stickers", () => open("stickers"));
+			}
+			const hintText = pendingMode ? "正在准备 Live…" : message || liveStatus || (!s.image ? "点左侧 ＋ 添加主照片，开始制作" : s.brush ? `正在涂抹${target === "after" ? "主照片" : "素颜照"}` : "点选照片或文字 · 单指移动 · 双指缩放");
+			hint.textContent = hintText;
+			hint.title = hintText;
+			const context = element("div", "phone-context");
+			const heading = document.createElement("strong");
+			heading.textContent = titles[workspace];
+			append(context, heading);
+			if ([
+				"compose",
+				"image",
+				"retouch"
+			].includes(workspace)) append(context, text(target === "after" ? "主照片" : "素颜照", "phone-target"));
+			if (workspace === "retouch") {
+				const b = button(s.brush ? "退出涂抹" : "开启涂抹", () => change(find("retouchEnabled"), !state().brush));
+				b.setAttribute("aria-pressed", String(s.brush));
+				b.dataset.tool = "retouchEnabled";
+				append(context, b);
+			}
+			if (workspace === "more") append(context, button("返回文案页", () => owner().back(), "phone-reset"));
+			append(dock, context);
+			const controls = element("div", "phone-adjustment");
+			append(dock, controls);
+			if (workspace === "export") renderExport(controls);
+			else if (workspace === "rules") append(controls, text(document.querySelector("#coverRules")?.textContent?.trim() || "人物原片不拉伸，核心文案放在安全区内。导出自动隐藏辅助线。", "phone-rules"));
+			else if (workspace === "stickers") {
+				const row = element("div", "phone-stickers");
+				for (const card of liveHost.querySelectorAll("[data-style]")) {
+					const b = button(card.getAttribute("aria-label") || "贴图", () => {
+						if (!rollback) rollback = begin();
+						card.click();
 						renderKey = "";
 						update();
-					}));
-					append(grid, button("水印与记忆", () => open("group", "more")));
-					toolButton(find("syncCover"), grid);
-					toolButton(find("syncCopy"), grid);
-					if (s.live) append(grid, button("动画贴图", () => open("stickers")));
-					append(dock, grid);
-				} else if (screen === "stickers") {
-					const row = document.createElement("div");
-					row.className = "phone-stickers";
-					for (const card of liveHost.querySelectorAll("[data-style]")) {
-						const b = button(card.getAttribute("aria-label") || "贴图", () => {
-							card.click();
-							renderKey = "";
-							update();
-						});
-						b.setAttribute("aria-pressed", card.getAttribute("aria-pressed") || "false");
-						const original = card.querySelector("canvas");
-						if (original) {
-							const thumb = document.createElement("canvas");
-							thumb.width = original.width;
-							thumb.height = original.height;
-							thumb.getContext("2d").drawImage(original, 0, 0);
-							b.insertBefore(thumb, b.firstChild);
-						}
-						append(row, b);
+					});
+					b.setAttribute("aria-pressed", card.getAttribute("aria-pressed") || "false");
+					const original = card.querySelector("canvas");
+					if (original) {
+						const thumb = document.createElement("canvas");
+						thumb.width = original.width;
+						thumb.height = original.height;
+						thumb.getContext("2d").drawImage(original, 0, 0);
+						b.insertBefore(thumb, b.firstChild);
 					}
-					append(dock, row);
-				} else if (screen === "rules") append(dock, text(document.querySelector("#coverRules")?.textContent?.trim() || "人物原片不拉伸，核心文案放在安全区内。导出自动隐藏辅助线。", "phone-rules"));
-				else if (screen === "export") {
-					const ready = Boolean(s.image && (!s.settings.compareEnabled || s.beforeImage));
-					append(dock, text(ready ? "保存当前成品" : "请先添加精修照和素颜照", "phone-note"));
-					for (const [format, label] of [["jpeg", "保存高清 JPG"], ["png", "保存 PNG"]]) {
-						const b = button(s.busy ? "正在生成…" : label, () => void owner().export(format, false).finally(update), "phone-primary");
-						b.disabled = !ready || s.busy;
-						append(dock, b);
-					}
-					if (s.live) {
-						const native = liveHost.querySelector(".live-export")?.textContent === "保存实况";
-						liveAction(".live-export", native ? "保存实况" : "导出 Live", dock);
-						if (!liveHost.querySelector(".live-cancel")?.hidden) liveAction(".live-cancel", "取消导出", dock);
-						append(dock, text(native ? "保存到苹果「照片」，长按播放。" : "下载照片与视频配对文件。要在 iPhone 相册长按播放，需通过 Mac 保存助手导入「照片」。", "phone-note"));
-						const helper = liveHost.querySelector(".live-helper");
-						if (!native && helper) append(dock, helper.cloneNode(true));
-					}
-					const originals = document.createElement("details");
-					append(originals, Object.assign(document.createElement("summary"), { textContent: "仅导出照片" }));
-					for (const [format, label] of [["jpeg", "原图 JPG"], ["png", "原图 PNG"]]) append(originals, button(label, () => void owner().export(format, true).finally(update)));
-					append(dock, originals);
+					append(row, b);
+				}
+				append(controls, row);
+			} else {
+				if (list.length) renderTool(find(selectedTool), controls);
+				const strip = element("div", "phone-tool-strip");
+				strip.setAttribute("aria-label", `${titles[workspace]}选项`);
+				strip.setAttribute("data-tools", list.map((t) => t.id).join(","));
+				for (const t of list) {
+					const b = button(t.label, () => {
+						selectedTool = t.id;
+						renderKey = "";
+						update();
+					});
+					b.dataset.tool = t.id;
+					b.setAttribute("aria-pressed", String(selectedTool === t.id));
+					const sync = () => {
+						b.disabled = Boolean(owner().value(t).disabled);
+					};
+					sync();
+					refreshInputs.push(sync);
+					append(strip, b);
+				}
+				append(dock, strip);
+				if (strip.getAttribute("data-tools") === oldStripKey) strip.scrollLeft = scroll;
+				const selected = strip.querySelector("[aria-pressed=true]");
+				if (selected) {
+					const left = selected.offsetLeft;
+					if (left < strip.scrollLeft) strip.scrollLeft = left;
+					else if (left + selected.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = left + selected.offsetWidth - strip.clientWidth;
 				}
 			}
-			if (message || liveStatus) {
-				const notice = text(message || liveStatus, "phone-notice");
-				notice.setAttribute("role", "status");
-				append(screen === "start" ? start : dock, notice);
+			for (const [id, label] of mainActions) {
+				const b = button(label, () => open(id));
+				b.setAttribute("aria-pressed", String(workspace === id));
+				append(nav, b);
 			}
 			positionSelection();
 		}
@@ -2686,7 +2673,7 @@ var NBOCoverCore = (function(exports) {
 			};
 		}
 		function positionSelection() {
-			if (active && screen !== "start") {
+			if (active) {
 				const cs = getComputedStyle(canvasShell);
 				const width = canvasShell.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
 				const height = canvasShell.getBoundingClientRect().height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
@@ -2694,13 +2681,12 @@ var NBOCoverCore = (function(exports) {
 				canvas.style.setProperty("width", `${fitted}px`, "important");
 				canvas.style.setProperty("height", `${fitted * canvas.height / canvas.width}px`, "important");
 			}
-			const show = active && [
-				"adjust",
-				"group",
-				"tool",
+			const show = active && Boolean(state().image) && [
+				"compose",
+				"image",
 				"text",
 				"stickers"
-			].includes(screen);
+			].includes(workspace);
 			selection.hidden = !show;
 			if (!show) return;
 			const r = canvas.getBoundingClientRect();
@@ -2711,7 +2697,7 @@ var NBOCoverCore = (function(exports) {
 				width: Math.max(0, Math.min(450 * canvas.width / 1080, areas.before.x - 36 * canvas.width / 1080 - areas.text.x)),
 				height: 200 * canvas.width / 1080
 			};
-			const box = screen === "stickers" ? sticker : screen === "text" || group === "text" && ["group", "tool"].includes(screen) ? areas.text : target === "before" ? areas.before : {
+			const box = workspace === "stickers" ? sticker : workspace === "text" ? areas.text : target === "before" ? areas.before : {
 				x: 0,
 				y: 0,
 				width: canvas.width,
@@ -2735,7 +2721,7 @@ var NBOCoverCore = (function(exports) {
 			return "after";
 		}
 		function down(e) {
-			if (!active || ["start", "export"].includes(screen) || state().brush || e.pointerType !== "touch") return;
+			if (!active || !state().image || state().brush || e.pointerType !== "touch") return;
 			e.preventDefault();
 			e.stopPropagation();
 			points.set(e.pointerId, {
@@ -2801,12 +2787,15 @@ var NBOCoverCore = (function(exports) {
 				gesture.zoom = target === "before" ? s.beforeZoom : s.zoom;
 			}
 			if (!points.size && gesture) {
-				if (gesture.moved) open("group", "compose");
-				else if (e.type !== "pointercancel") if (gesture.hit === "text") open("text");
+				if (gesture.moved) {
+					const draft = rollback;
+					open("compose");
+					rollback = draft;
+				} else if (e.type !== "pointercancel") if (gesture.hit === "text") open("text");
 				else if (gesture.hit === "stickers") open("stickers");
 				else {
 					setTarget(gesture.hit);
-					open("adjust");
+					open("compose");
 				}
 				gesture = null;
 			}
@@ -2834,6 +2823,7 @@ var NBOCoverCore = (function(exports) {
 			positionSelection();
 		});
 		sizeObserver.observe(canvasShell);
+		sizeObserver.observe(canvas);
 		viewport();
 		return {
 			update,

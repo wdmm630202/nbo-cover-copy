@@ -1361,6 +1361,17 @@ export default function CoverStudio() {
             </button>
           </div>
 
+          <input
+            ref={beforeFileInputRef}
+            id="studioBeforeFileInput"
+            type="file"
+            hidden
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              loadBeforeFile(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
           {settings.compareEnabled ? (
             <div
               className={`studio-before-upload ${beforeDragging ? "is-dragging" : ""}`}
@@ -1369,15 +1380,6 @@ export default function CoverStudio() {
               onDragLeave={(event) => handleImageDragLeave(event, "before")}
               onDrop={(event) => handleImageDrop(event, "before")}
             >
-              <input
-                ref={beforeFileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(event) => {
-                  loadBeforeFile(event.target.files?.[0]);
-                  event.target.value = "";
-                }}
-              />
               <div>
                 <strong>拍摄前素颜照</strong>
                 <small>照片只存在本机内存，刷新后自动清除</small>

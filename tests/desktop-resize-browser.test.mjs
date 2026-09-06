@@ -30,9 +30,11 @@ test('电脑连续缩放保留三栏、画布内容和操作，Live 贴图与导
       const photo={name:'resize-check.png',mimeType:'image/png',buffer:Buffer.from(await page.evaluate(()=>{const c=document.createElement('canvas');c.width=600;c.height=900;const x=c.getContext('2d');x.fillStyle='#688ca0';x.fillRect(0,0,600,900);x.fillStyle='#d6b389';x.fillRect(150,100,300,650);return c.toDataURL().split(',')[1];}),'base64')};
       await page.locator(shell==='static'?'#fileInput':'.studio-upload input').setInputFiles(photo);
       const compare=page.getByRole('checkbox',{name:'前后对比',exact:true});if(!await compare.isChecked())await compare.locator('xpath=..').click();
-      await page.locator(shell==='static'?'#beforeFileInput':'.studio-before-upload input').setInputFiles(photo);
+      await page.locator(shell==='static'?'#beforeFileInput':'#studioBeforeFileInput').setInputFiles(photo);
       await page.locator(shell==='static'?'#retouchTarget':'.studio-retouch-target').waitFor({state:'visible'});
       const textInput=page.locator(shell==='static'?'#topText':'[aria-label="上行主标题"]').first();await textInput.fill('窗口测试');
+      await page.waitForLoadState('networkidle');
+      await page.evaluate(()=>document.fonts.ready);
       await page.waitForTimeout(300);
       const pixels=()=>page.locator('#coverCanvas,.studio-canvas-shell canvas').evaluate(c=>c.toDataURL());
       const original=await pixels();
