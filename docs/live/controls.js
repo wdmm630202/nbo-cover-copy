@@ -6,12 +6,12 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       <button type="button" class="live-play">播放动效</button>
       <button type="button" class="live-export">导出 Live</button>
       <button type="button" class="live-cancel" hidden>取消导出</button>
-      <details class="live-details"><summary>动画与保存</summary>
+      <details class="live-details"><summary>动画与保存</summary><div class="live-settings-panel">
         <label>动画样式<select aria-label="Live 动画样式"><option value="focus">帅气合焦</option><option value="cute">Q萌验证成功</option><option value="simple">简洁验证成功</option></select></label>
         <p>三行文字，每行最多 6 字。字号与对齐已锁定，其余参数可继续调整。</p>
         <p>导出为 3 秒实况文件包。解压后，用 Mac「南铂实况保存助手」将配对文件存入苹果「照片」，再同步或分享至 iPhone。</p>
         <a class="live-helper" href="${new URL('南铂实况保存助手.zip',assetBase).href}" download>下载 Mac 保存助手</a>
-      </details>
+      </div></details>
       <output class="live-status" aria-live="polite"></output>
     </div>`;
   const q=s=>host.querySelector(s), toggle=q('.live-toggle'),options=q('.live-options'),play=q('.live-play'),exportButton=q('.live-export'),cancel=q('.live-cancel'),select=q('select'),status=q('output');
@@ -21,14 +21,14 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     const [x,y,width,height]=crops[style];
     return {time,animation:image&&motion.phase==='complete'?{image,source:{x:(index%9)*600+x,y:Math.floor(index/9)*240+y,width,height}}:null};
   }
-  function stop(){cancelAnimationFrame(animationId);animationId=0;frameTime=3;}
+  function stop(){cancelAnimationFrame(animationId);animationId=0;frameTime=3;play.removeAttribute('data-active');}
   function presentation(time=frameTime){
     if(!enabled)return undefined;
     return frameFor(atlas,time);
   }
   function playAnimation(){
     if(!enabled||!atlas||busy)return;
-    stop();const start=performance.now();
+    stop();play.setAttribute('data-active','true');const start=performance.now();
     function tick(now){
       if(disposed||!enabled)return;
       frameTime=(now-start)/1000;
@@ -43,7 +43,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     try {
       await next.decode();
       if(disposed||!enabled||generation!==loadGeneration)return;
-      atlas=next;play.disabled=exportButton.disabled=false;status.textContent='字号与对齐已锁定';onAssetsChanged();onRefresh();
+      atlas=next;play.disabled=exportButton.disabled=false;status.textContent='';onAssetsChanged();onRefresh();
       if(!matchMedia('(prefers-reduced-motion: reduce)').matches)playAnimation();
     }catch{
       if(disposed||!enabled||generation!==loadGeneration)return;
@@ -61,7 +61,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     if(!enabled||!atlas||busy)return;
     let snapshot;
     try{snapshot=captureRender();}catch(error){status.textContent=error.message;return;}
-    busy=true;stop();onRefresh();abort=new AbortController();
+    busy=true;exportButton.setAttribute('data-active','true');stop();onRefresh();abort=new AbortController();
     exportButton.disabled=play.disabled=select.disabled=true;cancel.hidden=false;status.textContent='正在生成实况 0%';
     const image=atlas,style=select.value;
     try {
@@ -79,7 +79,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     }catch(error){
       if(!disposed&&enabled)status.textContent=error.name==='AbortError'?'已取消导出':(/[\u3400-\u9fff]/.test(error.message)?error.message:'实况导出失败，请重试');
     }finally{
-      busy=false;abort=null;if(!disposed){exportButton.disabled=play.disabled=!atlas;select.disabled=false;cancel.hidden=true;}
+      busy=false;exportButton.removeAttribute('data-active');abort=null;if(!disposed){exportButton.disabled=play.disabled=!atlas;select.disabled=false;cancel.hidden=true;}
     }
   }
   toggle.addEventListener('click',()=>setEnabled(!enabled));play.addEventListener('click',playAnimation);
