@@ -286,9 +286,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .template b { font-size: 8px; }
   .template span { font-size: 6px; }
   .sliders { min-height: 0; margin-top: 16px; flex: 1 0 auto; grid-template-columns: 1fr; grid-template-rows: repeat(12, minmax(48px, 1fr)); align-items: center; gap: 0; }
-  .controls.compare-active { overflow-y: auto; }
-  .controls.compare-active .memory-panel { flex: 0 0 auto; grid-template-rows: repeat(3, auto); }
-  .controls.compare-active .memory-panel > div { height: auto; }
+  .controls.compare-active { overflow-y: auto; justify-content: space-between; gap: 2px; }
+  .controls.compare-active > * { margin: 0; flex-shrink: 0; }
+  .controls.compare-active .status, .controls.compare-active .copy-sync { padding-top: 6px; padding-bottom: 6px; }
+  .controls.compare-active .upload { min-height: 48px; padding: 6px; }
+  .controls.compare-active .compare-upload-panel { padding: 5px; }
+  .controls.compare-active .compare-upload > button { min-height: 44px; padding: 5px; }
+  .controls.compare-active .field textarea { height: 52px; padding-top: 6px; padding-bottom: 6px; display: block; }
+  .controls.compare-active .subtitle-tools input[type="range"], .controls.compare-active .left-watermark-controls input[type="range"] { height: 16px; margin: 0; display: block; }
+  .controls.compare-active .watermark-upload, .controls.compare-active .left-watermark-controls { padding: 4px; }
+  .controls.compare-active .memory-panel { padding-top: 6px; flex: 0 0 auto; grid-template-rows: repeat(3, auto); gap: 6px; }
+  .controls.compare-active .memory-panel > div { height: auto; padding-top: 4px; padding-bottom: 4px; }
   .design.compare-active { overflow-y: auto; }
   .design.compare-active .adjustment-target { margin-top: 8px; flex: 0 0 auto; }
   .design.compare-active .sliders { min-height: 0; margin-top: 8px; flex: 1 0 auto; grid-template-rows: repeat(12, minmax(48px, 1fr)); gap: 0; }
