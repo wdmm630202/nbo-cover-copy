@@ -34,6 +34,7 @@ const {
   normalizeCoverSettings,
   releaseCoverScratchCanvases,
   resolveCoverLayoutMode,
+  getCoverDesktopScale,
   resolveCanvasInteractionMode,
   serializeStaticCoverSettings,
   resetMobileToolSetting,
@@ -229,11 +230,12 @@ function syncMobileKeyboardViewport() {
 function syncMobileEditorLayout() {
   const previousMode = coverLayoutMode;
   const pointer = coverPointerQuery.matches ? "coarse" : "fine";
-  coverLayoutMode = resolveCoverLayoutMode({
-    width: studioGrid.getBoundingClientRect().width || window.innerWidth,
-    height: window.innerHeight,
-    pointer,
-  });
+  const environment = { width: window.innerWidth, height: window.innerHeight, pointer };
+  coverLayoutMode = resolveCoverLayoutMode(environment);
+  const scale = getCoverDesktopScale(environment);
+  const page = studioGrid.closest(".cover-page");
+  page.style.setProperty("--cover-desktop-scale", String(scale));
+  page.style.setProperty("--cover-desktop-height", `${Math.max(1230, window.innerHeight)}px`);
   if (coverLayoutMode !== "compact") {
     compactEditorOpen = false;
     mobileExportOpen = false;
@@ -516,7 +518,7 @@ function syncMobileTransformControls() {
 
 const syncPreviewToolsWidth = () => {
   if (canvasShell && previewTools) {
-    previewTools.style.width = `${canvasShell.getBoundingClientRect().width}px`;
+    previewTools.style.width = getComputedStyle(canvasShell).width;
     previewTools.parentElement.style.setProperty("--cover-preview-width", previewTools.style.width);
   }
 };

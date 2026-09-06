@@ -56,7 +56,13 @@ export function updateMobileKeyboardViewport(
 }
 
 export function resolveCoverLayoutMode({ width, height, pointer }: LayoutEnvironment): CoverLayoutMode {
-  if (pointer === "fine" && width >= 1180) return "desktop";
+  if (pointer === "fine" && width >= 800) return "desktop";
   if (width >= 680 && (width > height || pointer === "fine")) return "split";
   return "compact";
+}
+
+// Reuse the established desktop workspace at smaller window sizes.
+export function getCoverDesktopScale(environment: LayoutEnvironment): number {
+  if (resolveCoverLayoutMode(environment) !== "desktop") return 1;
+  return Math.min(1, environment.width / 1520, environment.height / 1230);
 }

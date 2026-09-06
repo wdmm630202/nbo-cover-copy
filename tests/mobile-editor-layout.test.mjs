@@ -103,7 +103,7 @@ test("React Compact 壳层保留单一画布并由 CoverStudio 拥有开关状�
   assert.doesNotMatch(shell, /\buseState\b/);
   assert.match(exportSheet, /export type CoverExportSheetProps = \{/);
   assert.match(exportSheet, /id="mobileExportSheet"/);
-  assert.match(studio, /import \{[\s\S]{0,100}resolveCoverLayoutMode[\s\S]{0,100}\} from "\.\/core\/responsive-layout"/);
+  assert.match(studio, /import \{[\s\S]{0,100}resolveCoverLayoutMode[\s\S]{0,160}\} from "\.\/core\/responsive-layout"/);
   assert.match(studio, /const \[isCompactEditorOpen, setIsCompactEditorOpen\] = useState\(false\)/);
   assert.match(studio, /<CoverSplitShell/);
   assert.match(splitShell, /<CoverCompactShell/);
@@ -153,7 +153,7 @@ test("React 与静态页都观察编辑器根尺寸并清理监听", async () =>
   assert.match(studio, /observer\.disconnect\(\)/);
   assert.match(staticSource, /new ResizeObserver\(syncMobileEditorLayout\)/);
   assert.match(staticSource, /coverLayoutObserver\.observe\(studioGrid\)/);
-  assert.match(staticSource, /resolveCoverLayoutMode\(\{/);
+  assert.match(staticSource, /resolveCoverLayoutMode\(environment\)/);
 });
 
 test("Split 左侧预览固定且只有右侧工具垂直滚动", async () => {
@@ -182,7 +182,7 @@ test("Desktop 左右栏等宽且保留三栏与原有交互接线", async () => 
 
   for (const css of [appCss, staticCss]) {
     assert.match(css, /(?:cover-)?studio-grid\s*\{[\s\S]{0,180}grid-template-columns:\s*340px\s+minmax\(420px,\s*1fr\)\s+340px/);
-    assert.match(css, /@media\s*\(min-width:\s*1181px\)\s*and\s*\(min-height:\s*1100px\)/);
+    assert.match(css, /@media\s*\(min-width:\s*800px\)\s*and\s*\(pointer:\s*fine\)/);
     assert.match(css, /grid-template-columns:\s*345px\s+minmax\(580px,\s*1fr\)\s+345px/);
     assert.match(css, /@media\s*\(max-width:\s*1180px\),\s*\(pointer:\s*coarse\)[\s\S]{0,260}(?:cover-)?studio-grid\[data-cover-layout="split"\]/);
     assert.doesNotMatch(css, /data-cover-layout="desktop"\][^{]*\{[^}]*grid-template-columns/);
@@ -229,7 +229,7 @@ test("手机壳层只由共享 resolver 决定且模式变化会安全隐藏", a
   assert.equal(resolveCoverLayoutMode({ width: 390, height: 844, pointer: "coarse" }), "compact");
   assert.equal(resolveCoverLayoutMode({ width: 430, height: 932, pointer: "coarse" }), "compact");
   assert.equal(resolveCoverLayoutMode({ width: 1440, height: 900, pointer: "fine" }), "desktop");
-  assert.match(studio, /resolveCoverLayoutMode\(\{/);
+  assert.match(studio, /resolveCoverLayoutMode\(environment\)/);
   assert.match(studio, /layoutMode (?:===|!==) "compact"/);
   assert.match(staticSource, /resolveCoverLayout(?:Mode|Transition)\(/);
   assert.match(staticSource, /studioGrid\.dataset\.coverLayout = coverLayoutMode/);

@@ -40,6 +40,7 @@ import {
 } from "./core/static-entry";
 import {
   resolveCoverLayoutMode,
+  getCoverDesktopScale,
   updateMobileKeyboardViewport,
   type CoverLayoutMode,
   type MobileKeyboardViewportState,
@@ -354,11 +355,16 @@ export default function CoverStudio() {
     if (!editorRoot) return;
     const pointerQuery = window.matchMedia("(pointer: coarse)");
     const syncLayout = () => {
-      setLayoutMode(resolveCoverLayoutMode({
-        width: editorRoot.getBoundingClientRect().width || window.innerWidth,
+      const environment = {
+        width: window.innerWidth,
         height: window.innerHeight,
-        pointer: pointerQuery.matches ? "coarse" : "fine",
-      }));
+        pointer: pointerQuery.matches ? "coarse" as const : "fine" as const,
+      };
+      setLayoutMode(resolveCoverLayoutMode(environment));
+      const scale = getCoverDesktopScale(environment);
+      const page = editorRoot.closest<HTMLElement>(".cover-page");
+      page?.style.setProperty("--cover-desktop-scale", String(scale));
+      page?.style.setProperty("--cover-desktop-height", `${Math.max(1230, window.innerHeight)}px`);
     };
     const observer = new ResizeObserver(syncLayout);
     observer.observe(editorRoot);
@@ -470,7 +476,7 @@ export default function CoverStudio() {
     const tools = previewToolsRef.current;
     if (!shell || !tools) return;
     const syncWidth = () => {
-      tools.style.width = `${shell.getBoundingClientRect().width}px`;
+      tools.style.width = getComputedStyle(shell).width;
       tools.parentElement?.style.setProperty("--cover-preview-width", tools.style.width);
     };
     const observer = new ResizeObserver(syncWidth);

@@ -1547,9 +1547,13 @@ var NBOCoverCore = (function(exports) {
 		};
 	}
 	function resolveCoverLayoutMode({ width, height, pointer }) {
-		if (pointer === "fine" && width >= 1180) return "desktop";
+		if (pointer === "fine" && width >= 800) return "desktop";
 		if (width >= 680 && (width > height || pointer === "fine")) return "split";
 		return "compact";
+	}
+	function getCoverDesktopScale(environment) {
+		if (resolveCoverLayoutMode(environment) !== "desktop") return 1;
+		return Math.min(1, environment.width / 1520, environment.height / 1230);
 	}
 	//#endregion
 	//#region app/cover/core/tool-registry.ts
@@ -2124,6 +2128,7 @@ var NBOCoverCore = (function(exports) {
 	exports.formatExportTimestamp = formatExportTimestamp;
 	exports.getBeforeImageFrame = getBeforeImageFrame;
 	exports.getBeforeOffsetLimits = getBeforeOffsetLimits;
+	exports.getCoverDesktopScale = getCoverDesktopScale;
 	exports.getExportAttemptSizes = getExportAttemptSizes;
 	exports.getExportFileName = getExportFileName;
 	exports.getLiveMotionState = getLiveMotionState;

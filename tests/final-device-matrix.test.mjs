@@ -125,7 +125,7 @@ test("静态真实页在 18 个目标尺寸保持外壳、预览、工具与编�
     await send("Page.enable");
     await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
     await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-    await waitFor(() => evaluate(send, "document.readyState === 'complete'"), 7000, "静态封面页");
+    await waitFor(() => evaluate(send, "document.readyState === 'complete' && Boolean(document.querySelector('#coverPage'))"), 7000, "静态封面页");
     await evaluate(send, `localStorage.setItem("nbo_cover_access_until", String(Date.now() + 86400000)); true;`);
     await send("Page.reload", { ignoreCache: true });
     await waitFor(() => evaluate(send, "document.readyState === 'complete' && !document.querySelector('#coverPage').classList.contains('is-hidden')"), 7000, "解锁封面页");
@@ -368,14 +368,9 @@ test("静态真实页在 18 个目标尺寸保持外壳、预览、工具与编�
       if (result.mode === "desktop") {
         assert.equal(result.desktopPanelFlow.controlsMaxHeight, "none", `${result.width}×${result.height} 电脑左栏不得新增视口限高`);
         assert.equal(result.desktopPanelFlow.designMaxHeight, "none", `${result.width}×${result.height} 电脑右栏不得新增视口限高`);
-        if (result.height >= 1100) {
-          assert.equal(result.desktopPanelFlow.controlsOverflowY, "auto", `${result.width}×${result.height} 前后对比左栏应沿用旧版滚动策略`);
-          assert.equal(result.desktopPanelFlow.designOverflowY, "auto", `${result.width}×${result.height} 右栏高度不足时应可滚动，不能压缩重叠控件`);
-          assert.ok(result.desktopPanelFlow.footer.bottom <= result.snapshot.viewport.bottom + 1, `${result.width}×${result.height} 长期规范未在同一页显示`);
-        } else {
-          assert.equal(result.desktopPanelFlow.controlsOverflowY, "visible", `${result.width}×${result.height} 电脑左栏应由页面自然布局`);
-          assert.equal(result.desktopPanelFlow.designOverflowY, "visible", `${result.width}×${result.height} 电脑右栏应由页面自然布局`);
-        }
+        assert.equal(result.desktopPanelFlow.controlsOverflowY, "auto", `${result.width}×${result.height} 左栏应保留内容超出时的滚动能力`);
+        assert.equal(result.desktopPanelFlow.designOverflowY, "auto", `${result.width}×${result.height} 右栏不得压缩重叠控件`);
+        assert.ok(result.desktopPanelFlow.footer.bottom <= result.snapshot.viewport.bottom + 1, `${result.width}×${result.height} 缩小窗口后长期规范仍须完整显示`);
       }
     }
 

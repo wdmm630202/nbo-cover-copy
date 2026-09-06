@@ -1301,11 +1301,13 @@ body {
   line-height: 1.7;
 }
 
-@media (min-width: 1181px) and (min-height: 1100px) {
-  .cover-page { padding-bottom: 8px; }
+@media (min-width: 800px) and (pointer: fine) {
+  .cover-page { padding-bottom: 8px; min-height: var(--cover-desktop-height, 100vh); zoom: var(--cover-desktop-scale, 1); }
+  .cover-page .save-preview { zoom: calc(1 / var(--cover-desktop-scale, 1)); }
   .cover-studio-header { min-height: 58px; }
+  .cover-studio-header-actions button { min-height: calc(36px / var(--cover-desktop-scale, 1)); }
   .cover-studio-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
-  .cover-studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 345px minmax(580px, 1fr) 345px; gap: 12px; align-items: stretch; }
+  .cover-studio-grid { height: calc(var(--cover-desktop-height, 100vh) - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 345px minmax(580px, 1fr) 345px; gap: 12px; align-items: stretch; }
   .studio-panel, .studio-preview-panel { height: 100%; min-height: 0; border-radius: 18px; }
   .studio-panel { padding: 13px; overflow: hidden; }
   .studio-controls { display: flex; flex-direction: column; }
@@ -1389,7 +1391,7 @@ body {
   .cover-standard-card > p { font-size: 7px; line-height: 1.35; }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 799px), (pointer: coarse) {
   .cover-studio-grid {
     grid-template-columns: 300px 1fr;
   }
@@ -1661,6 +1663,8 @@ body.mobile-editor-open {
   background: rgba(28, 28, 27, .9);
 }
 
+.cover-studio-grid[data-cover-layout="split"] .mobile-secondary-tools,
+.cover-studio-grid[data-cover-layout="split"] .mobile-primary-tools,
 .cover-compact-shell.is-open .mobile-secondary-tools,
 .cover-compact-shell.is-open .mobile-primary-tools {
   min-height: 56px;

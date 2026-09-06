@@ -234,11 +234,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .standard li { color: #6e6761; font-size: 11px; line-height: 1.6; }
 .standard li b { margin-right: 5px; color: #24211f; }
 .standard > p { grid-column: 2; margin: 0; color: #99928b; font-size: 9px; line-height: 1.7; }
-@media (min-width: 1181px) and (min-height: 1100px) {
-  .cover-page { padding-bottom: 8px; }
+@media (min-width: 800px) and (pointer: fine) {
+  .cover-page { padding-bottom: 8px; min-height: var(--cover-desktop-height, 100vh); zoom: var(--cover-desktop-scale, 1); }
   .studio-header { min-height: 58px; }
+  .header-actions button { min-height: calc(36px / var(--cover-desktop-scale, 1)); }
   .brand-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
-  .studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 345px minmax(580px, 1fr) 345px; gap: 12px; align-items: stretch; }
+  .studio-grid { height: calc(var(--cover-desktop-height, 100vh) - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 345px minmax(580px, 1fr) 345px; gap: 12px; align-items: stretch; }
   .panel, .preview-panel { height: 100%; min-height: 0; border-radius: 18px; }
   .panel { padding: 13px; overflow: hidden; }
   .controls { display: flex; flex-direction: column; }
@@ -323,7 +324,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .standard li { font-size: 8px; line-height: 1.35; }
   .standard > p { font-size: 7px; line-height: 1.35; }
 }
-@media (max-width: 1180px) {
+@media (max-width: 799px), (pointer: coarse) {
   .studio-grid { grid-template-columns: 300px 1fr; }
   .design { grid-column: 1/-1; }
   .templates { grid-template-columns: repeat(3, 1fr); }
@@ -558,6 +559,8 @@ body.mobile-editor-open {
 }
 .studio-grid[data-cover-layout="compact"].is-mobile-editor-open .mobile-brush-status.active { border-color: rgba(255,82,106,.72); background: rgba(94,15,30,.78); color: #fff; }
 
+.studio-grid[data-cover-layout="split"] .mobile-secondary-tools,
+.studio-grid[data-cover-layout="split"] .mobile-primary-tools,
 .studio-grid[data-cover-layout="compact"].is-mobile-editor-open .mobile-secondary-tools,
 .studio-grid[data-cover-layout="compact"].is-mobile-editor-open .mobile-primary-tools {
   min-height: 56px;
