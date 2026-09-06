@@ -9,7 +9,7 @@ import UIKit
 #endif
 
 final class BundledSite: NSObject, WKURLSchemeHandler {
-    let root: URL
+    var root: URL
     init(root: URL) { self.root = root.resolvingSymlinksInPath(); super.init() }
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         guard let url = task.request.url, url.scheme == "nbo", url.host == "studio" else { task.didFailWithError(NSError(domain: "本地页面地址无效", code: 1)); return }
@@ -18,8 +18,8 @@ final class BundledSite: NSObject, WKURLSchemeHandler {
         guard file.path.hasPrefix(root.path + "/") else { task.didFailWithError(NSError(domain: "页面不可访问", code: 2)); return }
         do {
             let data = try Data(contentsOf: file)
-            let mime = ["html":"text/html", "js":"text/javascript", "css":"text/css", "png":"image/png", "jpg":"image/jpeg", "json":"application/json", "woff2":"font/woff2"][file.pathExtension] ?? "application/octet-stream"
-            task.didReceive(URLResponse(url: url, mimeType: mime, expectedContentLength: data.count, textEncodingName: ["html","js","css","json"].contains(file.pathExtension) ? "utf-8" : nil))
+            let mime = ["html":"text/html", "js":"text/javascript", "mjs":"text/javascript", "css":"text/css", "png":"image/png", "jpg":"image/jpeg", "jpeg":"image/jpeg", "webp":"image/webp", "gif":"image/gif", "svg":"image/svg+xml", "woff":"font/woff", "ttf":"font/ttf", "json":"application/json", "woff2":"font/woff2"][file.pathExtension] ?? "application/octet-stream"
+            task.didReceive(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": mime + (["html","js","css","json"].contains(file.pathExtension) ? "; charset=utf-8" : ""), "Cache-Control": "no-store"])!)
             task.didReceive(data); task.didFinish()
         } catch { task.didFailWithError(error) }
     }
@@ -116,15 +116,49 @@ final class StudioCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKNavi
     #endif
 }
 
-func makeStudioWebView(coordinator: StudioCoordinator) -> WKWebView {
+private enum AppWebUpdates {
+    static let store = WebUpdateStore(
+        bundleRoot: Bundle.main.resourceURL!.appendingPathComponent("Web", isDirectory: true),
+        cacheRoot: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("NanboStudio/WebUpdates", isDirectory: true))
+}
+
+@MainActor
+private final class StartupSelection {
+    weak var web: WKWebView?
+    let site: BundledSite
+    private var selected = false
+    init(web: WKWebView, site: BundledSite) { self.web = web; self.site = site }
+    func select(_ root: URL) {
+        guard !selected, let web = web else { return }
+        selected = true
+        site.root = root.resolvingSymlinksInPath()
+        web.load(URLRequest(url: URL(string: "nbo://studio/cover.html")!, cachePolicy: .reloadIgnoringLocalCacheData))
+    }
+}
+
+@MainActor
+func makeStudioWebView(coordinator: StudioCoordinator, rootOverride: URL? = nil, updates: Bool = true) -> WKWebView {
     let config = WKWebViewConfiguration()
-    let root = Bundle.main.resourceURL!.appendingPathComponent("Web", isDirectory: true)
-    config.setURLSchemeHandler(BundledSite(root: root), forURLScheme: "nbo")
+    let root = rootOverride ?? Bundle.main.resourceURL!.appendingPathComponent("Web", isDirectory: true)
+    let site = BundledSite(root: root)
+    config.setURLSchemeHandler(site, forURLScheme: "nbo")
     config.userContentController.addScriptMessageHandler(coordinator, contentWorld: .page, name: "nanboLive")
     config.userContentController.addUserScript(WKUserScript(source: "try { localStorage.setItem('nbo_cover_access_until',String(Date.now()+86400000)); } catch(e) {}", injectionTime: .atDocumentStart, forMainFrameOnly: true))
     let web = WKWebView(frame: .zero, configuration: config)
     web.navigationDelegate = coordinator; web.uiDelegate = coordinator
-    web.load(URLRequest(url: URL(string: "nbo://studio/cover.html")!))
+    let selection = StartupSelection(web: web, site: site)
+    if !updates || rootOverride != nil { selection.select(root); return web }
+    web.loadHTMLString("<html lang='zh-CN'><meta name='viewport' content='width=device-width,initial-scale=1'><body style='background:#242321;color:#eee;font:16px -apple-system;display:grid;place-items:center;height:90vh'><div>南铂制作 · 正在检查更新</div></body></html>", baseURL: URL(string: "nbo://studio/startup"))
+    Task { @MainActor in
+        let previous = await AppWebUpdates.store.currentRoot()
+        // The timer picks an existing version; a late download is for the next launch.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            selection.select(previous)
+        }
+        do { selection.select(try await AppWebUpdates.store.refresh()) }
+        catch { selection.select(previous) }
+    }
     return web
 }
 

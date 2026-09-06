@@ -1900,7 +1900,7 @@ $("#startLive").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
   try {
-    const { mountLiveControls } = await import("./live/controls.js?v=20260906-desktop");
+    const { mountLiveControls } = await import("./live/controls.js?v=20260906-native11");
     liveController = mountLiveControls({
       host: $("#liveControlHost"),
       motionAt: getLiveMotionState,

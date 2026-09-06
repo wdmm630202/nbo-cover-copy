@@ -1,18 +1,23 @@
 # -*- coding: utf-8 -*-
 """Bundle the current editor and generate the shared macOS/iOS Xcode project."""
 from pathlib import Path
-import shutil, hashlib, json
+import shutil, hashlib, json, sys
 root = Path(__file__).resolve().parent
 repo = root.parent
 web = root / 'Web'
+if web.exists(): shutil.rmtree(web)
 web.mkdir(exist_ok=True)
-for source in (repo/'docs').iterdir():
-    if source.is_file() and source.suffix in ['.js','.css','.png'] or source.name == 'cover.html':
-        shutil.copy2(source, web/source.name)
-(web/'live').mkdir(exist_ok=True)
-for source in (repo/'public/live').iterdir():
-    if source.suffix in ['.js','.css','.png','.json']:
-        shutil.copy2(source, web/'live'/source.name)
+asset_types = {'.js','.mjs','.css','.png','.jpg','.jpeg','.webp','.gif','.svg','.woff','.woff2','.ttf','.json'}
+for source in (repo/'docs').rglob('*'):
+    relative = source.relative_to(repo/'docs')
+    if relative.parts[0] in {'live','superpowers'}: continue
+    if source.is_symlink(): raise ValueError('Native assets cannot be symlinks')
+    if source.is_file() and (source.suffix.lower() in asset_types or relative.as_posix() == 'cover.html'):
+        target=web/relative; target.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(source,target)
+for source in (repo/'public/live').rglob('*'):
+    if source.is_symlink(): raise ValueError('Native assets cannot be symlinks')
+    if source.is_file() and source.suffix.lower() in asset_types:
+        target=web/'live'/source.relative_to(repo/'public/live');target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,target)
 html = (web/'cover.html').read_text()
 html = html.replace('<head>', '''<head><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; frame-src 'none'">''')
 html = html.replace('照片只在当前浏览器处理','照片只在本机处理，成品直接保存相册')
@@ -41,6 +46,10 @@ replacement='''  if (window.webkit?.messageHandlers?.nanboLive) {
 if needle not in js: raise RuntimeError('Static image export hook changed; review required')
 (web/'cover.js').write_text(js.replace(needle,replacement))
 
+if '--web-only' in sys.argv:
+    print('Native web bundle prepared')
+    sys.exit(0)
+
 def uid(s): return hashlib.sha1(s.encode()).hexdigest()[:24].upper()
 def quote(s): return json.dumps(str(s),ensure_ascii=False)
 objects=[]
@@ -62,7 +71,7 @@ resphase=obj('resphase',f'isa = PBXResourcesBuildPhase; buildActionMask = 214748
 frameworks=obj('frameworks','isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;')
 for config in ['Debug','Release']:
     obj('project-'+config,f'isa = XCBuildConfiguration; name = {config}; buildSettings = {{ CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }};')
-    settings={'PRODUCT_NAME':'NanboStudio','PRODUCT_BUNDLE_IDENTIFIER':'com.nanbostudio.studio','SDKROOT':'auto','SUPPORTED_PLATFORMS':'macosx iphoneos iphonesimulator','MACOSX_DEPLOYMENT_TARGET':'13.0','IPHONEOS_DEPLOYMENT_TARGET':'16.0','TARGETED_DEVICE_FAMILY':'1,2','SUPPORTS_MACCATALYST':'NO','CODE_SIGN_STYLE':'Automatic','GENERATE_INFOPLIST_FILE':'YES','INFOPLIST_KEY_CFBundleDisplayName':'南铂制作','INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription':'点击保存时，将制作的照片或实况照片添加到你的相册。','INFOPLIST_KEY_NSHighResolutionCapable':'YES','INFOPLIST_KEY_UILaunchScreen_Generation':'YES','INFOPLIST_KEY_UIApplicationSceneManifest_Generation':'YES','MARKETING_VERSION':'1.0','CURRENT_PROJECT_VERSION':'1','SWIFT_OPTIMIZATION_LEVEL':'-Onone' if config=='Debug' else '-O','ENABLE_HARDENED_RUNTIME':'YES','COMBINE_HIDPI_IMAGES':'YES','SWIFT_EMIT_LOC_STRINGS':'YES'}
+    settings={'PRODUCT_NAME':'NanboStudio','PRODUCT_BUNDLE_IDENTIFIER':'com.nanbostudio.studio','SDKROOT':'auto','SUPPORTED_PLATFORMS':'macosx iphoneos iphonesimulator','MACOSX_DEPLOYMENT_TARGET':'13.0','IPHONEOS_DEPLOYMENT_TARGET':'16.0','TARGETED_DEVICE_FAMILY':'1,2','SUPPORTS_MACCATALYST':'NO','CODE_SIGN_STYLE':'Automatic','GENERATE_INFOPLIST_FILE':'YES','INFOPLIST_KEY_CFBundleDisplayName':'南铂制作','INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription':'点击保存时，将制作的照片或实况照片添加到你的相册。','INFOPLIST_KEY_NSHighResolutionCapable':'YES','INFOPLIST_KEY_UILaunchScreen_Generation':'YES','INFOPLIST_KEY_UIApplicationSceneManifest_Generation':'YES','MARKETING_VERSION':'1.1','CURRENT_PROJECT_VERSION':'2','SWIFT_OPTIMIZATION_LEVEL':'-Onone' if config=='Debug' else '-O','ENABLE_HARDENED_RUNTIME':'YES','COMBINE_HIDPI_IMAGES':'YES','SWIFT_EMIT_LOC_STRINGS':'YES'}
     obj('target-'+config, 'isa = XCBuildConfiguration; name = '+config+'; buildSettings = { '+''.join(f'{k} = {quote(v)};' for k,v in settings.items())+' };')
 for prefix in ['project','target']:
     obj(prefix+'-configs',f'isa = XCConfigurationList; buildConfigurations = ({uid(prefix+"-Debug")},{uid(prefix+"-Release")}); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')

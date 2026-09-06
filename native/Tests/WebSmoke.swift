@@ -4,12 +4,13 @@ import WebKit
 
 @main
 struct WebSmoke {
-    static func main() {
+    @MainActor static func main() {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
         let coordinator = StudioCoordinator(diagnostic: true)
         let probe = Probe()
-        let web = makeStudioWebView(coordinator: coordinator)
+        let override = CommandLine.arguments.count > 1 ? URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true) : nil
+        let web = makeStudioWebView(coordinator: coordinator, rootOverride: override, updates: false)
         probe.web = web; probe.coordinator = coordinator
         web.navigationDelegate = probe
         let window = NSWindow(contentRect: NSRect(x:0,y:0,width:1360,height:900),styleMask:.borderless,backing:.buffered,defer:false)
