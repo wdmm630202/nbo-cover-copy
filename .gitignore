@@ -43,3 +43,5 @@ next-env.d.ts
 /work/
 /.worktrees/
 /.superpowers/
+
+/native/Web/
