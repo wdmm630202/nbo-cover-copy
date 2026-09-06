@@ -38,7 +38,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .intro p { max-width: 740px; margin: 0; color: #77706a; font-size: 13px; line-height: 1.75; }
 .status { min-width: 230px; padding: 13px 16px; display: flex; align-items: center; gap: 9px; border: 1px solid #ece6df; border-radius: 14px; background: #faf9f7; color: #655f59; font-size: 11px; }
 .status i { width: 8px; height: 8px; border-radius: 50%; background: #26a26a; box-shadow: 0 0 0 5px rgba(38,162,106,.1); }
-.studio-grid { margin-top: 18px; display: grid; grid-template-columns: 330px minmax(420px, 1fr) 350px; gap: 18px; align-items: start; }
+.studio-grid { margin-top: 18px; display: grid; grid-template-columns: 340px minmax(420px, 1fr) 340px; gap: 18px; align-items: start; }
 .panel, .preview-panel { min-width: 0; border: 1px solid var(--line); border-radius: 24px; background: rgba(255,255,255,.92); box-shadow: 0 16px 46px rgba(43,36,31,.06); }
 .panel { padding: 22px; }
 .panel-heading { margin-bottom: 20px; display: flex; align-items: center; gap: 11px; }
@@ -194,8 +194,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .retouch-panel > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .retouch-panel > div b { color: #28231f; font-size: 10px; }
 .retouch-panel > div span { color: #9b9188; font-size: 8px; }
-.retouch-panel label > span { margin-bottom: 4px; display: flex; justify-content: space-between; color: #6e6761; font-size: 9px; }
-.retouch-panel input[type="range"] { width: 100%; accent-color: var(--red); }
+.retouch-panel label { min-width: 0; }
+.retouch-panel label > span { margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; gap: 6px; color: #6e6761; font-size: 9px; line-height: 14px; white-space: nowrap; }
+.retouch-panel input[type="range"] { width: 100%; height: 16px; margin: 0; display: block; accent-color: var(--red); }
 .retouch-panel > button, .retouch-panel section button { min-height: 34px; border: 1px solid #ddd5cd; border-radius: 9px; background: #fff; color: #625b55; font-size: 8px; font-weight: 750; cursor: pointer; }
 .retouch-panel > button.active { border-color: var(--red); background: var(--red); color: #fff; }
 .retouch-panel section { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -238,7 +239,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .cover-page { padding-bottom: 8px; }
   .studio-header { min-height: 58px; }
   .brand-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 20px; }
-  .studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 300px minmax(580px, 1fr) 390px; gap: 12px; align-items: stretch; }
+  .studio-grid { height: calc(100vh - 170px); min-height: 700px; margin-top: 8px; grid-template-columns: 345px minmax(580px, 1fr) 345px; gap: 12px; align-items: stretch; }
   .panel, .preview-panel { height: 100%; min-height: 0; border-radius: 18px; }
   .panel { padding: 13px; overflow: hidden; }
   .controls { display: flex; flex-direction: column; }
@@ -274,7 +275,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .preview-tools .export-row { width: auto; height: auto; margin: 0; grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(0, 1fr)); align-items: stretch; gap: 8px; }
   .preview-tools .export-row button { height: auto; min-height: 0; padding: 0 6px; }
   .export-row button { height: 32px; padding: 0 9px; font-size: 9px; }
-  .design { display: flex; flex-direction: column; }
+  .design { display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; }
   .design .panel-heading { margin-bottom: 7px; }
   .design > .factory-reset, .design > .reset-settings { min-height: 52px; border-radius: 10px; }
   .design > .factory-reset, .design > .reset-settings { font-size: 18px; }
@@ -284,18 +285,22 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .template::after { width: 36px; height: 58px; }
   .template b { font-size: 8px; }
   .template span { font-size: 6px; }
-  .sliders { min-height: 0; margin-top: 16px; flex: 1; grid-template-columns: 1fr; grid-template-rows: repeat(12, minmax(0, 1fr)); align-items: center; gap: 0; }
+  .sliders { min-height: 0; margin-top: 16px; flex: 1 0 auto; grid-template-columns: 1fr; grid-template-rows: repeat(12, minmax(48px, 1fr)); align-items: center; gap: 0; }
   .controls.compare-active { overflow-y: auto; }
   .controls.compare-active .memory-panel { flex: 0 0 auto; grid-template-rows: repeat(3, auto); }
   .controls.compare-active .memory-panel > div { height: auto; }
-  .design.compare-active { overflow: hidden; }
+  .design.compare-active { overflow-y: auto; }
   .design.compare-active .adjustment-target { margin-top: 8px; flex: 0 0 auto; }
-  .design.compare-active .sliders { min-height: 0; margin-top: 8px; flex: 1; grid-template-rows: repeat(12, minmax(0, 1fr)); gap: 0; }
-  .design.compare-active .before-controls { min-height: 0; margin-top: 8px; padding: 8px; flex: 1; grid-template-rows: auto auto repeat(7, minmax(0, 1fr)) auto; align-items: center; gap: 0; }
-  .sliders label > span, .before-controls label > span { margin-bottom: 3px; font-size: 9px; }
-  .sliders input[type="range"], .before-controls input[type="range"] { height: 15px; }
-  .retouch-panel { height: 210px; padding: 8px; grid-template-columns: repeat(3, 1fr); gap: 5px 8px; }
-  .retouch-panel.compare-retouch { height: 246px; }
+  .design.compare-active .sliders { min-height: 0; margin-top: 8px; flex: 1 0 auto; grid-template-rows: repeat(12, minmax(48px, 1fr)); gap: 0; }
+  .design.compare-active .before-controls { min-height: 0; margin-top: 8px; padding: 8px; flex: 1 0 auto; grid-template-rows: auto auto repeat(7, minmax(48px, 1fr)) auto; align-items: center; gap: 0; }
+  .sliders label > span, .before-controls label > span { margin-bottom: 3px; align-items: center; font-size: 9px; }
+  .sliders input[type="range"], .before-controls input[type="range"] { height: 15px; margin: 0; display: block; }
+  .retouch-panel { padding: 8px; flex: 0 0 auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .retouch-panel label > span { flex-direction: column; align-items: stretch; gap: 4px; }
+  .retouch-panel .slider-value-control { display: grid; grid-template-columns: minmax(0, 1fr) 34px; }
+  .retouch-panel .slider-number-wrap { min-width: 0; }
+  .retouch-panel .slider-number-wrap input { width: 100% !important; min-width: 0; }
+  .retouch-panel .slider-reset { padding: 0; }
   .retouch-panel > div:first-child, .retouch-panel > button { grid-column: 1 / -1; }
   .retouch-panel > button, .retouch-panel section button { min-height: 25px; }
   .retouch-panel .retouch-target, .retouch-panel .retouch-compare, .retouch-panel > small, .retouch-panel > section:last-child { grid-column: 1 / -1; }
