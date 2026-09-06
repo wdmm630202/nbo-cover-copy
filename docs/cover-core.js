@@ -547,6 +547,78 @@ var NBOCoverCore = (function(exports) {
 		}
 	}
 	//#endregion
+	//#region app/cover/core/live-layout.ts
+	var LIVE_LOCKED_VALUES = Object.freeze({
+		templateId: "middle-left",
+		textScale: 45,
+		bottomTextScale: 45,
+		textScaleLinked: true,
+		subtitleScale: 114,
+		beforeFrameScale: 114.4,
+		compareEnabled: true
+	});
+	var LIVE_TEXT_KEYS = [
+		"topText",
+		"bottomText",
+		"subtitle"
+	];
+	function normalizeLiveLine(value) {
+		const singleLine = value.replace(/[\r\n]/g, "");
+		return Array.from(new Intl.Segmenter("zh", { granularity: "grapheme" }).segment(singleLine)).slice(0, 6).map((part) => part.segment).join("");
+	}
+	function getLiveSettings(settings) {
+		return {
+			...settings,
+			...LIVE_LOCKED_VALUES,
+			topText: normalizeLiveLine(settings.topText),
+			bottomText: normalizeLiveLine(settings.bottomText),
+			subtitle: normalizeLiveLine(settings.subtitle)
+		};
+	}
+	function updateLiveSettings(original, action) {
+		const updated = typeof action === "function" ? action(getLiveSettings(original)) : action;
+		const result = { ...updated };
+		for (const key of Object.keys(LIVE_LOCKED_VALUES)) Object.assign(result, { [key]: original[key] });
+		for (const key of LIVE_TEXT_KEYS) result[key] = updated[key] === normalizeLiveLine(original[key]) ? original[key] : normalizeLiveLine(updated[key]);
+		return result;
+	}
+	function getLiveLayout(size) {
+		const s = size.width / 1080;
+		const { frame } = getComparisonEvidenceLayout(size, LIVE_LOCKED_VALUES.beforeFrameScale);
+		const left = 54 * s;
+		return {
+			left,
+			top: frame.y,
+			textWidth: frame.x - 32 * s - left,
+			headlineSize: Math.round(size.width * .074 * 2.1 * .45),
+			subtitleSize: Math.round(size.width * .061 * 1.14),
+			rowStep: 108 * s,
+			subtitleTop: frame.y + 245 * s,
+			animation: {
+				x: left,
+				y: frame.y + 330 * s,
+				width: Math.min(450 * s, frame.x - 36 * s - left),
+				height: 200 * s
+			}
+		};
+	}
+	function getLiveMotionState(time) {
+		const t = Math.max(0, Math.min(89 / 30, Number.isFinite(time) ? time : 0));
+		const second = Math.min(2, Math.floor(t));
+		const linear = Math.min(1, Math.max(0, (t - second) * 30 / 29));
+		const progress = linear > .999999999 ? 1 : 1 - (1 - linear) ** 3;
+		return {
+			phase: [
+				"before",
+				"after",
+				"complete"
+			][second],
+			progress,
+			overlayOpacity: second === 2 ? Math.min(1, linear * 5) : 0,
+			animationTime: second === 2 ? linear > .999999999 ? 3 : linear * 3 : 0
+		};
+	}
+	//#endregion
 	//#region app/cover/core/render-core.ts
 	var coverScratch = /* @__PURE__ */ new WeakMap();
 	function getCoverScratch(canvas, kind, width, height) {
@@ -640,14 +712,15 @@ var NBOCoverCore = (function(exports) {
 			radius: Math.max(1, frame.radius - inset)
 		};
 	}
-	function applyComparisonFadeMask(context, frame) {
+	function applyComparisonFadeMask(context, frame, amount = 1) {
 		context.save();
 		context.globalCompositeOperation = "destination-in";
 		const horizontalMask = context.createLinearGradient(frame.x, 0, frame.x + frame.width, 0);
 		const verticalMask = context.createLinearGradient(0, frame.y, 0, frame.y + frame.height);
 		for (const [stop, alpha] of getComparisonFadeStops()) {
-			horizontalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
-			verticalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
+			const opacity = amount === 1 ? alpha : 1 + (alpha - 1) * amount;
+			horizontalMask.addColorStop(stop, `rgba(255,255,255,${opacity})`);
+			verticalMask.addColorStop(stop, `rgba(255,255,255,${opacity})`);
 		}
 		context.fillStyle = horizontalMask;
 		context.fillRect(frame.x, frame.y, frame.width, frame.height);
@@ -655,12 +728,12 @@ var NBOCoverCore = (function(exports) {
 		context.fillRect(frame.x, frame.y, frame.width, frame.height);
 		context.restore();
 	}
-	function drawComparisonEvidence(context, ownerCanvas, beforeImage, settings, width, height, beforeRetouchStrokes) {
+	function drawComparisonEvidence(context, ownerCanvas, beforeImage, settings, width, height, beforeRetouchStrokes, movingFrame) {
 		const { frame } = getComparisonEvidenceLayout({
 			width,
 			height
 		}, settings.beforeFrameScale);
-		const imageFrame = getBeforeImageFrame({
+		const imageFrame = movingFrame?.frame ?? getBeforeImageFrame({
 			width,
 			height
 		}, settings.beforeFrameScale);
@@ -704,7 +777,7 @@ var NBOCoverCore = (function(exports) {
 		scratchContext.setTransform(1, 0, 0, 1, 0, 0);
 		scratchContext.filter = "none";
 		scratchContext.restore();
-		applyComparisonFadeMask(scratchContext, imageFrame);
+		applyComparisonFadeMask(scratchContext, imageFrame, movingFrame?.progress);
 		context.drawImage(scratch, 0, 0);
 		if (settings.beforeShade > 0 || settings.beforeBottomShade > 0) {
 			const shadeCanvas = getCoverScratch(ownerCanvas, "shade", width, height);
@@ -729,11 +802,12 @@ var NBOCoverCore = (function(exports) {
 			}
 			shadeContext.restore();
 			eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, beforeRetouchStrokes);
-			applyComparisonFadeMask(shadeContext, imageFrame);
+			applyComparisonFadeMask(shadeContext, imageFrame, movingFrame?.progress);
 			context.drawImage(shadeCanvas, 0, 0);
 		}
 	}
-	function drawCover({ canvas, image, beforeImage, watermark, settings, preset, includeGuide, outputSize, photoOnly = false, retouchStrokes = [], beforeRetouchStrokes = [] }) {
+	function drawCover({ canvas, image, beforeImage, watermark, settings, preset, includeGuide, outputSize, photoOnly = false, retouchStrokes = [], beforeRetouchStrokes = [], live }) {
+		if (live) settings = getLiveSettings(settings);
 		const context = canvas.getContext("2d");
 		if (!context) return;
 		const { width, height } = outputSize ?? preset;
@@ -746,50 +820,76 @@ var NBOCoverCore = (function(exports) {
 		canvas.height = height;
 		context.fillStyle = "#151515";
 		context.fillRect(0, 0, width, height);
-		if (image) {
-			const radians = settings.rotation * Math.PI / 180;
-			const rotatedWidth = Math.abs(image.naturalWidth * Math.cos(radians)) + Math.abs(image.naturalHeight * Math.sin(radians));
-			const rotatedHeight = Math.abs(image.naturalWidth * Math.sin(radians)) + Math.abs(image.naturalHeight * Math.cos(radians));
-			const scale = Math.max(width / rotatedWidth, height / rotatedHeight) * settings.zoom / 100;
-			const imageWidth = image.naturalWidth * scale;
-			const imageHeight = image.naturalHeight * scale;
-			context.save();
-			context.filter = `brightness(${settings.brightness}%)`;
-			context.translate(width / 2 + settings.offsetX / 100 * width, height / 2 + settings.offsetY / 100 * height);
-			context.rotate(radians);
-			context.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
-			context.restore();
-		} else {
-			const placeholder = context.createLinearGradient(0, 0, width, height);
-			placeholder.addColorStop(0, "#161616");
-			placeholder.addColorStop(.58, "#2b2725");
-			placeholder.addColorStop(1, "#0d0d0d");
-			context.fillStyle = placeholder;
-			context.fillRect(0, 0, width, height);
-			context.fillStyle = "rgba(255,255,255,.36)";
-			context.font = `600 ${Math.round(width * .034)}px sans-serif`;
-			context.textAlign = "center";
-			context.fillText("上传照片后在这里预览", width / 2, height / 2);
-		}
-		if (!photoOnly) {
-			if (retouchStrokes.length) {
-				const shadeCanvas = getCoverScratch(canvas, "shade", width, height);
-				const strokeCanvas = getCoverScratch(canvas, "stroke", width, height);
-				const shadeContext = shadeCanvas.getContext("2d");
-				if (shadeContext) {
-					shadeContext.clearRect(0, 0, width, height);
-					drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
-					eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, retouchStrokes);
-					context.drawImage(shadeCanvas, 0, 0);
-				}
-			} else drawTemplateShade(context, settings.templateId, width, height, settings.shade, settings.bottomShade);
-			if (settings.compareEnabled) drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, beforeRetouchStrokes);
-			drawCoverText(context, settings, width, height, watermark);
-			if (settings.compareEnabled) drawComparisonEditorialOverlay(context, {
+		const motion = live ? getLiveMotionState(live.time ?? 3) : null;
+		if (motion && motion.phase !== "complete" && !photoOnly && image && beforeImage) drawLiveIntro({
+			canvas,
+			image,
+			beforeImage,
+			watermark,
+			settings,
+			preset,
+			includeGuide: false,
+			outputSize: {
 				width,
 				height
-			}, roundedRectPath, settings.beforeFrameScale);
-			if (watermark) drawWatermark(context, watermark, settings, width, height);
+			},
+			retouchStrokes,
+			beforeRetouchStrokes
+		}, motion);
+		else {
+			if (image) {
+				const radians = settings.rotation * Math.PI / 180;
+				const rotatedWidth = Math.abs(image.naturalWidth * Math.cos(radians)) + Math.abs(image.naturalHeight * Math.sin(radians));
+				const rotatedHeight = Math.abs(image.naturalWidth * Math.sin(radians)) + Math.abs(image.naturalHeight * Math.cos(radians));
+				const scale = Math.max(width / rotatedWidth, height / rotatedHeight) * settings.zoom / 100;
+				const imageWidth = image.naturalWidth * scale;
+				const imageHeight = image.naturalHeight * scale;
+				context.save();
+				context.filter = `brightness(${settings.brightness}%)`;
+				context.translate(width / 2 + settings.offsetX / 100 * width, height / 2 + settings.offsetY / 100 * height);
+				context.rotate(radians);
+				context.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+				context.restore();
+			} else {
+				const placeholder = context.createLinearGradient(0, 0, width, height);
+				placeholder.addColorStop(0, "#161616");
+				placeholder.addColorStop(.58, "#2b2725");
+				placeholder.addColorStop(1, "#0d0d0d");
+				context.fillStyle = placeholder;
+				context.fillRect(0, 0, width, height);
+				context.fillStyle = "rgba(255,255,255,.36)";
+				context.font = `600 ${Math.round(width * .034)}px sans-serif`;
+				context.textAlign = "center";
+				context.fillText("上传照片后在这里预览", width / 2, height / 2);
+			}
+			if (!photoOnly) {
+				if (retouchStrokes.length) {
+					const shadeCanvas = getCoverScratch(canvas, "shade", width, height);
+					const strokeCanvas = getCoverScratch(canvas, "stroke", width, height);
+					const shadeContext = shadeCanvas.getContext("2d");
+					if (shadeContext) {
+						shadeContext.clearRect(0, 0, width, height);
+						drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
+						eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, retouchStrokes);
+						context.drawImage(shadeCanvas, 0, 0);
+					}
+				} else drawTemplateShade(context, settings.templateId, width, height, settings.shade, settings.bottomShade);
+				if (settings.compareEnabled) drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, beforeRetouchStrokes);
+				if (live) {
+					context.save();
+					context.globalAlpha = motion?.overlayOpacity ?? 1;
+				}
+				if (live) {
+					drawLiveText(context, settings, width, height);
+					if (live.animation) drawLiveAnimation(context, live.animation, width, height);
+				} else drawCoverText(context, settings, width, height, watermark);
+				if (settings.compareEnabled) drawComparisonEditorialOverlay(context, {
+					width,
+					height
+				}, roundedRectPath, settings.beforeFrameScale);
+				if (watermark) drawWatermark(context, watermark, settings, width, height);
+				if (live) context.restore();
+			}
 		}
 		if (!photoOnly && includeGuide && settings.showSafeArea && preset.id === "douyin") {
 			const guideScale = width / preset.width;
@@ -821,6 +921,148 @@ var NBOCoverCore = (function(exports) {
 			context.fillText("播放量避让区 144px", 30 * guideScale, reserveTop + 38 * guideScale);
 			context.restore();
 		}
+	}
+	function drawLiveIntro(input, motion) {
+		const { canvas, image, beforeImage, settings } = input;
+		if (!image || !beforeImage) return;
+		const { width, height } = input.outputSize ?? input.preset;
+		const context = canvas.getContext("2d");
+		const p = motion.progress;
+		const mix = (start, end) => start + (end - start) * p;
+		if (motion.phase === "after") {
+			if (p === 1) {
+				drawCover({
+					...input,
+					live: { time: 2 }
+				});
+				return;
+			}
+			drawCover({
+				...input,
+				photoOnly: true,
+				live: void 0,
+				settings: {
+					...settings,
+					zoom: mix(100, settings.zoom),
+					offsetX: mix(0, settings.offsetX),
+					offsetY: mix(0, settings.offsetY),
+					rotation: mix(0, settings.rotation),
+					brightness: mix(100, settings.brightness)
+				}
+			});
+			if (p > 0) {
+				const shade = getCoverScratch(canvas, "shade", width, height);
+				const stroke = getCoverScratch(canvas, "stroke", width, height);
+				const shadeContext = shade.getContext("2d");
+				shadeContext.clearRect(0, 0, width, height);
+				drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
+				if (input.retouchStrokes?.length) eraseShadeWithBrush(shadeContext, stroke, width, height, input.retouchStrokes);
+				context.save();
+				context.globalAlpha = p;
+				context.drawImage(shade, 0, 0);
+				context.restore();
+			}
+			drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, input.beforeRetouchStrokes ?? []);
+			return;
+		}
+		if (p === 1) {
+			drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, input.beforeRetouchStrokes ?? []);
+			return;
+		}
+		const target = getBeforeImageFrame({
+			width,
+			height
+		}, settings.beforeFrameScale);
+		const frame = {
+			x: mix(0, target.x),
+			y: mix(0, target.y),
+			width: mix(width, target.width),
+			height: mix(height, target.height),
+			radius: target.radius * p
+		};
+		drawComparisonEvidence(context, canvas, beforeImage, {
+			...settings,
+			beforeZoom: mix(100, settings.beforeZoom),
+			beforeOffsetX: mix(0, settings.beforeOffsetX),
+			beforeOffsetY: mix(0, settings.beforeOffsetY),
+			beforeRotation: mix(0, settings.beforeRotation),
+			beforeBrightness: mix(100, settings.beforeBrightness),
+			beforeShade: settings.beforeShade * p,
+			beforeBottomShade: settings.beforeBottomShade * p
+		}, width, height, input.beforeRetouchStrokes ?? [], {
+			frame,
+			progress: p
+		});
+	}
+	function drawLiveText(context, settings, width, height) {
+		const layout = getLiveLayout({
+			width,
+			height
+		});
+		context.save();
+		context.textAlign = "left";
+		context.textBaseline = "alphabetic";
+		context.lineJoin = "round";
+		const stroke = settings.textStroke / 100;
+		const shadow = settings.textShadow / 100;
+		context.lineWidth = width * .012 * stroke;
+		context.strokeStyle = `rgba(0,0,0,${.92 * stroke})`;
+		context.shadowColor = `rgba(0,0,0,${.78 * shadow})`;
+		context.shadowBlur = width * .024 * shadow;
+		context.shadowOffsetX = width * .004 * shadow;
+		context.shadowOffsetY = width * .006 * shadow;
+		const rows = [
+			{
+				text: settings.topText,
+				top: layout.top,
+				size: layout.headlineSize,
+				weight: 900,
+				color: settings.topColor
+			},
+			{
+				text: settings.bottomText,
+				top: layout.top + layout.rowStep,
+				size: layout.headlineSize,
+				weight: 900,
+				color: settings.bottomColor
+			},
+			{
+				text: settings.subtitle,
+				top: layout.subtitleTop,
+				size: layout.subtitleSize,
+				weight: 400,
+				color: settings.subtitleColor
+			}
+		];
+		for (const row of rows) {
+			context.font = `${row.weight} ${row.size}px sans-serif`;
+			const ink = measureInkBounds(context, row.text || "国");
+			context.fillStyle = row.color;
+			if (stroke > 0) context.strokeText(row.text, layout.left, row.top + ink.ascent);
+			context.fillText(row.text, layout.left, row.top + ink.ascent);
+		}
+		if (settings.showDivider) {
+			context.shadowColor = "transparent";
+			context.fillStyle = settings.dividerColor;
+			context.fillRect(layout.left, layout.top + 216 * width / 1080, layout.headlineSize, 4 * width / 1080);
+		}
+		context.restore();
+	}
+	function drawLiveAnimation(context, frame, width, height) {
+		const bounds = getLiveLayout({
+			width,
+			height
+		}).animation;
+		const source = frame.source;
+		const scale = Math.min(bounds.width / source.width, bounds.height / source.height);
+		const w = source.width * scale;
+		const h = source.height * scale;
+		context.save();
+		context.beginPath();
+		context.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+		context.clip();
+		context.drawImage(frame.image, source.x, source.y, source.width, source.height, bounds.x + (bounds.width - w) / 2, bounds.y + (bounds.height - h) / 2, w, h);
+		context.restore();
 	}
 	function drawTemplateShade(context, templateId, width, height, shade, bottomShade) {
 		const alpha = Math.max(0, Math.min(.9, shade / 100));
@@ -1928,6 +2170,8 @@ var NBOCoverCore = (function(exports) {
 	//#endregion
 	exports.CoverExportError = CoverExportError;
 	exports.DEFAULT_COVER_SETTINGS = DEFAULT_COVER_SETTINGS;
+	exports.LIVE_LOCKED_VALUES = LIVE_LOCKED_VALUES;
+	exports.LIVE_TEXT_KEYS = LIVE_TEXT_KEYS;
 	exports.MOBILE_KEYBOARD_THRESHOLD = MOBILE_KEYBOARD_THRESHOLD;
 	exports.PRIMARY_TOOLS = PRIMARY_TOOLS;
 	exports.SECONDARY_TOOLS = SECONDARY_TOOLS;
@@ -1944,6 +2188,9 @@ var NBOCoverCore = (function(exports) {
 	exports.getBeforeOffsetLimits = getBeforeOffsetLimits;
 	exports.getExportAttemptSizes = getExportAttemptSizes;
 	exports.getExportFileName = getExportFileName;
+	exports.getLiveLayout = getLiveLayout;
+	exports.getLiveMotionState = getLiveMotionState;
+	exports.getLiveSettings = getLiveSettings;
 	exports.getMobileRetouchTargetChoices = getMobileRetouchTargetChoices;
 	exports.getOriginalPixelExportPlan = getOriginalPixelExportPlan;
 	exports.getOriginalPixelJpegMaxBytes = getOriginalPixelJpegMaxBytes;
@@ -1953,6 +2200,7 @@ var NBOCoverCore = (function(exports) {
 	exports.isMobileToolDisabled = isMobileToolDisabled;
 	exports.mapRetouchPoint = mapRetouchPoint;
 	exports.normalizeCoverSettings = normalizeCoverSettings;
+	exports.normalizeLiveLine = normalizeLiveLine;
 	exports.releaseCoverCanvas = releaseCoverCanvas;
 	exports.releaseCoverScratchCanvases = releaseCoverScratchCanvases;
 	exports.resetMobileToolSetting = resetMobileToolSetting;
@@ -1962,6 +2210,7 @@ var NBOCoverCore = (function(exports) {
 	exports.serializeStaticCoverSettings = serializeStaticCoverSettings;
 	exports.setCoverExportRenderRequestObserver = setCoverExportRenderRequestObserver;
 	exports.updateCoverSetting = updateCoverSetting;
+	exports.updateLiveSettings = updateLiveSettings;
 	exports.updateMobileKeyboardViewport = updateMobileKeyboardViewport;
 	return exports;
 })({});

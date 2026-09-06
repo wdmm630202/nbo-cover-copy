@@ -13,6 +13,10 @@ const PRESETS = {
   shipinhao: { label: "视频号", ratio: "3:4", width: 1080, height: 1440, note: "竖版内容常用工作尺寸" },
 };
 const {
+  LIVE_LOCKED_VALUES,
+  LIVE_TEXT_KEYS,
+  normalizeLiveLine,
+  getLiveMotionState,
   DEFAULT_COVER_SETTINGS,
   PRIMARY_TOOLS,
   applyMobileSyncedCopy,
@@ -67,7 +71,7 @@ const {
   createImageDropController,
   getImageDropHint,
 } = window.NBODropUpload;
-const state = {
+const rawState = {
   ...DEFAULT_COVER_SETTINGS,
   image: null,
   beforeImage: null,
@@ -76,6 +80,21 @@ const state = {
   beforeFileName: "",
   watermarkName: "",
 };
+let liveEnabled = false;
+let liveController = null;
+const liveLockedTools = ["comparison", "template", "textScale", "bottomTextScale", "subtitleScale", "textScaleLinked", "alignBefore", "resetBeforeFrame"];
+const state = new Proxy(rawState, {
+  get(target, key) {
+    if (liveEnabled && Object.hasOwn(LIVE_LOCKED_VALUES, key)) return LIVE_LOCKED_VALUES[key];
+    const value = Reflect.get(target, key);
+    return liveEnabled && LIVE_TEXT_KEYS.includes(key) ? normalizeLiveLine(value) : value;
+  },
+  set(target, key, value) {
+    if (liveEnabled && Object.hasOwn(LIVE_LOCKED_VALUES, key)) return true;
+    if (liveEnabled && LIVE_TEXT_KEYS.includes(key) && value === normalizeLiveLine(target[key])) return true;
+    return Reflect.set(target, key, liveEnabled && LIVE_TEXT_KEYS.includes(key) ? normalizeLiveLine(value) : value);
+  },
+});
 
 const $ = (selector) => document.querySelector(selector);
 const canvas = $("#coverCanvas");
@@ -336,6 +355,7 @@ function mobileToolPresentation(tool) {
   if (tool.id === "watermarkEnabled") { value = state.watermarkEnabled; choices = [{ value: true, label: "使用水印" }, { value: false, label: "不使用水印" }]; }
   if (tool.id === "watermarkAlign") { value = state.watermarkAlign; choices = [{ value: "left", label: "左侧" }, { value: "center", label: "居中" }, { value: "right", label: "右侧" }]; }
   if (tool.id.startsWith("memory")) value = document.querySelectorAll("[data-memory-name]")[Number(tool.id.slice(-1)) - 1]?.textContent || tool.label;
+  if (liveEnabled && liveLockedTools.includes(tool.id)) disabled = true;
   return { value, choices, min, max, disabled, actionLabel };
 }
 
@@ -989,7 +1009,7 @@ function saveSettings() {
 }
 
 function writeSettings() {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(serializeStaticCoverSettings(state)));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(serializeStaticCoverSettings(rawState)));
 }
 
 window.addEventListener("pagehide", () => {
@@ -1145,6 +1165,30 @@ function updateUi() {
   $("#brushCursor").style.width = `${retouch.size / 10.8}%`;
   if (!retouch.active) $("#brushCursor").classList.remove("visible");
   if (coverLayoutMode === "compact" && compactEditorOpen) renderMobileToolDock();
+  syncLiveUi();
+}
+function restoreLiveLocks() {
+  document.querySelectorAll("[data-live-disabled]").forEach((node) => {
+    node.disabled = node.dataset.liveDisabled === "true";
+    delete node.dataset.liveDisabled;
+  });
+  document.querySelectorAll("[data-live-lock]").forEach((node) => delete node.dataset.liveLock);
+}
+
+function syncLiveUi() {
+  coverPage.classList.toggle("is-live-mode", liveEnabled);
+  for (const [id, max] of [["topText",18],["bottomText",18],["subtitle",38]]) $("#"+id).maxLength = liveEnabled ? 6 : max;
+  if (!liveEnabled) return;
+  const selectors = ["#textScale", "#bottomTextScale", "#subtitleScale", "#textScaleLink", "#alignBeforeFrame", "#resetBeforeFrame", "#compareToggle", "#templates [data-template]"];
+  document.querySelectorAll(selectors.join(",")).forEach((node) => {
+    const group = node.matches("input") ? node.closest("label") : node;
+    group.dataset.liveLock = "";
+    const controls = node.matches("input") ? group.querySelectorAll("input,button") : [node];
+    controls.forEach((control) => {
+      if (!("liveDisabled" in control.dataset)) control.dataset.liveDisabled = String(control.disabled);
+      control.disabled = true;
+    });
+  });
 }
 updateUi();
 loadDefaultWatermark();
@@ -1536,7 +1580,7 @@ $("#resetSettings").addEventListener("click", () => {
 });
 document.querySelectorAll("[data-save-memory]").forEach((button) => button.addEventListener("click", () => {
   const slot = button.dataset.saveMemory;
-  localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(serializeStaticCoverSettings(state)));
+  localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(serializeStaticCoverSettings(rawState)));
   setStatus(`已保存到记忆点 ${slot}`);
 }));
 function updateMemoryNames() {
@@ -1670,6 +1714,7 @@ function drawNow(includeGuide = true, targetCanvas = canvas, outputSize = null, 
     photoOnly,
     retouchStrokes: visibleAfterStrokes,
     beforeRetouchStrokes: visibleBeforeStrokes,
+    live: liveController?.presentation(isPreview ? undefined : 3),
   });
   if (!isPreview) releaseCoverScratchCanvases(targetCanvas);
 }
@@ -1697,6 +1742,7 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
       beforeImage: state.beforeImage,
       watermark: state.watermarkEnabled ? state.watermark : null,
       settings: state,
+      live: liveController?.presentation(3),
       preset: { id: state.platformId, ...current },
       retouchStrokes: retouch.strokes,
       beforeRetouchStrokes: retouch.beforeStrokes,
@@ -1711,6 +1757,7 @@ async function buildExportAsset(format, photoOnly = false, generation = exportGe
 
 async function exportCover(format, photoOnly = false) {
   if (!state.image) return setExportStatus("请先上传一张照片");
+  if (!photoOnly && liveEnabled && !liveController?.presentation(3)?.animation) return setExportStatus("请等待 Live 动效加载完成后再导出");
   const comparisonError = getComparisonExportError(state.compareEnabled, Boolean(state.beforeImage));
   if (!photoOnly && comparisonError) return setExportStatus(comparisonError);
   const generation = exportGeneration;
@@ -1841,3 +1888,41 @@ $("#openPreviewImage").addEventListener("click", async () => {
 
 syncMobileEditorLayout();
 draw();
+
+$("#startLive").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const { mountLiveControls } = await import("./live/controls.js?v=20260906");
+    liveController = mountLiveControls({
+      host: $("#liveControlHost"),
+      motionAt: getLiveMotionState,
+      onAssetsChanged: scheduleExportPreparation,
+      onToggle(enabled) {
+        restoreLiveLocks();
+        liveEnabled = enabled;
+        updateUi();
+        saveSettings();
+        draw();
+      },
+      onRefresh() { drawNow(); },
+      captureRender() {
+        if (!state.image) throw new Error("请先上传主照片");
+        if (!state.beforeImage) throw new Error("请先添加拍摄前素颜照");
+        const current = { id: state.platformId, ...preset() };
+        const input = {
+          image: state.image, beforeImage: state.beforeImage, watermark: state.watermarkEnabled ? state.watermark : null,
+          settings: { ...state }, preset: current,
+          retouchStrokes: structuredClone(retouch.strokes), beforeRetouchStrokes: structuredClone(retouch.beforeStrokes),
+        };
+        return { width: current.width, height: current.height,
+          render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: current, live }); },
+        };
+      },
+    });
+    liveController.setEnabled(true);
+  } catch {
+    button.disabled = false;
+    setStatus("Live 组件加载失败，请刷新后重试");
+  }
+});

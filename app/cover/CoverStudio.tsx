@@ -15,6 +15,8 @@ import {
   PLATFORM_PRESETS,
 } from "./cover-config";
 import CoverCanvasSurface from "./CoverCanvasSurface";
+import CoverLiveControls, { type LiveController } from "./CoverLiveControls";
+import { getLiveSettings, updateLiveSettings } from "./core/live-layout";
 import CoverExportSheet from "./CoverExportSheet";
 import CoverMobileToolDock, { type MobileToolPresentation } from "./CoverMobileToolDock";
 import CoverSplitShell from "./CoverSplitShell";
@@ -124,6 +126,7 @@ function Slider({
   onChange,
   onReset,
   disabled = false,
+  disableReset = false,
 }: {
   label: string;
   value: number;
@@ -133,6 +136,7 @@ function Slider({
   onChange: (value: number) => void;
   onReset?: () => void;
   disabled?: boolean;
+  disableReset?: boolean;
 }) {
   const commitExactValue = (input: HTMLInputElement) => {
     if (!input.value.trim()) {
@@ -148,7 +152,7 @@ function Slider({
   };
 
   return (
-    <label className="studio-slider">
+    <label className="studio-slider" data-live-lock={disabled ? "" : undefined}>
       <span>
         {label}
         <span className="studio-slider-value-control">
@@ -174,7 +178,7 @@ function Slider({
             {suffix ? <i>{suffix}</i> : null}
           </span>
           {onReset ? (
-            <button type="button" className="studio-slider-reset" title="恢复这一项默认值" aria-label={`${label}恢复默认`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onReset(); }}>
+            <button type="button" className="studio-slider-reset" disabled={disableReset} title="恢复这一项默认值" aria-label={`${label}恢复默认`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onReset(); }}>
               复位
             </button>
           ) : null}
@@ -209,7 +213,17 @@ export default function CoverStudio() {
   const defaultWatermarkRef = useRef<HTMLImageElement | null>(null);
   const mainDropControllerRef = useRef(createImageDropController("main"));
   const beforeDropControllerRef = useRef(createImageDropController("before"));
-  const [settings, setSettings] = useState<CoverSettings>(DEFAULT_COVER_SETTINGS);
+  const [storedSettings, setStoredSettings] = useState<CoverSettings>(DEFAULT_COVER_SETTINGS);
+  const [liveEnabled, setLiveEnabled] = useState(false);
+  const [liveAssetVersion, setLiveAssetVersion] = useState(0);
+  const liveEnabledRef = useRef(false);
+  const liveControllerRef = useRef<LiveController | null>(null);
+  const bindLiveController = useCallback((controller: LiveController | null) => { liveControllerRef.current = controller; }, []);
+  const livePreviewRef = useRef<() => void>(() => {});
+  const settings = useMemo(() => liveEnabled ? getLiveSettings(storedSettings) : storedSettings, [liveEnabled, storedSettings]);
+  const setSettings = useCallback((action: CoverSettings | ((current: CoverSettings) => CoverSettings)) => {
+    setStoredSettings((current) => liveEnabledRef.current ? updateLiveSettings(current, action) : typeof action === "function" ? action(current) : action);
+  }, []);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fileName, setFileName] = useState("");
   const [beforeImage, setBeforeImage] = useState<HTMLImageElement | null>(null);
@@ -417,7 +431,7 @@ export default function CoverStudio() {
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [setSettings]);
 
   useEffect(() => {
     try {
@@ -431,10 +445,10 @@ export default function CoverStudio() {
     settingsRef.current = settings;
     beforeImageRef.current = beforeImage;
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(storedSettings));
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [beforeImage, settings]);
+  }, [beforeImage, settings, storedSettings]);
 
   useEffect(() => {
     rotationModeRef.current = rotationMode;
@@ -540,7 +554,7 @@ export default function CoverStudio() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const frame = window.requestAnimationFrame(() => {
+    const renderPreview = () => {
       const device = navigator as Navigator & { deviceMemory?: number };
       const lowPower = (device.deviceMemory ?? 8) <= 4 || (device.hardwareConcurrency ?? 8) <= 4;
       const width = Math.min(lowPower ? 420 : 540, preset.width);
@@ -559,8 +573,11 @@ export default function CoverStudio() {
         outputSize: previewSize,
         retouchStrokes: visibleAfterStrokes,
         beforeRetouchStrokes: visibleBeforeStrokes,
+        live: liveControllerRef.current?.presentation(),
       });
-    });
+    };
+    livePreviewRef.current = renderPreview;
+    const frame = window.requestAnimationFrame(renderPreview);
     return () => window.cancelAnimationFrame(frame);
   }, [activeRetouchTarget, beforeImage, beforeRetouchStrokes, image, preset, retouchStrokes, settings, showRetouchBefore, watermark]);
 
@@ -576,6 +593,7 @@ export default function CoverStudio() {
         beforeImage,
         watermark: settings.watermarkEnabled ? watermark : null,
         settings,
+        live: liveControllerRef.current?.presentation(3),
         preset,
         retouchStrokes,
         beforeRetouchStrokes,
@@ -594,13 +612,13 @@ export default function CoverStudio() {
     exportCacheRef.current = { generation, jpeg: null, png: null };
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a changed source invalidates both export readiness flags
     setExportReady({ jpeg: true, png: true });
-  }, [buildExportAsset]);
+  }, [buildExportAsset, liveAssetVersion]);
 
   const updateSetting = useCallback(
     <Key extends keyof CoverSettings>(key: Key, value: CoverSettings[Key]) => {
       setSettings((current) => updateCoverSetting(current, key, value));
     },
-    [],
+    [setSettings],
   );
 
   const alignBeforeFrame = useCallback(() => {
@@ -645,7 +663,7 @@ export default function CoverStudio() {
       };
     });
     setNotice("已与左侧文字顶部对齐");
-  }, [beforeImage, preset, settings, watermark]);
+  }, [beforeImage, preset, settings, watermark, setSettings]);
 
   const updateTopTextScale = useCallback((value: number) => {
     setSettings((current) => ({
@@ -653,14 +671,14 @@ export default function CoverStudio() {
       textScale: value,
       bottomTextScale: current.textScaleLinked ? value : current.bottomTextScale,
     }));
-  }, []);
+  }, [setSettings]);
 
   const toggleTextScaleLink = useCallback(() => {
     setSettings((current) => {
       const linked = !current.textScaleLinked;
       return { ...current, textScaleLinked: linked, bottomTextScale: linked ? current.textScale : current.bottomTextScale };
     });
-  }, []);
+  }, [setSettings]);
 
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_COVER_SETTINGS);
@@ -670,7 +688,7 @@ export default function CoverStudio() {
     setShowRetouchBefore(false);
     setBrushMode(false);
     setNotice("已恢复默认构图和颜色");
-  }, []);
+  }, [setSettings]);
 
   const factoryReset = useCallback(() => {
     if (!window.confirm("确定彻底重置吗？\n\n将清空本工具的照片、封面设置、记忆方案和同步记录，登录状态会保留。")) return;
@@ -681,9 +699,9 @@ export default function CoverStudio() {
   }, []);
 
   const saveMemory = useCallback((slot: number) => {
-    window.localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(settings));
+    window.localStorage.setItem(`${MEMORY_KEY_PREFIX}${slot}`, JSON.stringify(storedSettings));
     setNotice(`已保存到记忆点 ${slot}`);
-  }, [settings]);
+  }, [storedSettings]);
 
   const loadMemory = useCallback((slot: number) => {
     try {
@@ -697,7 +715,7 @@ export default function CoverStudio() {
     } catch {
       setNotice(`记忆点 ${slot} 读取失败，请重新保存`);
     }
-  }, []);
+  }, [setSettings]);
 
   const renameMemory = useCallback((slot: number) => {
     const name = window.prompt("输入记忆名称", memoryNames[slot - 1]);
@@ -722,7 +740,7 @@ export default function CoverStudio() {
           ? "上行文案已同步"
           : "下行文案已同步",
     );
-  }, [syncedCopy]);
+  }, [syncedCopy, setSettings]);
 
   const applySyncedImage = useCallback((quiet = false) => {
     if (!syncedImage) {
@@ -764,7 +782,7 @@ export default function CoverStudio() {
           ? "封面照片已同步，文字和构图保持不变"
           : "两行封面文案已同步，照片和构图保持不变",
     );
-  }, [applySyncedImage, syncedCopy, syncedImage]);
+  }, [applySyncedImage, syncedCopy, syncedImage, setSettings]);
 
   const loadFile = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -825,7 +843,7 @@ export default function CoverStudio() {
       URL.revokeObjectURL(url);
     };
     nextImage.src = url;
-  }, [preset]);
+  }, [preset, setSettings]);
 
   const dropControllerFor = (target: ImageDropTarget) => (
     target === "main" ? mainDropControllerRef.current : beforeDropControllerRef.current
@@ -898,6 +916,10 @@ export default function CoverStudio() {
   const exportCover = async (format: "jpeg" | "png", photoOnly = false) => {
     if (!image || !canvasRef.current) {
       setExportMessage("请先上传一张照片");
+      return;
+    }
+    if (!photoOnly && liveEnabled && !liveControllerRef.current?.presentation(3)?.animation) {
+      setExportMessage("请等待 Live 动效加载完成后再导出");
       return;
     }
     const comparisonError = getComparisonExportError(settings.compareEnabled, Boolean(beforeImage));
@@ -1049,6 +1071,7 @@ export default function CoverStudio() {
 
   const mobileValueFor = (tool: ToolDefinition): unknown => {
     const base = (value: unknown, extra: Partial<MobileToolPresentation> = {}): MobileToolPresentation => ({ value, ...extra });
+    if (liveEnabled && ["comparison", "template", "textScale", "bottomTextScale", "subtitleScale", "textScaleLinked", "alignBefore", "resetBeforeFrame"].includes(tool.id)) return base(tool.settingKey ? settings[tool.settingKey as keyof CoverSettings] : null, { disabled: true });
     if (tool.id === "watermarkEnabled") return base(settings.watermarkEnabled, { choices: [
       { value: true, label: "使用水印" },
       { value: false, label: "不使用水印" },
@@ -1233,7 +1256,7 @@ export default function CoverStudio() {
   );
 
   return (
-    <section ref={editorRootRef} className="cover-studio">
+    <section ref={editorRootRef} className={`cover-studio${liveEnabled ? " is-live-mode" : ""}`}>
       {savePreview && (
         <div className="save-preview">
           <div className="save-preview-card">
@@ -1353,7 +1376,7 @@ export default function CoverStudio() {
               <input
                 aria-label="上行主标题"
                 value={settings.topText}
-                maxLength={18}
+                maxLength={liveEnabled ? 6 : 18}
                 onChange={(event) => updateSetting("topText", event.target.value)}
                 placeholder="例如：男人的"
               />
@@ -1378,7 +1401,7 @@ export default function CoverStudio() {
               <input
                 aria-label="下行主标题"
                 value={settings.bottomText}
-                maxLength={18}
+                maxLength={liveEnabled ? 6 : 18}
                 onChange={(event) => updateSetting("bottomText", event.target.value)}
                 placeholder="例如：高级感"
               />
@@ -1389,14 +1412,14 @@ export default function CoverStudio() {
             <span>补充小字 <b>可不填</b></span>
             <textarea
               value={settings.subtitle}
-              maxLength={38}
+              maxLength={liveEnabled ? 6 : 38}
               onChange={(event) => updateSetting("subtitle", event.target.value)}
               placeholder="补充价值点，不编造图片外事实"
             />
           </label>
           <div className="studio-subtitle-tools">
             <label><span>小字颜色</span><input type="color" value={settings.subtitleColor} onChange={(event) => updateSetting("subtitleColor", event.target.value.toUpperCase())} /></label>
-            <label><span>小字大小 <b>{settings.subtitleScale}%</b></span><input type="range" min={60} max={160} value={settings.subtitleScale} onChange={(event) => updateSetting("subtitleScale", Number(event.target.value))} /></label>
+            <label data-live-lock={liveEnabled ? "" : undefined}><span>小字大小 <b>{settings.subtitleScale}%</b></span><input type="range" min={60} max={160} value={settings.subtitleScale} disabled={liveEnabled} onChange={(event) => updateSetting("subtitleScale", Number(event.target.value))} /></label>
           </div>
           <div className="studio-watermark-box">
             <input
@@ -1470,6 +1493,18 @@ export default function CoverStudio() {
         </aside>
 
         <section className={`studio-preview-panel${isCompactEditorOpen ? " is-compact-open" : ""}`}>
+          <CoverLiveControls onController={bindLiveController}
+            onAssetsChanged={() => setLiveAssetVersion((version) => version + 1)}
+            onToggle={(enabled) => { liveEnabledRef.current = enabled; setLiveEnabled(enabled); }}
+            onRefresh={() => livePreviewRef.current()}
+            captureRender={() => {
+              if (!image) throw new Error("请先上传主照片");
+              if (!beforeImage) throw new Error("请先添加拍摄前素颜照");
+              const input = { image, beforeImage, watermark: settings.watermarkEnabled ? watermark : null,
+                settings: { ...settings }, preset, retouchStrokes: structuredClone(retouchStrokes), beforeRetouchStrokes: structuredClone(beforeRetouchStrokes) };
+              return { width: preset.width, height: preset.height,
+                render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: preset, live }); } };
+            }} />
           <div className="studio-preview-toolbar">
             <div>
               <strong>实时封面预览</strong>
@@ -1489,6 +1524,8 @@ export default function CoverStudio() {
                 <input
                   type="checkbox"
                   checked={settings.compareEnabled}
+                  disabled={liveEnabled}
+                  data-live-lock={liveEnabled ? "" : undefined}
                   onChange={(event) => {
                     const enabled = event.target.checked;
                     updateSetting("compareEnabled", enabled);
@@ -1532,6 +1569,8 @@ export default function CoverStudio() {
                   <button
                     type="button"
                     key={template.id}
+                    disabled={liveEnabled}
+                    data-live-lock={liveEnabled ? "" : undefined}
                     className={`studio-template template-${template.id} ${settings.templateId === template.id ? "is-active" : ""}`}
                     onClick={() => setSettings((current) => ({
                       ...current,
@@ -1669,8 +1708,8 @@ export default function CoverStudio() {
                 }))}>恢复默认</button>
               </div>
               <div className="studio-before-align-actions">
-                <button type="button" onClick={alignBeforeFrame} disabled={!beforeImage}>尝试对齐</button>
-                <button type="button" onClick={() => {
+                <button type="button" data-live-lock={liveEnabled ? "" : undefined} onClick={alignBeforeFrame} disabled={liveEnabled || !beforeImage}>尝试对齐</button>
+                <button type="button" disabled={liveEnabled} data-live-lock={liveEnabled ? "" : undefined} onClick={() => {
                   setSettings((current) => ({ ...current, beforeFrameScale: 100 }));
                   setNotice("已恢复对比图默认尺寸");
                 }}>恢复对比图默认尺寸</button>
@@ -1824,6 +1863,8 @@ export default function CoverStudio() {
             />
             <Slider
               label="上行标题大小"
+              disabled={liveEnabled}
+              disableReset={liveEnabled}
               value={settings.textScale}
               min={0}
               max={200}
@@ -1835,15 +1876,18 @@ export default function CoverStudio() {
               type="button"
               className={`studio-title-scale-link ${settings.textScaleLinked ? "is-linked" : ""}`}
               aria-pressed={settings.textScaleLinked}
+              disabled={liveEnabled}
+              data-live-lock={liveEnabled ? "" : undefined}
               onClick={toggleTextScaleLink}
             >{settings.textScaleLinked ? "上下行大小联动" : "下行独立调整"}</button>
             <Slider
               label="下行标题大小"
+              disableReset={liveEnabled}
               value={settings.bottomTextScale}
               min={0}
               max={200}
               suffix="%"
-              disabled={settings.textScaleLinked}
+              disabled={liveEnabled || settings.textScaleLinked}
               onReset={() => settings.textScaleLinked ? updateTopTextScale(100) : updateSetting("bottomTextScale", 100)}
               onChange={(value) => updateSetting("bottomTextScale", value)}
             />

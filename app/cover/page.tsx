@@ -1,5 +1,6 @@
 import CoverStudio from "./CoverStudio";
 import CopyWorkspaceSwitch from "./CopyWorkspaceSwitch";
+import "../../public/live/live.css";
 
 export default function CoverPage() {
   return (

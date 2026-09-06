@@ -11,6 +11,12 @@ import {
 } from "../compare-layout";
 import type { CoverSettings } from "./editor-settings";
 import { eraseShadeWithBrush, type RetouchStroke } from "./retouch-core";
+import { getLiveLayout, getLiveSettings, getLiveMotionState } from "./live-layout";
+
+export type CoverLiveFrame = {
+  image: CanvasImageSource;
+  source: { x: number; y: number; width: number; height: number };
+};
 
 export type CoverRenderInput = {
   canvas: HTMLCanvasElement;
@@ -24,6 +30,7 @@ export type CoverRenderInput = {
   photoOnly?: boolean;
   retouchStrokes?: RetouchStroke[];
   beforeRetouchStrokes?: RetouchStroke[];
+  live?: { animation?: CoverLiveFrame | null; time?: number };
 };
 
 type CoverScratchKind = "shade" | "stroke" | "compare";
@@ -139,14 +146,16 @@ export function getBeforeImageFrame(canvas: { width: number; height: number }, f
 function applyComparisonFadeMask(
   context: CanvasRenderingContext2D,
   frame: { x: number; y: number; width: number; height: number },
+  amount = 1,
 ) {
   context.save();
   context.globalCompositeOperation = "destination-in";
   const horizontalMask = context.createLinearGradient(frame.x, 0, frame.x + frame.width, 0);
   const verticalMask = context.createLinearGradient(0, frame.y, 0, frame.y + frame.height);
   for (const [stop, alpha] of getComparisonFadeStops()) {
-    horizontalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
-    verticalMask.addColorStop(stop, `rgba(255,255,255,${alpha})`);
+    const opacity = amount === 1 ? alpha : 1 + (alpha - 1) * amount;
+    horizontalMask.addColorStop(stop, `rgba(255,255,255,${opacity})`);
+    verticalMask.addColorStop(stop, `rgba(255,255,255,${opacity})`);
   }
   context.fillStyle = horizontalMask;
   context.fillRect(frame.x, frame.y, frame.width, frame.height);
@@ -163,9 +172,10 @@ function drawComparisonEvidence(
   width: number,
   height: number,
   beforeRetouchStrokes: RetouchStroke[],
+  movingFrame?: { frame: ReturnType<typeof getBeforeImageFrame>; progress: number },
 ) {
   const { frame } = getComparisonEvidenceLayout({ width, height }, settings.beforeFrameScale);
-  const imageFrame = getBeforeImageFrame({ width, height }, settings.beforeFrameScale);
+  const imageFrame = movingFrame?.frame ?? getBeforeImageFrame({ width, height }, settings.beforeFrameScale);
 
   if (!beforeImage) {
     context.save();
@@ -209,7 +219,7 @@ function drawComparisonEvidence(
   scratchContext.setTransform(1, 0, 0, 1, 0, 0);
   scratchContext.filter = "none";
   scratchContext.restore();
-  applyComparisonFadeMask(scratchContext, imageFrame);
+  applyComparisonFadeMask(scratchContext, imageFrame, movingFrame?.progress);
   context.drawImage(scratch, 0, 0);
 
   if (settings.beforeShade > 0 || settings.beforeBottomShade > 0) {
@@ -236,7 +246,7 @@ function drawComparisonEvidence(
     }
     shadeContext.restore();
     eraseShadeWithBrush(shadeContext, strokeCanvas, width, height, beforeRetouchStrokes);
-    applyComparisonFadeMask(shadeContext, imageFrame);
+    applyComparisonFadeMask(shadeContext, imageFrame, movingFrame?.progress);
     context.drawImage(shadeCanvas, 0, 0);
   }
 }
@@ -253,7 +263,9 @@ export function drawCover({
   photoOnly = false,
   retouchStrokes = [],
   beforeRetouchStrokes = [],
+  live,
 }: CoverRenderInput): void {
+  if (live) settings = getLiveSettings(settings);
   const context = canvas.getContext("2d");
   if (!context) return;
 
@@ -268,6 +280,11 @@ export function drawCover({
   context.fillStyle = "#151515";
   context.fillRect(0, 0, width, height);
 
+  const motion = live ? getLiveMotionState(live.time ?? 3) : null;
+  if (motion && motion.phase !== "complete" && !photoOnly && image && beforeImage) {
+    drawLiveIntro({ canvas, image, beforeImage, watermark, settings, preset, includeGuide: false,
+      outputSize: { width, height }, retouchStrokes, beforeRetouchStrokes }, motion);
+  } else {
   if (image) {
     const radians = settings.rotation * Math.PI / 180;
     const rotatedWidth = Math.abs(image.naturalWidth * Math.cos(radians)) + Math.abs(image.naturalHeight * Math.sin(radians));
@@ -312,11 +329,19 @@ export function drawCover({
     if (settings.compareEnabled) {
       drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, beforeRetouchStrokes);
     }
-    drawCoverText(context, settings, width, height, watermark);
+    if (live) { context.save(); context.globalAlpha = motion?.overlayOpacity ?? 1; }
+    if (live) {
+      drawLiveText(context, settings, width, height);
+      if (live.animation) drawLiveAnimation(context, live.animation, width, height);
+    } else {
+      drawCoverText(context, settings, width, height, watermark);
+    }
     if (settings.compareEnabled) {
       drawComparisonEditorialOverlay(context, { width, height }, roundedRectPath, settings.beforeFrameScale);
     }
     if (watermark) drawWatermark(context, watermark, settings, width, height);
+    if (live) context.restore();
+  }
   }
 
   if (!photoOnly && includeGuide && settings.showSafeArea && preset.id === "douyin") {
@@ -349,6 +374,100 @@ export function drawCover({
     context.fillText("播放量避让区 144px", 30 * guideScale, reserveTop + 38 * guideScale);
     context.restore();
   }
+}
+
+function drawLiveIntro(input: CoverRenderInput, motion: ReturnType<typeof getLiveMotionState>) {
+  const { canvas, image, beforeImage, settings } = input;
+  if (!image || !beforeImage) return;
+  const { width, height } = input.outputSize ?? input.preset;
+  const context = canvas.getContext("2d")!;
+  const p = motion.progress;
+  const mix = (start: number, end: number) => start + (end - start) * p;
+  if (motion.phase === "after") {
+    if (p === 1) {
+      // The landing endpoint uses the exact completed-photo composite with overlays hidden.
+      drawCover({ ...input, live: { time: 2 } });
+      return;
+    }
+    // Use the same normal-photo renderer so the landing frame is exactly the user's crop.
+    drawCover({ ...input, photoOnly: true, live: undefined, settings: {
+      ...settings, zoom: mix(100, settings.zoom), offsetX: mix(0, settings.offsetX), offsetY: mix(0, settings.offsetY),
+      rotation: mix(0, settings.rotation), brightness: mix(100, settings.brightness),
+    } });
+    if (p > 0) {
+      const shade = getCoverScratch(canvas, "shade", width, height);
+      const stroke = getCoverScratch(canvas, "stroke", width, height);
+      const shadeContext = shade.getContext("2d")!;
+      shadeContext.clearRect(0, 0, width, height);
+      drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
+      if (input.retouchStrokes?.length) eraseShadeWithBrush(shadeContext, stroke, width, height, input.retouchStrokes);
+      context.save(); context.globalAlpha = p; context.drawImage(shade, 0, 0); context.restore();
+    }
+    drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, input.beforeRetouchStrokes ?? []);
+    return;
+  }
+  if (p === 1) {
+    drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, input.beforeRetouchStrokes ?? []);
+    return;
+  }
+  const target = getBeforeImageFrame({ width, height }, settings.beforeFrameScale);
+  const frame = { x: mix(0, target.x), y: mix(0, target.y), width: mix(width, target.width), height: mix(height, target.height), radius: target.radius * p };
+  // Reuse the real before-photo pipeline, including clamped offsets, fade and brush masks.
+  // Its adjustments settle gradually so the last intro frame does not suddenly darken.
+  drawComparisonEvidence(context, canvas, beforeImage, {
+    ...settings, beforeZoom: mix(100, settings.beforeZoom), beforeOffsetX: mix(0, settings.beforeOffsetX),
+    beforeOffsetY: mix(0, settings.beforeOffsetY), beforeRotation: mix(0, settings.beforeRotation),
+    beforeBrightness: mix(100, settings.beforeBrightness), beforeShade: settings.beforeShade * p, beforeBottomShade: settings.beforeBottomShade * p,
+  }, width, height, input.beforeRetouchStrokes ?? [], { frame, progress: p });
+}
+
+function drawLiveText(context: CanvasRenderingContext2D, settings: CoverSettings, width: number, height: number) {
+  const layout = getLiveLayout({ width, height });
+  context.save();
+  context.textAlign = "left";
+  context.textBaseline = "alphabetic";
+  context.lineJoin = "round";
+  const stroke = settings.textStroke / 100;
+  const shadow = settings.textShadow / 100;
+  context.lineWidth = width * 0.012 * stroke;
+  context.strokeStyle = `rgba(0,0,0,${0.92 * stroke})`;
+  context.shadowColor = `rgba(0,0,0,${0.78 * shadow})`;
+  context.shadowBlur = width * 0.024 * shadow;
+  context.shadowOffsetX = width * 0.004 * shadow;
+  context.shadowOffsetY = width * 0.006 * shadow;
+  const rows = [
+    { text: settings.topText, top: layout.top, size: layout.headlineSize, weight: 900, color: settings.topColor },
+    { text: settings.bottomText, top: layout.top + layout.rowStep, size: layout.headlineSize, weight: 900, color: settings.bottomColor },
+    { text: settings.subtitle, top: layout.subtitleTop, size: layout.subtitleSize, weight: 400, color: settings.subtitleColor },
+  ];
+  for (const row of rows) {
+    context.font = `${row.weight} ${row.size}px sans-serif`;
+    const ink = measureInkBounds(context, row.text || "国");
+    context.fillStyle = row.color;
+    if (stroke > 0) context.strokeText(row.text, layout.left, row.top + ink.ascent);
+    context.fillText(row.text, layout.left, row.top + ink.ascent);
+  }
+  if (settings.showDivider) {
+    context.shadowColor = "transparent";
+    context.fillStyle = settings.dividerColor;
+    context.fillRect(layout.left, layout.top + 216 * width / 1080, layout.headlineSize, 4 * width / 1080);
+  }
+  context.restore();
+}
+
+function drawLiveAnimation(context: CanvasRenderingContext2D, frame: CoverLiveFrame, width: number, height: number) {
+  const bounds = getLiveLayout({ width, height }).animation;
+  const source = frame.source;
+  const scale = Math.min(bounds.width / source.width, bounds.height / source.height);
+  const w = source.width * scale;
+  const h = source.height * scale;
+  context.save();
+  context.beginPath();
+  context.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+  context.clip();
+  context.drawImage(frame.image, source.x, source.y, source.width, source.height,
+    bounds.x + (bounds.width - w) / 2, bounds.y + (bounds.height - h) / 2, w, h);
+  context.restore();
 }
 
 function drawTemplateShade(

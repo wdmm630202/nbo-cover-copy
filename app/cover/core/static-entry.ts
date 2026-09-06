@@ -18,3 +18,4 @@ export * from "./render-core";
 export * from "./retouch-core";
 export * from "./responsive-layout";
 export * from "./tool-registry";
+export * from "./live-layout";
