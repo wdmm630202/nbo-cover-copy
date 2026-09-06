@@ -470,7 +470,10 @@ export default function CoverStudio() {
     const shell = canvasShellRef.current;
     const tools = previewToolsRef.current;
     if (!shell || !tools) return;
-    const syncWidth = () => { tools.style.width = `${shell.getBoundingClientRect().width}px`; };
+    const syncWidth = () => {
+      tools.style.width = `${shell.getBoundingClientRect().width}px`;
+      tools.parentElement?.style.setProperty("--cover-preview-width", tools.style.width);
+    };
     const observer = new ResizeObserver(syncWidth);
     observer.observe(shell);
     syncWidth();

@@ -2,6 +2,7 @@
 .live-control-host,.live-options{display:contents;font-family:inherit}
 .preview-toolbar,.studio-preview-toolbar{position:relative;gap:12px;flex-wrap:wrap}
 .preview-switches,.studio-preview-switches{flex-wrap:wrap;gap:10px 14px;align-items:center}
+.is-live-mode [data-cover-layout="desktop"] :is(.preview-switches,.studio-preview-switches){flex:0 0 calc(50% + var(--cover-preview-width,390px)/2);margin-left:auto;justify-content:flex-start}
 .live-control-host button,.live-details>summary{position:relative;display:inline-flex;align-items:center;gap:8px;width:auto;min-height:18px;padding:0;border:0;border-radius:0;background:transparent;color:rgba(255,255,255,.72);font:inherit;font-size:10px;line-height:18px;white-space:nowrap;flex-shrink:0;cursor:pointer}
 .live-control-host button::before,.live-details>summary::before{content:"";display:block;flex:none;width:32px;height:18px;border-radius:999px;background:#6b6762;transition:background .16s}
 .live-control-host button::after,.live-details>summary::after{content:"";position:absolute;left:2px;top:calc(50% - 7px);width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .16s}

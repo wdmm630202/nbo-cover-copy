@@ -515,7 +515,10 @@ function syncMobileTransformControls() {
 }
 
 const syncPreviewToolsWidth = () => {
-  if (canvasShell && previewTools) previewTools.style.width = `${canvasShell.getBoundingClientRect().width}px`;
+  if (canvasShell && previewTools) {
+    previewTools.style.width = `${canvasShell.getBoundingClientRect().width}px`;
+    previewTools.parentElement.style.setProperty("--cover-preview-width", previewTools.style.width);
+  }
 };
 if (canvasShell && previewTools) {
   if ("ResizeObserver" in window) new ResizeObserver(syncPreviewToolsWidth).observe(canvasShell);

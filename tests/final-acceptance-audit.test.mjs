@@ -27,7 +27,7 @@ test("核心实现由唯一 canonical 模块持有，HTML 先加载 core 再加�
   const html = await readFile(new URL("../docs/cover.html", import.meta.url), "utf8");
   assert.deepEqual(parseScriptSources(html).slice(-2), [
     "./cover-core.js?v=20260906-live",
-    "./cover.js?v=20260906-gallery",
+    "./cover.js?v=20260906-gallery-align",
   ]);
 });
 
