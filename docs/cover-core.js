@@ -562,24 +562,30 @@ var NBOCoverCore = (function(exports) {
 		"bottomText",
 		"subtitle"
 	];
+	var LIVE_DEFAULT_TEXT = Object.freeze({
+		topText: "男士素人改造",
+		bottomText: "原来普通男生",
+		subtitle: "也能拍成这样"
+	});
 	function normalizeLiveLine(value) {
 		const singleLine = value.replace(/[\r\n]/g, "");
 		return Array.from(new Intl.Segmenter("zh", { granularity: "grapheme" }).segment(singleLine)).slice(0, 6).map((part) => part.segment).join("");
 	}
-	function getLiveSettings(settings) {
+	function getLiveSettings(settings, text) {
 		return {
 			...settings,
 			...LIVE_LOCKED_VALUES,
-			topText: normalizeLiveLine(settings.topText),
-			bottomText: normalizeLiveLine(settings.bottomText),
-			subtitle: normalizeLiveLine(settings.subtitle)
+			topText: normalizeLiveLine(text?.topText ?? settings.topText),
+			bottomText: normalizeLiveLine(text?.bottomText ?? settings.bottomText),
+			subtitle: normalizeLiveLine(text?.subtitle ?? settings.subtitle)
 		};
 	}
-	function updateLiveSettings(original, action) {
-		const updated = typeof action === "function" ? action(getLiveSettings(original)) : action;
+	function updateLiveSettings(original, action, text) {
+		const active = getLiveSettings(original, text);
+		const updated = typeof action === "function" ? action(active) : action;
 		const result = { ...updated };
 		for (const key of Object.keys(LIVE_LOCKED_VALUES)) Object.assign(result, { [key]: original[key] });
-		for (const key of LIVE_TEXT_KEYS) result[key] = updated[key] === normalizeLiveLine(original[key]) ? original[key] : normalizeLiveLine(updated[key]);
+		for (const key of LIVE_TEXT_KEYS) result[key] = updated[key] === active[key] ? original[key] : normalizeLiveLine(updated[key]);
 		return result;
 	}
 	function getLiveLayout(size) {
@@ -2170,6 +2176,7 @@ var NBOCoverCore = (function(exports) {
 	//#endregion
 	exports.CoverExportError = CoverExportError;
 	exports.DEFAULT_COVER_SETTINGS = DEFAULT_COVER_SETTINGS;
+	exports.LIVE_DEFAULT_TEXT = LIVE_DEFAULT_TEXT;
 	exports.LIVE_LOCKED_VALUES = LIVE_LOCKED_VALUES;
 	exports.LIVE_TEXT_KEYS = LIVE_TEXT_KEYS;
 	exports.MOBILE_KEYBOARD_THRESHOLD = MOBILE_KEYBOARD_THRESHOLD;

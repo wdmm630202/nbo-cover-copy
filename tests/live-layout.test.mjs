@@ -11,6 +11,19 @@ try { live = await import(moduleUrl.href); } catch (error) {
   if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
 }
 
+test('Live 固定默认三句独立于普通文案，其它参数更新不能重写默认文案或普通草稿', () => {
+  assert.deepEqual(live.LIVE_DEFAULT_TEXT,{topText:'男士素人改造',bottomText:'原来普通男生',subtitle:'也能拍成这样'});
+  const original={...DEFAULT_COVER_SETTINGS,topText:'普通模式原有长标题',bottomText:'普通下行',subtitle:'普通小字'};
+  const active=live.getLiveSettings(original,live.LIVE_DEFAULT_TEXT);
+  assert.equal(active.topText,'男士素人改造');
+  const changed=live.updateLiveSettings(original,current=>({...current,brightness:82,platformId:'xiaohongshu'}),live.LIVE_DEFAULT_TEXT);
+  assert.equal(changed.brightness,82);
+  assert.equal(changed.topText,original.topText);
+  assert.equal(live.getLiveSettings(changed,live.LIVE_DEFAULT_TEXT).topText,'男士素人改造');
+  const edited=live.updateLiveSettings(original,current=>({...current,topText:'男士形象升级'}),live.LIVE_DEFAULT_TEXT);
+  assert.equal(edited.topText,'男士形象升级');
+});
+
 test('Live 锁定值不覆盖原设置，关闭后原字号、版式和对比状态完整保留', () => {
   assert.ok(live, '缺少 Live 排版模块');
   const original = { ...DEFAULT_COVER_SETTINGS, templateId: 'bottom-right', textScale: 83, subtitleScale: 135, beforeFrameScale: 102, compareEnabled: false };

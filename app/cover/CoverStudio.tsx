@@ -16,7 +16,7 @@ import {
 } from "./cover-config";
 import CoverCanvasSurface from "./CoverCanvasSurface";
 import CoverLiveControls, { type LiveController } from "./CoverLiveControls";
-import { getLiveSettings, updateLiveSettings } from "./core/live-layout";
+import { getLiveSettings, updateLiveSettings, LIVE_DEFAULT_TEXT, type LiveText } from "./core/live-layout";
 import CoverExportSheet from "./CoverExportSheet";
 import CoverMobileToolDock, { type MobileToolPresentation } from "./CoverMobileToolDock";
 import CoverSplitShell from "./CoverSplitShell";
@@ -213,16 +213,28 @@ export default function CoverStudio() {
   const defaultWatermarkRef = useRef<HTMLImageElement | null>(null);
   const mainDropControllerRef = useRef(createImageDropController("main"));
   const beforeDropControllerRef = useRef(createImageDropController("before"));
-  const [storedSettings, setStoredSettings] = useState<CoverSettings>(DEFAULT_COVER_SETTINGS);
+  const [{ storedSettings, liveText }, setEditorSettings] = useState<{ storedSettings: CoverSettings; liveText: LiveText }>({
+    storedSettings: DEFAULT_COVER_SETTINGS,
+    liveText: { ...LIVE_DEFAULT_TEXT },
+  });
   const [liveEnabled, setLiveEnabled] = useState(false);
   const [liveAssetVersion, setLiveAssetVersion] = useState(0);
   const liveEnabledRef = useRef(false);
   const liveControllerRef = useRef<LiveController | null>(null);
   const bindLiveController = useCallback((controller: LiveController | null) => { liveControllerRef.current = controller; }, []);
   const livePreviewRef = useRef<() => void>(() => {});
-  const settings = useMemo(() => liveEnabled ? getLiveSettings(storedSettings) : storedSettings, [liveEnabled, storedSettings]);
+  const settings = useMemo(() => liveEnabled ? getLiveSettings(storedSettings, liveText) : storedSettings, [liveEnabled, storedSettings, liveText]);
   const setSettings = useCallback((action: CoverSettings | ((current: CoverSettings) => CoverSettings)) => {
-    setStoredSettings((current) => liveEnabledRef.current ? updateLiveSettings(current, action) : typeof action === "function" ? action(current) : action);
+    setEditorSettings((current) => {
+      if (!liveEnabledRef.current) return { ...current, storedSettings: typeof action === "function" ? action(current.storedSettings) : action };
+      const active = getLiveSettings(current.storedSettings, current.liveText);
+      const updated = typeof action === "function" ? action(active) : action;
+      const next = getLiveSettings(updated);
+      return {
+        storedSettings: updateLiveSettings(current.storedSettings, updated, current.liveText),
+        liveText: { topText: next.topText, bottomText: next.bottomText, subtitle: next.subtitle },
+      };
+    });
   }, []);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fileName, setFileName] = useState("");
@@ -681,7 +693,7 @@ export default function CoverStudio() {
   }, [setSettings]);
 
   const resetSettings = useCallback(() => {
-    setSettings(DEFAULT_COVER_SETTINGS);
+    setSettings(liveEnabledRef.current ? { ...DEFAULT_COVER_SETTINGS, ...LIVE_DEFAULT_TEXT } : DEFAULT_COVER_SETTINGS);
     setRetouchStrokes([]);
     setBeforeRetouchStrokes([]);
     setRetouchTarget("after");
@@ -1495,7 +1507,11 @@ export default function CoverStudio() {
         <section className={`studio-preview-panel${isCompactEditorOpen ? " is-compact-open" : ""}`}>
           <CoverLiveControls onController={bindLiveController}
             onAssetsChanged={() => setLiveAssetVersion((version) => version + 1)}
-            onToggle={(enabled) => { liveEnabledRef.current = enabled; setLiveEnabled(enabled); }}
+            onToggle={(enabled) => {
+              if (enabled) setEditorSettings((current) => ({ ...current, liveText: { ...LIVE_DEFAULT_TEXT } }));
+              liveEnabledRef.current = enabled;
+              setLiveEnabled(enabled);
+            }}
             onRefresh={() => livePreviewRef.current()}
             captureRender={() => {
               if (!image) throw new Error("请先上传主照片");

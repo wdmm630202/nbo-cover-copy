@@ -14,6 +14,7 @@ const PRESETS = {
 };
 const {
   LIVE_LOCKED_VALUES,
+  LIVE_DEFAULT_TEXT,
   LIVE_TEXT_KEYS,
   normalizeLiveLine,
   getLiveMotionState,
@@ -81,18 +82,24 @@ const rawState = {
   watermarkName: "",
 };
 let liveEnabled = false;
+let liveText = { ...LIVE_DEFAULT_TEXT };
 let liveController = null;
 const liveLockedTools = ["comparison", "template", "textScale", "bottomTextScale", "subtitleScale", "textScaleLinked", "alignBefore", "resetBeforeFrame"];
 const state = new Proxy(rawState, {
   get(target, key) {
     if (liveEnabled && Object.hasOwn(LIVE_LOCKED_VALUES, key)) return LIVE_LOCKED_VALUES[key];
     const value = Reflect.get(target, key);
-    return liveEnabled && LIVE_TEXT_KEYS.includes(key) ? normalizeLiveLine(value) : value;
+    return liveEnabled && LIVE_TEXT_KEYS.includes(key) ? liveText[key] : value;
   },
   set(target, key, value) {
     if (liveEnabled && Object.hasOwn(LIVE_LOCKED_VALUES, key)) return true;
-    if (liveEnabled && LIVE_TEXT_KEYS.includes(key) && value === normalizeLiveLine(target[key])) return true;
-    return Reflect.set(target, key, liveEnabled && LIVE_TEXT_KEYS.includes(key) ? normalizeLiveLine(value) : value);
+    if (liveEnabled && LIVE_TEXT_KEYS.includes(key)) {
+      const next = normalizeLiveLine(value);
+      if (next === liveText[key]) return true;
+      liveText[key] = next;
+      return Reflect.set(target, key, next);
+    }
+    return Reflect.set(target, key, value);
   },
 });
 
@@ -1567,7 +1574,7 @@ $("#factoryReset").addEventListener("click", () => {
 });
 $("#resetSettings").addEventListener("click", () => {
   Object.assign(state, updateCoverSetting(
-    DEFAULT_COVER_SETTINGS,
+    liveEnabled ? { ...DEFAULT_COVER_SETTINGS, ...LIVE_DEFAULT_TEXT } : DEFAULT_COVER_SETTINGS,
     "platformId",
     DEFAULT_COVER_SETTINGS.platformId,
   ));
@@ -1900,6 +1907,7 @@ $("#startLive").addEventListener("click", async (event) => {
       onAssetsChanged: scheduleExportPreparation,
       onToggle(enabled) {
         restoreLiveLocks();
+        if (enabled) liveText = { ...LIVE_DEFAULT_TEXT };
         liveEnabled = enabled;
         updateUi();
         saveSettings();

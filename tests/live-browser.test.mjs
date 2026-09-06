@@ -26,6 +26,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     await page.getByRole('button',{name:'制作 Live',exact:true}).click();
     await page.getByRole('button',{name:'关闭 Live',exact:true}).waitFor();
     await page.waitForFunction(()=>document.querySelector('#textScale').value==='45');
+    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
     assert.equal(await page.locator('#textScale').isDisabled(),true);
     assert.equal(await page.locator('#textScaleValue').isDisabled(),true);
     assert.equal(await page.locator('#subtitleScale').isDisabled(),true);
@@ -34,6 +35,9 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.equal(await page.locator('#brightness').isDisabled(),false);
     assert.equal(await page.locator('#topText').isDisabled(),false);
     await page.evaluate(()=>{const zoom=document.querySelector('#zoom');zoom.value=117;zoom.dispatchEvent(new Event('input',{bubbles:true}));});
+    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
+    await page.getByRole('button',{name:'恢复默认',exact:true}).click();
+    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
     await page.getByRole('button',{name:'关闭 Live',exact:true}).click();
     await page.waitForFunction(value=>document.querySelector('#textScale').value===value,before.size);
     assert.equal(await page.locator('#textScale').isDisabled(),false);
