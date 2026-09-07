@@ -1,4 +1,4 @@
-import { addLivePhotoMetadata, createLiveMovie, createZip } from './container.js';
+import { addLivePhotoMetadata, createLiveMovie, createZip } from './container.js?v=20260908-five-cards';
 
 const abortError = () => new DOMException('已取消实况导出', 'AbortError');
 const assertActive = signal => { if(signal?.aborted)throw abortError(); };

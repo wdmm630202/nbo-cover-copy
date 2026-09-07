@@ -1,6 +1,6 @@
-import { CARD_STYLES, CARD_DENSITIES, CARD_DURATION, CARD_INTRO, cardFrame, cardAudioName, cardAssetPath } from './card-series.js';
+import { CARD_STYLES, CARD_DENSITIES, CARD_DURATION, CARD_INTRO, cardFrame, cardAudioName, cardAssetPath } from './card-series.js?v=20260908-five-cards';
 import { createLiveSaver, saveLivePair } from './save.js';
-import { exportNativeLive, getNativeLiveBridge } from './native.js';
+import { exportNativeLive, getNativeLiveBridge } from './native.js?v=20260908-five-cards';
 // Shared Live UI. Mounted only on demand by the static and React shells.
 export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{},captureRender,assetBase=new URL('./',import.meta.url)}) {
   const nativeBridge=getNativeLiveBridge();
@@ -123,7 +123,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       const directory=await saver.choose();
       if(disposed||!enabled||abort.signal.aborted)return;
       status.textContent='正在生成实况 0%';
-      const {exportLivePhoto}=await import('./export.js');
+      const {exportLivePhoto}=await import('./export.js?v=20260908-five-cards');
       const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,assetBase,signal:abort.signal,duration:CARD_INTRO+CARD_DURATION,audioURL:exportAudioURL,audioDelay:CARD_INTRO,
         onProgress:value=>{status.textContent=`正在生成实况 ${value}%`;},
         renderFrame:(canvas,time)=>{
