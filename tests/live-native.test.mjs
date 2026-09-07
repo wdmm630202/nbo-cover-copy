@@ -102,7 +102,7 @@ test('Photos save failure is not reported as success and cleans up session',asyn
 
 test('native controls start on Save gesture without browser exporter or directory picker',async()=>{
   const {mountLiveControls}=await import('../public/live/controls.js');
-  const keys=['webkit','document','Image','matchMedia','cancelAnimationFrame','showDirectoryPicker'];
+  const keys=['webkit','document','Image','matchMedia','cancelAnimationFrame','showDirectoryPicker','fetch'];
   const saved=new Map(keys.map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
   const elements=new Map();
   const host={innerHTML:'',querySelector(selector){
@@ -110,9 +110,10 @@ test('native controls start on Save gesture without browser exporter or director
       listeners:{},setAttribute(){},removeAttribute(){},addEventListener(type,fn){this.listeners[type]=fn;}});
     return elements.get(selector);
   }};
-  const f=fixture();let rendered=0,controls;
+  const f=fixture({reply:c=>c.action==='start'?{session:'test-session',version:2}:c.action==='finish'?{saved:true}:{}});let rendered=0,controls;
   try{
     globalThis.webkit={messageHandlers:{nanboLive:f.bridge}};
+    globalThis.fetch=async()=>({ok:true,arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer});
     globalThis.document={createElement(type){assert.equal(type,'canvas');return f.canvas;}};
     globalThis.Image=class {async decode(){}};
     globalThis.matchMedia=()=>({matches:true});globalThis.cancelAnimationFrame=()=>{};
@@ -122,13 +123,15 @@ test('native controls start on Save gesture without browser exporter or director
     assert.equal(f.calls.length,0,'mounting must not request Photos permission');
     assert.equal(host.innerHTML.includes('下载 Mac 保存助手'),false);
     assert.ok(host.innerHTML.includes('直接保存到苹果'));
-    controls.setEnabled(true);await Promise.resolve();await Promise.resolve();
+    controls.setEnabled(true);await new Promise(resolve=>setImmediate(resolve));
     elements.get('.live-export').listeners.click();
-    assert.equal(f.calls[0].action,'start','Photos access begins in the explicit Save gesture');
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(f.calls[0].action,'start','Photos access begins after explicit Save, with selected sound');
+    assert.equal(f.calls[0].duration,2);assert.equal(f.calls[0].audioBase64,'AQID');
     for(let attempt=0;attempt<20&&elements.get('.live-export').disabled;attempt++){
       await new Promise(resolve=>setImmediate(resolve));
     }
-    assert.equal(rendered,90);assert.equal(f.calls.at(-1).action,'finish');
+    assert.equal(rendered,60);assert.equal(f.calls.at(-1).action,'finish');
     assert.match(elements.get('output').textContent,/实况已保存到苹果/);
     assert.equal(elements.get('.live-toggle').disabled,false);
     assert.equal(elements.get('.live-cancel').hidden,true);

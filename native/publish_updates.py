@@ -5,6 +5,8 @@ from pathlib import Path
 
 def publish(web,output):
     web,output=Path(web),Path(output)
+    bridge_version=2 if (web/"live/card-series.js").exists() else 1
+    size_limit=(48 if bridge_version==2 else 20)*1024*1024
     files=[]
     for path in sorted(web.rglob('*')):
         if path.is_symlink():raise ValueError('Symlinks are not release assets')
@@ -13,7 +15,7 @@ def publish(web,output):
         if not re.fullmatch(r'[A-Za-z0-9_./-]{1,240}',relative) or any(part in ['.','..',''] for part in relative.split('/')) or relative=='manifest.json':raise ValueError('Unsupported asset path: '+relative)
         if len(data)>8*1024*1024:raise ValueError('Asset exceeds native limit: '+relative)
         files.append({'path':relative,'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
-    if not files or len(files)>128 or sum(f['size'] for f in files)>20*1024*1024:raise ValueError('Release exceeds native limits')
+    if not files or len(files)>128 or sum(f['size'] for f in files)>size_limit:raise ValueError('Release exceeds native limits')
     canonical=json.dumps(files,sort_keys=True,separators=(',',':')).encode()
     version=hashlib.sha256(canonical).hexdigest()
     destination=output/'versions'/version
@@ -30,7 +32,7 @@ def publish(web,output):
     else:
         for f in files:
             if hashlib.sha256((destination/f['path']).read_bytes()).hexdigest()!=f['sha256']:raise ValueError('Immutable release was modified')
-    manifest={'schema':1,'bridgeVersion':1,'version':version,'files':files}
+    manifest={'schema':1,'bridgeVersion':bridge_version,'version':version,'files':files}
     fd,name=tempfile.mkstemp(prefix='.manifest-',dir=output)
     try:
         with os.fdopen(fd,'w') as stream:json.dump(manifest,stream,ensure_ascii=False,separators=(',',':'))

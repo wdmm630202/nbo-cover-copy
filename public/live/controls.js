@@ -1,10 +1,20 @@
+import { CARD_STYLES, CARD_DENSITIES, CARD_DURATION, CARD_INTRO, cardFrame, cardAudioName, cardAssetPath } from './card-series.js';
 import { createLiveSaver, saveLivePair } from './save.js';
 import { exportNativeLive, getNativeLiveBridge } from './native.js';
 // Shared Live UI. Mounted only on demand by the static and React shells.
-export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{},motionAt,captureRender,assetBase=new URL('./',import.meta.url)}) {
+export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{},captureRender,assetBase=new URL('./',import.meta.url)}) {
   const nativeBridge=getNativeLiveBridge();
   const saver=nativeBridge?null:createLiveSaver();
-  let enabled=false,atlas=null,frameTime=3,animationId=0,loadGeneration=0,disposed=false,abort=null,busy=false,selectedStyle="focus",previewsLoaded=false;
+  let enabled=false,atlas=null,frameTime=CARD_INTRO+CARD_DURATION,animationId=0,loadGeneration=0,disposed=false,abort=null,busy=false,selectedStyle="silver",density=20,voice=true,sfx=true,previewsLoaded=false;
+  const audio=typeof Audio==='function'?new Audio():null;
+  const imageCache=new Map();
+  try { const saved=JSON.parse(localStorage.getItem('nbo-live-card-v1')||'null');
+    if(saved&&CARD_STYLES.some(x=>x.id===saved.style))selectedStyle=saved.style;
+    if(saved&&CARD_DENSITIES.includes(saved.density))density=saved.density;
+    if(typeof saved?.voice==='boolean')voice=saved.voice;
+    if(typeof saved?.sfx==='boolean')sfx=saved.sfx;
+  } catch { /* Preferences must never block the editor. */ }
+  function remember(){try{localStorage.setItem('nbo-live-card-v1',JSON.stringify({style:selectedStyle,density,voice,sfx}));}catch{}}
   host.innerHTML=`<button type="button" class="live-toggle" aria-pressed="false">制作 Live</button>
     <div class="live-options" hidden>
       <button type="button" class="live-play">播放动效</button>
@@ -13,10 +23,10 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       <details class="live-details" open><summary>动画贴图</summary><div class="live-settings-panel">
         <header class="live-gallery-heading"><strong>动画贴图</strong><span>轻点应用</span></header>
         <div class="live-gallery" role="group" aria-label="Live 动画样式">
-          ${[['focus','帅气合焦'],['cute','Q萌验证'],['simple','简洁验证']].map(([id,name])=>`<button type="button" class="live-style-card" data-style="${id}" aria-pressed="${id==='focus'}" aria-label="${name}"><span class="live-style-art"><canvas width="480" height="160" data-preview="${id}" aria-hidden="true"></canvas></span><span class="live-style-name">${name}<i aria-hidden="true">✓</i></span></button>`).join('')}
+          ${CARD_STYLES.map(({id,name})=>`<article class="live-card-item" data-card="${id}"><button type="button" class="live-style-card" data-style="${id}" aria-pressed="${id===selectedStyle}" aria-label="${name}"><span class="live-style-art"><canvas width="480" height="360" data-preview="${id}" aria-hidden="true"></canvas></span><span class="live-style-name">${name}<i aria-hidden="true">✓</i></span></button><div class="live-card-options" data-options="${id}" ${id===selectedStyle?'':'hidden'} aria-label="${name}卡片设置"><span class="live-card-label">底色浓度</span><div class="live-card-density">${CARD_DENSITIES.map(value=>`<button type="button" data-owner="${id}" data-density="${value}" aria-label="${name}底色${value}%" aria-pressed="${value===density}">${value}%</button>`).join('')}</div><div class="live-card-audio"><button type="button" data-voice="${id}" aria-pressed="${voice}">人声</button><button type="button" data-sfx="${id}" aria-pressed="${sfx}">音效</button><button type="button" data-replay="${id}">重播</button></div></div></article>`).join('')}
         </div>
         <details class="live-help"><summary>使用说明</summary>
-        <p>三行文字，每行最多 6 字。字号与对齐已锁定，其余参数可继续调整。</p>
+        <p>卡片固定在文案下方，左边与文案对齐、底边与素颜照对齐，向上进入。底色浓度、人声和音效在选中的卡片内调整。</p>
         ${nativeBridge?'<p>点击保存实况，直接保存到苹果「照片」。首次保存时请允许添加照片。</p>':`<p>电脑 Chrome 可直接保存到桌面文件夹，无需解压。首次导出请选择桌面并允许保存；当前页面会复用该位置。其他浏览器下载文件包。</p>
         <p>要在 iPhone 相册长按播放，仍需用保存助手将文件夹导入苹果「照片」。</p>
         <a class="live-helper" href="${new URL('南铂实况保存助手.zip',assetBase).href}" download>下载 Mac 保存助手</a>`}
@@ -25,54 +35,62 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       <output class="live-status" aria-live="polite"></output>
     </div>`;
   const q=s=>host.querySelector(s), toggle=q('.live-toggle'),options=q('.live-options'),play=q('.live-play'),exportButton=q('.live-export'),cancel=q('.live-cancel'),status=q('output');
-  const cards=['focus','cute','simple'].map(id=>q(`[data-style="${id}"]`));
-  const crops={focus:[50,57,451,125],cute:[62,72,415,114],simple:[70,73,407,107]};
-  function frameFor(image,time,style=selectedStyle){
-    const motion=motionAt(time),index=Math.max(0,Math.min(89,Math.round(motion.animationTime*30)));
-    const [x,y,width,height]=crops[style];
-    return {time,animation:image&&motion.phase==='complete'?{image,source:{x:(index%9)*600+x,y:Math.floor(index/9)*240+y,width,height}}:null};
+  const cards=CARD_STYLES.map(({id})=>q(`[data-style="${id}"]`));
+  const settingButtons=CARD_STYLES.flatMap(({id})=>[...CARD_DENSITIES.map(d=>q(`[data-owner="${id}"][data-density="${d}"]`)),q(`[data-voice="${id}"]`),q(`[data-sfx="${id}"]`),q(`[data-replay="${id}"]`)]);
+  function frameFor(images,time){
+    const local=time-CARD_INTRO;
+    return {time:local<0?time:3,animation:images&&local>=0?cardFrame(images,local):null};
   }
-  function stop(){cancelAnimationFrame(animationId);animationId=0;frameTime=3;play.removeAttribute('data-active');}
-  function presentation(time=frameTime){
-    if(!enabled)return undefined;
-    return frameFor(atlas,time);
+  function stop(){cancelAnimationFrame(animationId);animationId=0;audio?.pause();frameTime=CARD_INTRO+CARD_DURATION;play.removeAttribute('data-active');}
+  function presentation(time=frameTime){return enabled?frameFor(atlas,time):undefined;}
+  function syncOptions(){
+    CARD_STYLES.forEach(({id})=>{
+      q(`[data-options="${id}"]`).hidden=id!==selectedStyle;
+      q(`[data-style="${id}"]`).setAttribute('aria-pressed',String(id===selectedStyle));
+      CARD_DENSITIES.forEach(d=>q(`[data-owner="${id}"][data-density="${d}"]`).setAttribute('aria-pressed',String(d===density)));
+      q(`[data-voice="${id}"]`).setAttribute('aria-pressed',String(voice));
+      q(`[data-sfx="${id}"]`).setAttribute('aria-pressed',String(sfx));
+    });
   }
+  function audioURL(){const name=cardAudioName(voice,sfx);return name?new URL(`cards/${name}.m4a`,assetBase).href:null;}
   function playAnimation(){
     if(!enabled||!atlas||busy)return;
-    stop();play.setAttribute('data-active','true');const start=performance.now();
+    stop();play.setAttribute('data-active','true');const start=performance.now(),url=audioURL();
+    if(audio&&url){audio.src=url;audio.currentTime=0;audio.play().catch(()=>{if(!disposed)status.textContent='点击卡片内“重播”即可有声播放';});}
     function tick(now){
       if(disposed||!enabled)return;
-      frameTime=(now-start)/1000;
-      if(frameTime>=3){stop();onRefresh();return;}
+      frameTime=audio&&url&&!audio.paused?CARD_INTRO+audio.currentTime:(now-start)/1000;
+      if(frameTime>=CARD_INTRO+CARD_DURATION||audio&&url&&audio.ended){stop();onRefresh();return;}
       onRefresh();animationId=requestAnimationFrame(tick);
     }
     animationId=requestAnimationFrame(tick);
   }
+  async function loadImage(path){
+    if(imageCache.has(path))return imageCache.get(path);
+    const image=new Image();image.src=new URL(path,assetBase).href;await image.decode();
+    // Bound retained atlas memory; thumbnails are kept separately in their canvases.
+    if(imageCache.size>=6)imageCache.delete(imageCache.keys().next().value);
+    imageCache.set(path,image);return image;
+  }
   async function loadAnimation(){
-    const generation=++loadGeneration;atlas=null;onAssetsChanged();onRefresh();play.disabled=exportButton.disabled=true;status.textContent='正在加载动效…';
-    const next=new Image();next.src=new URL(`${selectedStyle}.png`,assetBase).href;
+    const generation=++loadGeneration;atlas=null;onAssetsChanged();onRefresh();play.disabled=exportButton.disabled=true;status.textContent='正在加载卡片…';
     try {
-      await next.decode();
+      const next=await Promise.all([0,1].map(part=>loadImage(cardAssetPath(selectedStyle,density,`${part}.webp`))));
       if(disposed||!enabled||generation!==loadGeneration)return;
       atlas=next;play.disabled=exportButton.disabled=false;status.textContent='';onAssetsChanged();onRefresh();
       if(!matchMedia('(prefers-reduced-motion: reduce)').matches)playAnimation();
     }catch{
       if(disposed||!enabled||generation!==loadGeneration)return;
-      status.textContent='动效读取失败，请切换样式或重新开启 Live';
+      status.textContent='卡片读取失败，请切换色系或重新开启 Live';
     }
   }
   async function loadPreviews(){
-    if(previewsLoaded)return;
-    previewsLoaded=true;
-    await Promise.all(['focus','cute','simple'].map(async style=>{
-      const image=new Image();image.src=new URL(`${style}.png`,assetBase).href;
+    if(previewsLoaded)return;previewsLoaded=true;
+    await Promise.all(CARD_STYLES.map(async({id})=>{
       try{
-        await image.decode();if(disposed)return;
-        const canvas=q(`[data-preview="${style}"]`),context=canvas?.getContext?.('2d');
-        if(!context)return;
-        const [x,y,w,h]=crops[style],scale=Math.min(440/w,120/h);
-        context.clearRect(0,0,480,160);
-        context.drawImage(image,8*600+x,9*240+y,w,h,(480-w*scale)/2,(160-h*scale)/2,w*scale,h*scale);
+        const image=new Image();image.src=new URL(cardAssetPath(id,20,'poster.webp'),assetBase).href;await image.decode();if(disposed)return;
+        const context=q(`[data-preview="${id}"]`)?.getContext?.('2d');if(!context)return;
+        context.clearRect(0,0,480,360);context.drawImage(image,0,0,480,360);
       }catch{previewsLoaded=false;}
     }));
   }
@@ -89,15 +107,15 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     let snapshot;
     try{snapshot=captureRender();}catch(error){status.textContent=error.message;return;}
     busy=true;exportButton.setAttribute('data-active','true');stop();onRefresh();abort=new AbortController();
-    exportButton.disabled=play.disabled=true;cards.forEach(card=>{card.disabled=true;});cancel.hidden=false;status.textContent='正在生成实况 0%';
-    const image=atlas,style=selectedStyle;
+    exportButton.disabled=play.disabled=true;[...cards,...settingButtons].forEach(card=>{card.disabled=true;});cancel.hidden=false;status.textContent='正在生成实况 0%';
+    const image=atlas,exportAudioURL=audioURL();
     try {
       if(bridge){
         status.textContent='正在准备保存到照片…';
-        await exportNativeLive({width:snapshot.width,height:snapshot.height,bridge,signal:abort.signal,
+        await exportNativeLive({width:snapshot.width,height:snapshot.height,bridge,signal:abort.signal,duration:CARD_INTRO+CARD_DURATION,audioURL:exportAudioURL,
           onProgress:value=>{status.textContent=value>=95?'正在保存到照片…':`正在生成实况 ${value}%`;},
           onSaving:()=>{cancel.hidden=true;toggle.disabled=true;status.textContent='正在保存到照片…';},
-          renderFrame:(canvas,time)=>snapshot.render(canvas,frameFor(image,time,style))});
+          renderFrame:(canvas,time)=>snapshot.render(canvas,frameFor(image,time))});
         if(!disposed&&enabled&&!abort.signal.aborted)status.textContent='实况已保存到苹果「照片」，可长按播放';
         return;
       }
@@ -106,10 +124,10 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       if(disposed||!enabled||abort.signal.aborted)return;
       status.textContent='正在生成实况 0%';
       const {exportLivePhoto}=await import('./export.js');
-      const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,assetBase,signal:abort.signal,
+      const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,assetBase,signal:abort.signal,duration:CARD_INTRO+CARD_DURATION,audioURL:exportAudioURL,audioDelay:CARD_INTRO,
         onProgress:value=>{status.textContent=`正在生成实况 ${value}%`;},
         renderFrame:(canvas,time)=>{
-          snapshot.render(canvas,frameFor(image,time,style));
+          snapshot.render(canvas,frameFor(image,time));
         }});
       if(disposed||!enabled||abort.signal.aborted)return;
       if(directory){
@@ -125,16 +143,23 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     }catch(error){
       if(!disposed&&enabled)status.textContent=error.name==='AbortError'?'已取消导出':(/[\u3400-\u9fff]/.test(error.message)?error.message:'实况导出失败，请重试');
     }finally{
-      busy=false;exportButton.removeAttribute('data-active');abort=null;if(!disposed){toggle.disabled=false;exportButton.disabled=play.disabled=!atlas;cards.forEach(card=>{card.disabled=false;});cancel.hidden=true;}
+      busy=false;exportButton.removeAttribute('data-active');abort=null;if(!disposed){toggle.disabled=false;exportButton.disabled=play.disabled=!atlas;[...cards,...settingButtons].forEach(card=>{card.disabled=false;});cancel.hidden=true;}
     }
   }
   toggle.addEventListener('click',()=>setEnabled(!enabled));play.addEventListener('click',playAnimation);
   cards.forEach((card,index)=>card.addEventListener('click',()=>{
     if(busy||!enabled)return;
-    selectedStyle=['focus','cute','simple'][index];
-    cards.forEach(item=>item.setAttribute('aria-pressed',String(item===card)));
-    stop();void loadAnimation();
-  }));exportButton.addEventListener('click',()=>void startExport());
+    selectedStyle=CARD_STYLES[index].id;syncOptions();remember();stop();void loadAnimation();
+  }));
+  CARD_STYLES.forEach(({id})=>{
+    CARD_DENSITIES.forEach(d=>q(`[data-owner="${id}"][data-density="${d}"]`).addEventListener('click',()=>{
+      if(busy||!enabled)return;density=d;syncOptions();remember();stop();void loadAnimation();
+    }));
+    q(`[data-voice="${id}"]`).addEventListener('click',()=>{if(busy)return;voice=!voice;syncOptions();remember();playAnimation();});
+    q(`[data-sfx="${id}"]`).addEventListener('click',()=>{if(busy)return;sfx=!sfx;syncOptions();remember();playAnimation();});
+    q(`[data-replay="${id}"]`).addEventListener('click',playAnimation);
+  });
+  exportButton.addEventListener('click',()=>void startExport());
   cancel.addEventListener('click',()=>abort?.abort());
-  return {setEnabled,presentation,destroy(){disposed=true;stop();abort?.abort();loadGeneration++;atlas=null;host.replaceChildren();}};
+  return {setEnabled,presentation,destroy(){disposed=true;stop();abort?.abort();loadGeneration++;atlas=null;imageCache.clear();if(audio){audio.removeAttribute("src");audio.load();}host.replaceChildren();}};
 }

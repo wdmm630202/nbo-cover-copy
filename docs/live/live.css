@@ -62,3 +62,18 @@
  .live-style-art{height:52px;padding:3px}
  .live-style-name{font-size:10px;padding:0 7px 8px;gap:3px}
 }
+/* Five fixed cards; every new option stays inside its selected gallery card. */
+.live-card-item{min-width:0;border:1px solid #ffffff18;border-radius:10px;overflow:hidden;background:#ffffff04}
+.live-gallery .live-style-card{border:0;border-radius:0;background:transparent}
+.live-card-item:has(.live-style-card[aria-pressed="true"]){border-color:#f0efe9;background:#ffffff09}
+.live-gallery .live-style-card[aria-pressed="true"]{box-shadow:none}
+.live-style-art{height:74px;padding:4px 7px}
+.live-style-art canvas{aspect-ratio:4/3;object-fit:contain;width:100%;height:100%;max-height:none}
+.live-style-name{padding:0 8px 6px;font-size:10px}
+.live-card-options{padding:3px 7px 8px;border-top:1px solid #ffffff14}
+.live-card-label{display:block;font-size:9px;line-height:16px;color:#b8b8b1}
+.live-card-density,.live-card-audio{display:flex;gap:4px;margin-top:3px}
+.live-control-host .live-card-options button{display:flex;justify-content:center;flex:1;min-width:0;padding:2px 3px;border:1px solid #ffffff20;border-radius:5px;font-size:9px;line-height:16px;min-height:22px;background:#ffffff04;color:#bbb}
+.live-control-host .live-card-options button::before,.live-control-host .live-card-options button::after{display:none}
+.live-control-host .live-card-options button[aria-pressed="true"]{background:#f1f0ea;color:#262624;border-color:#f1f0ea}
+@media(max-width:799px), (max-width:999px) and (pointer:coarse){.live-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}

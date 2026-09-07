@@ -34,6 +34,25 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.equal(await page.locator('#zoom').isDisabled(),false);
     assert.equal(await page.locator('#brightness').isDisabled(),false);
     assert.equal(await page.locator('#topText').isDisabled(),false);
+    // Every shipped color/density must decode, with all settings inside its own card.
+    const names=['曜石银','香槟金','雾海蓝','松石绿','赤陶棕'];
+    assert.deepEqual(await page.locator('.live-style-card').evaluateAll(cards=>cards.map(c=>c.getAttribute('aria-label'))),names);
+    await page.emulateMedia({reducedMotion:'reduce'});
+    for(const name of names){
+      await page.getByRole('button',{name,exact:true}).click();
+      for(const density of [0,20,35]){
+        await page.getByRole('button',{name:`${name}底色${density}%`,exact:true}).click();
+        await page.waitForFunction(()=>!document.querySelector('.live-play').disabled);
+        assert.equal(await page.locator('.live-card-options:visible').count(),1);
+        assert.equal(await page.getByRole('button',{name:`${name}底色${density}%`,exact:true}).getAttribute('aria-pressed'),'true');
+      }
+    }
+    const selected=page.locator('.live-card-options:visible');
+    for(const name of ['人声','音效']){
+      const button=selected.getByRole('button',{name,exact:true});await button.click();
+      assert.equal(await button.getAttribute('aria-pressed'),'false');
+    }
+    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('nbo-live-card-v1'))),{style:'clay',density:35,voice:false,sfx:false});
     await page.evaluate(()=>{const zoom=document.querySelector('#zoom');zoom.value=117;zoom.dispatchEvent(new Event('input',{bubbles:true}));});
     assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
     await page.getByRole('button',{name:'恢复默认',exact:true}).click();

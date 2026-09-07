@@ -18,7 +18,7 @@ final class BundledSite: NSObject, WKURLSchemeHandler {
         guard file.path.hasPrefix(root.path + "/") else { task.didFailWithError(NSError(domain: "页面不可访问", code: 2)); return }
         do {
             let data = try Data(contentsOf: file)
-            let mime = ["html":"text/html", "js":"text/javascript", "mjs":"text/javascript", "css":"text/css", "png":"image/png", "jpg":"image/jpeg", "jpeg":"image/jpeg", "webp":"image/webp", "gif":"image/gif", "svg":"image/svg+xml", "woff":"font/woff", "ttf":"font/ttf", "json":"application/json", "woff2":"font/woff2"][file.pathExtension] ?? "application/octet-stream"
+            let mime = ["html":"text/html", "js":"text/javascript", "mjs":"text/javascript", "css":"text/css", "png":"image/png", "jpg":"image/jpeg", "jpeg":"image/jpeg", "webp":"image/webp", "m4a":"audio/mp4", "wav":"audio/wav", "gif":"image/gif", "svg":"image/svg+xml", "woff":"font/woff", "ttf":"font/ttf", "json":"application/json", "woff2":"font/woff2"][file.pathExtension] ?? "application/octet-stream"
             task.didReceive(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": mime + (["html","js","css","json"].contains(file.pathExtension) ? "; charset=utf-8" : ""), "Cache-Control": "no-store"])!)
             task.didReceive(data); task.didFinish()
         } catch { task.didFailWithError(error) }
@@ -52,10 +52,17 @@ final class StudioCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKNavi
         if action == "start" {
             guard !busy, encoder == nil else { reply(nil, "正在保存，请稍候"); return }
             guard let width = body["width"] as? Int, let height = body["height"] as? Int, width == 1080, [1440,1920].contains(height) else { reply(nil, "实况尺寸不受支持"); return }
+            let duration = body["duration"] as? Int ?? 3
+            guard [2,3,4].contains(duration) else { reply(nil, "实况时长不支持"); return }
+            var audioData: Data?
+            if let text = body["audioBase64"] as? String {
+                guard text.count < 2_700_000, let decoded = Data(base64Encoded: text) else { reply(nil, "配音数据无效"); return }
+                audioData = decoded
+            }
             busy = true
             authorize { allowed in
                 guard !self.stopped, allowed else { self.busy = false; reply(nil, "请在系统设置中允许南铂制作添加照片"); return }
-                do { self.encoder = try LiveEncoder(width: width, height: height); self.session = UUID().uuidString; reply(["session": self.session!], nil) }
+                do { self.encoder = try LiveEncoder(width: width, height: height, duration: duration, audioData: audioData); self.session = UUID().uuidString; reply(["session": self.session!, "version": 2], nil) }
                 catch { self.busy = false; reply(nil, "无法开始实况制作，请检查可用空间后重试") }
             }
             return

@@ -24,8 +24,9 @@ while let buffer = output.copyNextSampleBuffer() {
     stillTime = CMTimeGetSeconds(group.timeRange.start)
   }
 }
-precondition(abs(CMTimeGetSeconds(asset.duration) - 3) < 0.001, "视频不是 3 秒")
-precondition(abs(stillTime - 89.0 / 30) < 0.001, "封面标记没有指向最后一帧")
+let expectedDuration = CommandLine.arguments.count > 3 ? Double(CommandLine.arguments[3])! : 3
+precondition(abs(CMTimeGetSeconds(asset.duration) - expectedDuration) < 0.001, "视频时长不正确")
+precondition(abs(stillTime - (expectedDuration - 1.0 / 30)) < 0.001, "封面标记没有指向最后一帧")
 var finished = false
 var valid = false
 PHLivePhoto.request(withResourceFileURLs: [photoURL, movieURL], placeholderImage: nil, targetSize: .zero, contentMode: .aspectFit) { live, info in

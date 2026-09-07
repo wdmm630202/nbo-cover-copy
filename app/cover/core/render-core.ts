@@ -15,6 +15,8 @@ import { getLiveSettings, getLiveMotionState } from "./live-layout";
 
 export type CoverLiveFrame = {
   image: CanvasImageSource;
+  layout?: "card-series";
+  entrance?: number;
   source: { x: number; y: number; width: number; height: number };
 };
 
@@ -425,6 +427,25 @@ function drawLiveAnimation(
 ) {
   const s = width / 1080;
   const { frame: beforeFrame } = getComparisonEvidenceLayout({ width, height }, beforeFrameScale);
+  if (frame.layout === "card-series") {
+    // Align the visible card edge with the copy, and its bottom with the before photo.
+    // The atlas has a 9px transparent margin around a 462×342px card.
+    const bottom = beforeFrame.y + beforeFrame.height;
+    const top = textBounds.bottom + 24 * s;
+    const availableWidth = Math.max(0, Math.min(450 * s, beforeFrame.x - 36 * s - textBounds.left));
+    const scale = Math.max(0, Math.min(availableWidth / 462, (bottom - top) / 342));
+    const progress = Math.max(0, Math.min(1, frame.entrance ?? 1));
+    const source = frame.source;
+    context.save();
+    context.beginPath();
+    context.rect(textBounds.left - 14 * s, top, availableWidth + 28 * s, Math.max(0, bottom - top + 12 * s));
+    context.clip();
+    context.globalAlpha *= progress;
+    context.drawImage(frame.image, source.x, source.y, source.width, source.height,
+      textBounds.left - 9 * scale, bottom - 351 * scale + 32 * s * (1 - progress), 480 * scale, 360 * scale);
+    context.restore();
+    return;
+  }
   const bounds = {
     x: textBounds.left, y: textBounds.bottom + 24 * s,
     width: Math.min(450 * s, beforeFrame.x - 36 * s - textBounds.left), height: 200 * s,

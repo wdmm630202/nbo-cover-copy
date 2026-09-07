@@ -55,7 +55,7 @@ import CryptoKit
             try await expectFailure { try await store.refresh() }
         }
         for key in ["bridgeVersion", "schema"] {
-            var object = try JSONSerialization.jsonObject(with: manifestB) as! [String: Any]; object[key] = 2
+            var object = try JSONSerialization.jsonObject(with: manifestB) as! [String: Any]; object[key] = key == "bridgeVersion" ? 3 : 2
             let malformed = try JSONSerialization.data(withJSONObject: object)
             let store = WebUpdateStore(bundleRoot: bundle, cacheRoot: cache, transport: { _, _ in malformed })
             try await expectFailure { try await store.refresh() }
@@ -85,6 +85,18 @@ import CryptoKit
         try check(repaired != nextRoot && repairedCurrent == repaired, "同版本缓存修复未激活新目录")
         try check(try Data(contentsOf: nextRoot.appendingPathComponent("cover.js")) == Data("corrupt".utf8), "修复改变了已返回的目录")
         try check(try Data(contentsOf: saved.appendingPathComponent("cover.js")) == payload, "旧版本发生变化")
+        var object = try JSONSerialization.jsonObject(with: manifestB) as! [String: Any]
+        object["bridgeVersion"] = 2
+        object["version"] = String(repeating: "c", count: 64)
+        var cardPaths = paths.filter { !["live/cute.png", "live/simple.png", "live/focus.png"].contains($0) }
+        cardPaths += ["live/card-series.js", "live/cards/mix.m4a", "live/cards/voice.m4a", "live/cards/sfx.m4a"]
+        for color in ["silver", "champagne", "blue", "green", "clay"] { for density in [0,20,35] { for file in ["0.webp", "1.webp", "poster.webp"] { cardPaths.append("live/cards/\(color)/\(density)/\(file)") } } }
+        let digest = SHA256.hash(data: payload).map { String(format: "%02x", $0) }.joined()
+        object["files"] = cardPaths.map { ["path": $0, "size": payload.count, "sha256": digest] as [String: Any] }
+        let cardManifest = try JSONSerialization.data(withJSONObject: object)
+        let cards = WebUpdateStore(bundleRoot: bundle, cacheRoot: cache, transport: { url, _ in url.lastPathComponent == "manifest.json" ? cardManifest : payload })
+        let cardRoot = try await cards.refresh()
+        try check(await cards.currentRoot() == cardRoot, "两秒五色有声资源必须完整激活")
         print("PASS: bundled fallback, complete activation, reuse, bad hash atomicity, offline cache, staging cleanup, unsafe paths, unsupported schema/bridge, size bounds, immutable generations, corruption fallback, immutable same-version repair")
     }
 }

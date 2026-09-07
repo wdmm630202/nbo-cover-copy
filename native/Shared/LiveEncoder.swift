@@ -20,12 +20,19 @@ final class LiveEncoder {
     private let writer: AVAssetWriter
     private let video: AVAssetWriterInput
     private let adaptor: AVAssetWriterInputPixelBufferAdaptor
+    private let duration: Int
+    private let frameCount: Int
+    private var audioReader: AVAssetReader?
+    private var audioOutput: AVAssetReaderTrackOutput?
+    private var audioInput: AVAssetWriterInput?
     private var nextIndex = 0
     private var finalJPEG: Data?
     private var ended = false
 
-    init(width: Int, height: Int) throws {
+    init(width: Int, height: Int, duration: Int = 3, audioData: Data? = nil) throws {
         guard width == 1080, height == 1920 || height == 1440 else { throw Failure.message("仅支持 1080×1920 或 1080×1440。") }
+        guard [2,3,4].contains(duration) else { throw Failure.message("实况时长不支持。") }
+        self.duration = duration; self.frameCount = duration * 30
         self.width = width; self.height = height
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("NBO-Live-" + UUID().uuidString, isDirectory: true)
         photo = directory.appendingPathComponent("photo.jpg")
@@ -46,6 +53,21 @@ final class LiveEncoder {
         do {
             guard writer.canAdd(video) else { throw Failure.message("设备无法编码此尺寸的视频。") }
             writer.add(video)
+            if let data = audioData {
+                guard data.count < 2_000_000 else { throw Failure.message("配音文件过大。") }
+                let url = directory.appendingPathComponent("audio.m4a"); try data.write(to: url)
+                let asset = AVURLAsset(url: url)
+                guard let track = asset.tracks(withMediaType: .audio).first,
+                      let rawFormat = track.formatDescriptions.first else { throw Failure.message("配音文件读取失败。") }
+                let reader = try AVAssetReader(asset: asset)
+                let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+                reader.add(output)
+                let input = AVAssetWriterInput(mediaType: .audio, outputSettings: nil, sourceFormatHint: (rawFormat as! CMFormatDescription))
+                input.expectsMediaDataInRealTime = false
+                guard writer.canAdd(input) else { throw Failure.message("无法写入配音。") }
+                writer.add(input)
+                audioReader = reader; audioOutput = output; audioInput = input
+            }
             let item = AVMutableMetadataItem()
             item.keySpace = .quickTimeMetadata; item.key = "com.apple.quicktime.content.identifier" as NSString
             item.value = identifier as NSString; item.dataType = "com.apple.metadata.datatype.UTF-8"
@@ -61,10 +83,21 @@ final class LiveEncoder {
             writer.add(metadata)
             guard writer.startWriting() else { throw Failure.message("视频编码启动失败。") }
             writer.startSession(atSourceTime: .zero)
+            if let reader = audioReader {
+                guard reader.startReading() else { throw Failure.message("无法读取配音数据。") }
+                if let input = audioInput, let output = audioOutput {
+                    input.requestMediaDataWhenReady(on: DispatchQueue(label: "com.nanbostudio.audio")) {
+                        while input.isReadyForMoreMediaData {
+                            guard reader.status == .reading, let sample = output.copyNextSampleBuffer() else { input.markAsFinished(); return }
+                            if !input.append(sample) { reader.cancelReading(); input.markAsFinished(); return }
+                        }
+                    }
+                }
+            }
             let time = AVMutableMetadataItem()
             time.keySpace = .quickTimeMetadata; time.key = "com.apple.quicktime.still-image-time" as NSString
             time.value = NSNumber(value: Int8(0)); time.dataType = "com.apple.metadata.datatype.int8"
-            guard metadataAdaptor.append(AVTimedMetadataGroup(items: [time], timeRange: CMTimeRange(start: CMTime(value: 89, timescale: 30), duration: CMTime(value: 1, timescale: 30)))) else { throw Failure.message("实况照片标记写入失败。") }
+            guard metadataAdaptor.append(AVTimedMetadataGroup(items: [time], timeRange: CMTimeRange(start: CMTime(value: Int64(frameCount - 1), timescale: 30), duration: CMTime(value: 1, timescale: 30)))) else { throw Failure.message("实况照片标记写入失败。") }
             metadata.markAsFinished()
         } catch {
             writer.cancelWriting(); try? FileManager.default.removeItem(at: directory); throw error
@@ -73,7 +106,7 @@ final class LiveEncoder {
 
     func append(jpeg: Data, index: Int) throws {
         guard !Thread.isMainThread else { throw Failure.message("请在后台队列生成实况照片。") }
-        guard !ended, index == nextIndex, index < 90 else { throw Failure.message("动画帧顺序错误或任务已经结束。") }
+        guard !ended, index == nextIndex, index < frameCount else { throw Failure.message("动画帧顺序错误或任务已经结束。") }
         guard !jpeg.isEmpty, jpeg.count <= 16 * 1024 * 1024,
               let source = CGImageSourceCreateWithData(jpeg as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
               CGImageSourceGetType(source) as String? == UTType.jpeg.identifier,
@@ -100,12 +133,12 @@ final class LiveEncoder {
         guard let context = CGContext(data: CVPixelBufferGetBaseAddress(pixel), width: width, height: height, bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(pixel), space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue) else { throw Failure.message("无法绘制视频帧。") }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         guard adaptor.append(pixel, withPresentationTime: CMTime(value: Int64(index), timescale: 30)) else { throw Failure.message("视频帧写入失败。") }
-        if index == 89 { finalJPEG = jpeg }
+        if index == frameCount - 1 { finalJPEG = jpeg }
         nextIndex += 1
     }
 
     func finish(completion: @escaping (Result<(photo: URL, movie: URL), Error>) -> Void) {
-        guard !ended, nextIndex == 90, let jpeg = finalJPEG else { completion(.failure(Failure.message("需要完整的 90 帧才能保存。"))); return }
+        guard !ended, nextIndex == frameCount, let jpeg = finalJPEG else { completion(.failure(Failure.message("需要完整的动画帧才能保存。"))); return }
         ended = true
         guard let source = CGImageSourceCreateWithData(jpeg as CFData, nil),
               let destination = CGImageDestinationCreateWithURL(photo as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else {
@@ -114,7 +147,7 @@ final class LiveEncoder {
         CGImageDestinationAddImageFromSource(destination, source, 0, [kCGImagePropertyMakerAppleDictionary: ["17": identifier]] as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { cancel(); completion(.failure(Failure.message("封面照片写入失败。"))); return }
         finalJPEG = nil
-        video.markAsFinished(); writer.endSession(atSourceTime: CMTime(value: 3, timescale: 1))
+        video.markAsFinished(); writer.endSession(atSourceTime: CMTime(value: Int64(duration), timescale: 1))
         let writer = self.writer, photo = self.photo, movie = self.movie
         let lock = NSLock()
         var delivered = false
@@ -141,6 +174,6 @@ final class LiveEncoder {
         }
     }
 
-    func cancel() { ended = true; finalJPEG = nil; if writer.status == .writing { writer.cancelWriting() }; cleanup() }
+    func cancel() { audioReader?.cancelReading(); ended = true; finalJPEG = nil; if writer.status == .writing { writer.cancelWriting() }; cleanup() }
     func cleanup() { try? FileManager.default.removeItem(at: directory) }
 }

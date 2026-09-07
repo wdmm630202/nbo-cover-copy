@@ -43,8 +43,10 @@ export function addLivePhotoMetadata(jpeg,identifier,width,height,templates) {
   return joinBytes(jpeg.slice(0,2),app1,jpeg.slice(2));
 }
 
-export function createLiveMovie({samples,avcConfig,width,height,assetIdentifier,templates}) {
-  if(samples.length!==90)throw new Error('实况视频需要完整的 90 帧');
+export function createLiveMovie({samples,avcConfig,width,height,assetIdentifier,templates,duration=3,audio=null,audioDelay=0}) {
+  const frameCount=duration*30,ticks=duration*600;
+  if(![2,3,4].includes(duration))throw new Error('实况视频时长无效');
+  if(samples.length!==frameCount)throw new Error(`实况视频需要完整的 ${frameCount} 帧`);
   if(!avcConfig?.length || samples.some(s=>!s.data?.length) || !samples[0].key)throw new Error('实况视频编码不完整');
   if(!Number.isInteger(width)||!Number.isInteger(height)||width<2||height<2||width>4096||height>4096)throw new Error('实况视频尺寸无效');
   const ftyp=decode(templates.ftyp), metadataSample=decode(templates.metadataSample);
@@ -61,23 +63,55 @@ export function createLiveMovie({samples,avcConfig,width,height,assetIdentifier,
   const description=box('stsd',u32(0,1),box('avc1',header,box('avcC',avcConfig)));
   const keyframes=samples.flatMap((s,i)=>s.key?[i+1]:[]);
   const sampleTable=box('stbl',description,
-    box('stts',u32(0,1,90,20)), // 600 ticks/second, 30 frames/second, exactly 3 seconds.
+    box('stts',u32(0,1,frameCount,20)), // 600 ticks/second, 30 frames/second.
     box('stss',u32(0,keyframes.length,...keyframes)),
-    box('stsc',u32(0,1,1,90,1)),
-    box('stsz',u32(0,0,90,...samples.map(s=>s.data.length))),
+    box('stsc',u32(0,1,1,frameCount,1)),
+    box('stsz',u32(0,0,frameCount,...samples.map(s=>s.data.length))),
     box('stco',u32(0,1,ftyp.length+8)));
   const trackHeader=child(videoTrack,'tkhd');
   view(trackHeader).setUint32(trackHeader.length-8,width*65536);
   view(trackHeader).setUint32(trackHeader.length-4,height*65536);
-  const newVideoTrack=replaceChildren(videoTrack,{tkhd:trackHeader,mdia:replaceChildren(mdia,{minf:replaceChildren(minf,{stbl:sampleTable})})},['tapt']);
+  view(trackHeader).setUint32(28,ticks);
+  const mediaHeader=child(mdia,'mdhd');view(mediaHeader).setUint32(24,ticks);
+  const videoEdits=child(videoTrack,'edts'),videoEditList=child(videoEdits,'elst');view(videoEditList).setUint32(16,ticks);
+  const newVideoTrack=replaceChildren(videoTrack,{tkhd:trackHeader,edts:replaceChildren(videoEdits,{elst:videoEditList}),mdia:replaceChildren(mdia,{mdhd:mediaHeader,minf:replaceChildren(minf,{stbl:sampleTable})})},['tapt']);
   const metaMdia=child(metadataTrack,'mdia'), metaMinf=child(metaMdia,'minf'), metaStbl=child(metaMinf,'stbl');
-  const metaHeader=child(metadataTrack,'tkhd');view(metaHeader).setUint32(28,1800);
+  const metaHeader=child(metadataTrack,'tkhd');view(metaHeader).setUint32(28,ticks);
   const edits=child(metadataTrack,'edts'),editList=child(edits,'elst');
-  view(editList).setUint32(16,1780); // Last frame: 89 / 30 seconds, 20 ticks before the 3-second endpoint.
+  view(editList).setUint32(16,ticks-20); // Pair the still with the final frame.
   const newMetadataTrack=replaceChildren(metadataTrack,{tkhd:metaHeader,edts:replaceChildren(edits,{elst:editList}),mdia:replaceChildren(metaMdia,{minf:replaceChildren(metaMinf,{stbl:replaceChildren(metaStbl,{stco:box('stco',u32(0,1,ftyp.length+8+videoBytes.length))})})})});
   let trackIndex=0;
-  const moov=box('moov',...top.map(b=>b.type==='trak' ? (trackIndex++===0?newVideoTrack:newMetadataTrack) : b.data));
-  return joinBytes(ftyp,box('mdat',videoBytes,metadataSample),moov);
+  const audioTrack=audio?prepareAudioTrack(audio,ftyp.length+8+videoBytes.length+metadataSample.length,audioDelay):null;
+  const movieHeader=child(movie,'mvhd');view(movieHeader).setUint32(24,ticks);
+  if(audioTrack)view(movieHeader).setUint32(movieHeader.length-4,4);
+  const moov=box('moov',...top.map(b=>b.type==='trak' ? (trackIndex++===0?newVideoTrack:newMetadataTrack) : b.type==='mvhd'?movieHeader:b.data),...(audioTrack?[audioTrack.track]:[]));
+  return joinBytes(ftyp,box('mdat',videoBytes,metadataSample,...(audioTrack?[audioTrack.bytes]:[])),moov);
+}
+
+// Reuse our bundled AAC sample bytes, preserving its priming edit for gapless speech.
+function prepareAudioTrack(bytes,offset,delay) {
+  if(!Number.isFinite(delay)||delay<0||delay>2)throw new Error('配音时间无效');
+  const boxes=readBoxes(bytes),movie=boxes.find(b=>b.type==='moov')?.data,mdat=boxes.find(b=>b.type==='mdat');
+  if(!movie||!mdat)throw new Error('配音文件不完整');
+  const originalScale=view(child(movie,'mvhd')).getUint32(20);
+  const track=readBoxes(movie.slice(8)).filter(b=>b.type==='trak').find(b=>{
+    const handler=child(child(b.data,'mdia'),'hdlr');return String.fromCharCode(...handler.slice(16,20))==='soun';
+  })?.data;
+  if(!track||!originalScale)throw new Error('配音轨道读取失败');
+  const tkhd=child(track,'tkhd');view(tkhd).setUint32(20,3);
+  const duration=Math.round(view(tkhd).getUint32(28)/originalScale*600)+Math.round(delay*600);
+  view(tkhd).setUint32(28,duration);
+  const mdia=child(track,'mdia'),minf=child(mdia,'minf'),stbl=child(minf,'stbl');
+  const offsets=child(stbl,'stco'),count=view(offsets).getUint32(12),delta=offset-(mdat.offset+8);
+  for(let i=0;i<count;i++)view(offsets).setUint32(16+i*4,view(offsets).getUint32(16+i*4)+delta);
+  const edts=child(track,'edts'),elst=child(edts,'elst');
+  if(elst[8]!==0)throw new Error('配音时间格式不支持');
+  const entries=[];
+  if(delay)entries.push(u32(Math.round(delay*600),0xffffffff,0x00010000));
+  for(let i=0;i<view(elst).getUint32(12);i++){
+    const entry=elst.slice(16+i*12,28+i*12);view(entry).setUint32(0,Math.round(view(entry).getUint32(0)/originalScale*600));entries.push(entry);
+  }
+  return {bytes:mdat.data.slice(8),track:replaceChildren(track,{tkhd,edts:box('edts',box('elst',u32(0,entries.length),...entries)),mdia:replaceChildren(mdia,{minf:replaceChildren(minf,{stbl:replaceChildren(stbl,{stco:offsets})})})})};
 }
 
 function crc32(bytes) {

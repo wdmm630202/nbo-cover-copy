@@ -39,8 +39,11 @@ final class Probe: NSObject, WKNavigationDelegate {
         const mod=await import('nbo://studio/live/native.js');
         let frames=0;
         const bridge={postMessage:async message=>{ const r=await window.webkit.messageHandlers.nanboLive.postMessage(message);if(message.action==='frame')frames++;if(r?.diagnostic)return {...r,saved:true};return r; }};
-        await mod.exportNativeLive({width:1080,height:1920,bridge,renderFrame(canvas,time){canvas.getContext('2d').drawImage(original,0,0,1080,1920);},onProgress(){}});
-        if(frames!==90)throw new Error('Missing frames');
+        for (const duration of [3,2]) {
+          frames=0;
+          await mod.exportNativeLive({width:1080,height:1920,bridge,duration,audioURL:duration===2?'nbo://studio/live/cards/mix.m4a':null,renderFrame(canvas,time){canvas.getContext('2d').drawImage(original,0,0,1080,1920);},onProgress(){}});
+          if(frames!==duration*30)throw new Error('Missing frames');
+        }
         return {frames,canvasWidth:original.width,canvasHeight:original.height,helperLinks:document.querySelectorAll('.live-helper').length,photosWritten:false};
         """#
         webView.callAsyncJavaScript(js, arguments: [:], in: nil, in: .page) { result in

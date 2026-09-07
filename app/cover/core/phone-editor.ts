@@ -55,7 +55,15 @@ export function mountPhoneEditor(root: HTMLElement, owner: () => PhoneEditorAdap
   function begin() {
     const undo = owner().beginEdit(), savedGuides = guides;
     const style = liveHost.querySelector<HTMLButtonElement>('[data-style][aria-pressed=true]');
-    return () => { undo(); guides = savedGuides; owner().preview(active, guides); if (style && style.getAttribute('aria-pressed') !== 'true') style.click(); };
+    const card = style?.closest('.live-card-item');
+    const density = card?.querySelector<HTMLButtonElement>('[data-density][aria-pressed=true]');
+    const audio = [...(card?.querySelectorAll<HTMLButtonElement>('[data-voice], [data-sfx]') || [])].map(control => ({control, pressed: control.getAttribute('aria-pressed')}));
+    return () => {
+      undo(); guides = savedGuides; owner().preview(active, guides);
+      if (style && style.getAttribute('aria-pressed') !== 'true') style.click();
+      if (density && density.getAttribute('aria-pressed') !== 'true') density.click();
+      for (const {control, pressed} of audio) if (control.getAttribute('aria-pressed') !== pressed) control.click();
+    };
   }
   const change = (t: ToolDefinition, value: unknown) => {
     if (!rollback) rollback = begin();
@@ -233,7 +241,19 @@ export function mountPhoneEditor(root: HTMLElement, owner: () => PhoneEditorAdap
       const row = element('div', 'phone-stickers');
       for (const card of liveHost.querySelectorAll<HTMLButtonElement>('[data-style]')) {
         const b = button(card.getAttribute('aria-label') || '贴图', () => { if (!rollback) rollback = begin(); card.click(); renderKey = ''; update(); }); b.setAttribute('aria-pressed', card.getAttribute('aria-pressed') || 'false');
-        const original = card.querySelector('canvas'); if (original) { const thumb = document.createElement('canvas'); thumb.width = original.width; thumb.height = original.height; thumb.getContext('2d')!.drawImage(original,0,0); b.insertBefore(thumb,b.firstChild); } append(row,b);
+        const original = card.querySelector('canvas'); if (original) { const thumb = document.createElement('canvas'); thumb.width = original.width; thumb.height = original.height; thumb.getContext('2d')!.drawImage(original,0,0); b.insertBefore(thumb,b.firstChild); }
+        const item = element('div', 'phone-card-item'); append(item,b);
+        if (card.getAttribute('aria-pressed') === 'true') {
+          const options = element('div', 'phone-card-options');
+          for (const control of card.closest('.live-card-item')?.querySelectorAll<HTMLButtonElement>('.live-card-options button') || []) {
+            const copy = button(control.textContent || '', () => { if (!control.hasAttribute('data-replay') && !rollback) rollback = begin(); control.click(); renderKey = ''; update(); });
+            copy.disabled = control.disabled;
+            const pressed = control.getAttribute('aria-pressed'); if (pressed !== null) copy.setAttribute('aria-pressed',pressed);
+            copy.setAttribute('aria-label',control.getAttribute('aria-label') || control.textContent || '卡片设置'); append(options,copy);
+          }
+          append(item,options);
+        }
+        append(row,item);
       } append(controls,row);
     } else {
       if (list.length) renderTool(find(selectedTool), controls);

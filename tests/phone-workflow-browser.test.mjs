@@ -97,8 +97,11 @@ test('手机单屏工作台：固定入口、原地调整、手势、Live 与原
       await tap('Live');await page.waitForFunction(()=>document.querySelector('.phone-shortcut-rail button[aria-pressed=true]')&&document.querySelector('.live-play'));await tap('文字');
       const values=[];for(const id of ['topText','bottomText','subtitle']){await tool(id);values.push(await phone.getByRole('textbox').inputValue());}
       assert.deepEqual(values,['男士素人改造','原来普通男生','也能拍成这样']);assert.ok(await phone.locator('[data-tool="textScale"]').isDisabled(),'Live 锁定字号');
-      await tap('贴图');await phone.getByRole('button',{name:'Q萌验证',exact:true}).waitFor();await tap('Q萌验证');await tap('撤销');assert.equal(await phone.getByRole('button',{name:'帅气合焦',exact:true}).getAttribute('aria-pressed'),'true');
-      await tap('简洁验证');await page.waitForFunction(()=>document.querySelector('.live-play')?.disabled===false);await tap('播放');await page.waitForTimeout(3100);await persistent();await page.screenshot({path:`outputs/phone-workflow/${shell}-live.png`});
+      await tap('贴图');await phone.getByRole('button',{name:'香槟金',exact:true}).waitFor();await tap('香槟金');await tap('撤销');assert.equal(await phone.getByRole('button',{name:'曜石银',exact:true}).getAttribute('aria-pressed'),'true');
+      await tap('曜石银底色35%');await tap('人声');await tap('音效');await tap('撤销');
+      assert.equal(await phone.getByRole('button',{name:'曜石银底色20%',exact:true}).getAttribute('aria-pressed'),'true','撤销恢复卡片底色');
+      for(const name of ['人声','音效'])assert.equal(await phone.getByRole('button',{name,exact:true}).getAttribute('aria-pressed'),'true','撤销恢复声音');
+      await tap('雾海蓝');await page.waitForFunction(()=>document.querySelector('.live-play')?.disabled===false);await tap('播放');await page.waitForTimeout(3100);await persistent();await page.screenshot({path:`outputs/phone-workflow/${shell}-live.png`});
       await tap('Live');await page.waitForFunction(()=>!document.querySelector('body').classList.contains('live-mode'));await tap('文字');assert.equal(await first.inputValue(),'手机文案','退出 Live 保留普通文案');
       for(const [label,ratio] of [['抖音 9:16',1920],['小红书 3:4',1440]]){
         await tap('更多');await tool('platform');await tap(label);await tap('导出');await persistent();

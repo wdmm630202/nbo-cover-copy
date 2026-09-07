@@ -29,9 +29,9 @@ test('React 实际工作台 Live 反复切换、编辑、动画切换与卸载�
       await brightness.fill(String(92+i));await brightness.press('Enter');
       assert.equal(await brightness.inputValue(),String(92+i));
       if (!await page.locator('.live-details').evaluate(node=>node.open)) await page.locator('.live-details > summary').click();
-      await page.getByRole('button',{name:i?'简洁验证':'Q萌验证',exact:true}).click();
+      await page.getByRole('button',{name:i?'雾海蓝':'香槟金',exact:true}).click();
       assert.equal(await page.locator('.live-style-card[aria-pressed="true"]').count(),1);
-      assert.equal(await page.locator('.live-style-card[aria-pressed="true"]').getAttribute('data-style'),i?'simple':'cute');
+      assert.equal(await page.locator('.live-style-card[aria-pressed="true"]').getAttribute('data-style'),i?'blue':'champagne');
       await page.waitForFunction(()=>Array.from(document.querySelectorAll('[data-preview]')).every(c=>c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0)));
       await page.waitForFunction(()=>document.querySelector('.live-export')?.disabled===false);
       assert.equal(await page.getByRole('textbox',{name:'上行主标题',exact:true}).inputValue(),'男士素人改造');

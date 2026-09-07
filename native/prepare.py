@@ -7,7 +7,7 @@ repo = root.parent
 web = root / 'Web'
 if web.exists(): shutil.rmtree(web)
 web.mkdir(exist_ok=True)
-asset_types = {'.js','.mjs','.css','.png','.jpg','.jpeg','.webp','.gif','.svg','.woff','.woff2','.ttf','.json'}
+asset_types = {'.js','.mjs','.css','.png','.jpg','.jpeg','.webp','.gif','.svg','.woff','.woff2','.ttf','.json','.m4a','.wav'}
 for source in (repo/'docs').rglob('*'):
     relative = source.relative_to(repo/'docs')
     if relative.parts[0] in {'live','superpowers'}: continue

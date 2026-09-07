@@ -984,6 +984,22 @@ var NBOCoverCore = (function(exports) {
 			width,
 			height
 		}, beforeFrameScale);
+		if (frame.layout === "card-series") {
+			const bottom = beforeFrame.y + beforeFrame.height;
+			const top = textBounds.bottom + 24 * s;
+			const availableWidth = Math.max(0, Math.min(450 * s, beforeFrame.x - 36 * s - textBounds.left));
+			const scale = Math.max(0, Math.min(availableWidth / 462, (bottom - top) / 342));
+			const progress = Math.max(0, Math.min(1, frame.entrance ?? 1));
+			const source = frame.source;
+			context.save();
+			context.beginPath();
+			context.rect(textBounds.left - 14 * s, top, availableWidth + 28 * s, Math.max(0, bottom - top + 12 * s));
+			context.clip();
+			context.globalAlpha *= progress;
+			context.drawImage(frame.image, source.x, source.y, source.width, source.height, textBounds.left - 9 * scale, bottom - 351 * scale + 32 * s * (1 - progress), 480 * scale, 360 * scale);
+			context.restore();
+			return;
+		}
 		const bounds = {
 			x: textBounds.left,
 			y: textBounds.bottom + 24 * s,
@@ -2179,11 +2195,19 @@ var NBOCoverCore = (function(exports) {
 		function begin() {
 			const undo = owner().beginEdit(), savedGuides = guides;
 			const style = liveHost.querySelector("[data-style][aria-pressed=true]");
+			const card = style?.closest(".live-card-item");
+			const density = card?.querySelector("[data-density][aria-pressed=true]");
+			const audio = [...card?.querySelectorAll("[data-voice], [data-sfx]") || []].map((control) => ({
+				control,
+				pressed: control.getAttribute("aria-pressed")
+			}));
 			return () => {
 				undo();
 				guides = savedGuides;
 				owner().preview(active, guides);
 				if (style && style.getAttribute("aria-pressed") !== "true") style.click();
+				if (density && density.getAttribute("aria-pressed") !== "true") density.click();
+				for (const { control, pressed } of audio) if (control.getAttribute("aria-pressed") !== pressed) control.click();
 			};
 		}
 		const change = (t, value) => {
@@ -2587,7 +2611,26 @@ var NBOCoverCore = (function(exports) {
 						thumb.getContext("2d").drawImage(original, 0, 0);
 						b.insertBefore(thumb, b.firstChild);
 					}
-					append(row, b);
+					const item = element("div", "phone-card-item");
+					append(item, b);
+					if (card.getAttribute("aria-pressed") === "true") {
+						const options = element("div", "phone-card-options");
+						for (const control of card.closest(".live-card-item")?.querySelectorAll(".live-card-options button") || []) {
+							const copy = button(control.textContent || "", () => {
+								if (!control.hasAttribute("data-replay") && !rollback) rollback = begin();
+								control.click();
+								renderKey = "";
+								update();
+							});
+							copy.disabled = control.disabled;
+							const pressed = control.getAttribute("aria-pressed");
+							if (pressed !== null) copy.setAttribute("aria-pressed", pressed);
+							copy.setAttribute("aria-label", control.getAttribute("aria-label") || control.textContent || "卡片设置");
+							append(options, copy);
+						}
+						append(item, options);
+					}
+					append(row, item);
 				}
 				append(controls, row);
 			} else {

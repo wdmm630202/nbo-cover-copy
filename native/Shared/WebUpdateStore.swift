@@ -25,7 +25,7 @@ actor WebUpdateStore {
     private let baseURL: URL
     private let transport: Transport
     private var busy = false
-    private static let required: Set<String> = ["cover.html", "cover.css", "cover.js", "cover-core.js", "compare-layout.js", "drop-upload.js", "nanbo-default-watermark.png", "live/controls.js", "live/native.js", "live/save.js", "live/live.css", "live/container.js", "live/export.js", "live/templates.json", "live/cute.png", "live/simple.png", "live/focus.png"]
+    private static let required: Set<String> = ["cover.html", "cover.css", "cover.js", "cover-core.js", "compare-layout.js", "drop-upload.js", "nanbo-default-watermark.png", "live/controls.js", "live/native.js", "live/save.js", "live/live.css", "live/container.js", "live/export.js", "live/templates.json"]
 
     init(bundleRoot: URL, cacheRoot: URL, baseURL: URL = WebUpdateStore.trustedBase, transport: Transport? = nil) {
         self.bundleRoot = bundleRoot; self.cacheRoot = cacheRoot.resolvingSymlinksInPath(); self.baseURL = baseURL
@@ -116,7 +116,7 @@ actor WebUpdateStore {
     private static func hash(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
     private static func decode(_ data: Data) throws -> Manifest {
         let manifest = try JSONDecoder().decode(Manifest.self, from: data)
-        guard manifest.schema == 1, manifest.bridgeVersion == 1, isHash(manifest.version), !manifest.files.isEmpty, manifest.files.count <= 128 else { throw Failure.invalid("不支持此更新清单。") }
+        guard manifest.schema == 1, [1,2].contains(manifest.bridgeVersion), isHash(manifest.version), !manifest.files.isEmpty, manifest.files.count <= 128 else { throw Failure.invalid("不支持此更新清单。") }
         var paths = Set<String>(), total = 0
         for file in manifest.files {
             let parts = file.path.split(separator: "/", omittingEmptySubsequences: false)
@@ -127,7 +127,18 @@ actor WebUpdateStore {
                   file.size >= 0, file.size <= 8 * 1024 * 1024, isHash(file.sha256) else { throw Failure.invalid("文件路径、大小或校验值无效。") }
             total += file.size
         }
-        guard total <= 20 * 1024 * 1024, required.isSubset(of: paths) else { throw Failure.invalid("更新文件不完整或总大小超限。") }
+        var expected = required
+        if manifest.bridgeVersion == 1 {
+            expected.formUnion(["live/cute.png", "live/simple.png", "live/focus.png"])
+        } else {
+            expected.formUnion(["live/card-series.js", "live/cards/mix.m4a", "live/cards/voice.m4a", "live/cards/sfx.m4a"])
+            for color in ["silver", "champagne", "blue", "green", "clay"] {
+                for density in [0, 20, 35] {
+                    for file in ["0.webp", "1.webp", "poster.webp"] { expected.insert("live/cards/\(color)/\(density)/\(file)") }
+                }
+            }
+        }
+        guard total <= (manifest.bridgeVersion == 2 ? 48 : 20) * 1024 * 1024, expected.isSubset(of: paths) else { throw Failure.invalid("更新文件不完整或总大小超限。") }
         for path in paths {
             let parts = path.split(separator: "/")
             for index in 1..<parts.count where paths.contains(parts.prefix(index).joined(separator: "/")) { throw Failure.invalid("文件路径相互冲突。") }
