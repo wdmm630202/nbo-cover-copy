@@ -80,3 +80,6 @@
 
 .live-card-density{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px}
 .live-control-host .live-card-density button{padding:2px 0;font-size:8px;white-space:nowrap}
+
+.live-card-audio{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
+.live-control-host .live-card-audio button{padding:2px 0;white-space:nowrap}

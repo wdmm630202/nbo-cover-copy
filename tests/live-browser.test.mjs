@@ -43,7 +43,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.ok(positions.every(p=>p.y===positions[0].y&&!p.overflow),'五档同排且没有裁字');
     assert.ok(Math.abs(positions[2].x-(positions[0].x+positions[4].x)/2)<1,'50%位于中间');
     const alphaSamples=await page.evaluate(async()=>{
-      const {compositeCard}=await import('./live/card-series.js?v=20260908-density-five');
+      const {compositeCard}=await import('./live/card-series.js?v=20260908-card-dash');
       const foreground=document.createElement('canvas'),mask=document.createElement('canvas');foreground.width=mask.width=2;foreground.height=mask.height=1;
       const fg=foreground.getContext('2d');fg.fillStyle='#fff';fg.fillRect(0,0,1,1);
       const m=mask.getContext('2d');m.fillStyle='#fff';m.fillRect(0,0,2,1);
@@ -63,11 +63,22 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
       }
     }
     const selected=page.locator('.live-card-options:visible');
+    assert.deepEqual(await selected.locator('.live-card-audio button').allTextContents(),['人声','音效','虚线','重播']);
+    const dashed=selected.getByRole('button',{name:'虚线',exact:true});
+    assert.equal(await dashed.getAttribute('aria-pressed'),'true','虚线默认开启');
+    const withBorder=await page.locator('#coverCanvas').evaluate(c=>c.toDataURL());
+    await dashed.click();
+    assert.equal(await page.evaluate(()=>liveController.presentation(2).animation.dashed),false);
+    await page.waitForFunction(before=>document.querySelector('#coverCanvas').toDataURL()!==before,withBorder);
+    await dashed.click();
+    await page.waitForFunction(before=>document.querySelector('#coverCanvas').toDataURL()===before,withBorder);
+    await dashed.click();
+
     for(const name of ['人声','音效']){
       const button=selected.getByRole('button',{name,exact:true});await button.click();
       assert.equal(await button.getAttribute('aria-pressed'),'false');
     }
-    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('nbo-live-card-v1'))),{style:'clay',density:100,voice:false,sfx:false,densityVersion:2});
+    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('nbo-live-card-v1'))),{style:'clay',density:100,voice:false,sfx:false,dashed:false,densityVersion:2});
     await page.evaluate(()=>{const zoom=document.querySelector('#zoom');zoom.value=117;zoom.dispatchEvent(new Event('input',{bubbles:true}));});
     assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
     await page.getByRole('button',{name:'恢复默认',exact:true}).click();

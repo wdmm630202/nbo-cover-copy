@@ -102,7 +102,7 @@ body.nbo-phone .phone-stickers{grid-template-columns:repeat(2,minmax(0,1fr))}
 body.nbo-phone .phone-card-item{min-width:0;border:1px solid #d7d4cc;border-radius:10px;overflow:hidden}
 body.nbo-phone .phone-card-item>button{width:100%;border:0}
 body.nbo-phone .phone-card-options{padding:6px}
-body.nbo-phone .phone-card-density,body.nbo-phone .phone-card-audio{display:grid;gap:4px;grid-template-columns:repeat(3,minmax(0,1fr))}
+body.nbo-phone .phone-card-density,body.nbo-phone .phone-card-audio{display:grid;gap:4px;grid-template-columns:repeat(4,minmax(0,1fr))}
 body.nbo-phone .phone-card-density{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:4px}
 body.nbo-phone .phone-card-item:has(>button[aria-pressed="true"]){grid-column:1/-1}
 body.nbo-phone .phone-card-item:has(>button[aria-pressed="true"]) canvas{height:94px;object-fit:contain}

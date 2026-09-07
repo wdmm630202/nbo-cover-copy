@@ -5,6 +5,7 @@ import {
 } from "../cover-config";
 import {
   drawComparisonEditorialOverlay,
+  drawComparisonDashedFrame,
   getComparisonEvidenceLayout,
   getComparisonFadeStops,
   getComparisonPhotoTransform,
@@ -17,6 +18,7 @@ export type CoverLiveFrame = {
   image: CanvasImageSource;
   layout?: "card-series";
   entrance?: number;
+  dashed?: boolean;
   source: { x: number; y: number; width: number; height: number };
 };
 
@@ -444,6 +446,16 @@ function drawLiveAnimation(
     context.drawImage(frame.image, source.x, source.y, source.width, source.height,
       textBounds.left - 9 * scale, bottom - 351 * scale + 32 * s * (1 - progress), 480 * scale, 360 * scale);
     context.restore();
+    if (frame.dashed && scale > 0) {
+      // The fixed outline reveals the full card boundary even with a transparent plate.
+      context.save();
+      context.scale(s, s);
+      drawComparisonDashedFrame(context, {
+        x: textBounds.left / s, y: (bottom - 342 * scale) / s,
+        width: 462 * scale / s, height: 342 * scale / s, radius: 21 * scale / s,
+      }, roundedRectPath);
+      context.restore();
+    }
     return;
   }
   const bounds = {

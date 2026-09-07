@@ -57,12 +57,12 @@ export function mountPhoneEditor(root: HTMLElement, owner: () => PhoneEditorAdap
     const style = liveHost.querySelector<HTMLButtonElement>('[data-style][aria-pressed=true]');
     const card = style?.closest('.live-card-item');
     const density = card?.querySelector<HTMLButtonElement>('[data-density][aria-pressed=true]');
-    const audio = [...(card?.querySelectorAll<HTMLButtonElement>('[data-voice], [data-sfx]') || [])].map(control => ({control, pressed: control.getAttribute('aria-pressed')}));
+    const toggles = [...(card?.querySelectorAll<HTMLButtonElement>('[data-voice], [data-sfx], [data-dashed]') || [])].map(control => ({control, pressed: control.getAttribute('aria-pressed')}));
     return () => {
       undo(); guides = savedGuides; owner().preview(active, guides);
       if (style && style.getAttribute('aria-pressed') !== 'true') style.click();
       if (density && density.getAttribute('aria-pressed') !== 'true') density.click();
-      for (const {control, pressed} of audio) if (control.getAttribute('aria-pressed') !== pressed) control.click();
+      for (const {control, pressed} of toggles) if (control.getAttribute('aria-pressed') !== pressed) control.click();
     };
   }
   const change = (t: ToolDefinition, value: unknown) => {

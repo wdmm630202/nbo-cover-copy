@@ -457,6 +457,15 @@ var NBOCoverCore = (function(exports) {
 		context.fillText(word, circleX, textY);
 		context.restore();
 	}
+	function drawComparisonDashedFrame(context, frame, roundedRectPath) {
+		context.save();
+		context.setLineDash([14, 10]);
+		context.lineWidth = 3.5;
+		context.strokeStyle = "rgba(222,222,224,.86)";
+		roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
+		context.stroke();
+		context.restore();
+	}
 	function drawComparisonEditorialOverlay(context, canvas, roundedRectPath, frameScale = 100) {
 		const scale = canvas.width / 1080;
 		const baseCanvas = {
@@ -471,13 +480,7 @@ var NBOCoverCore = (function(exports) {
 		context.beginPath();
 		context.rect(safe.x, safe.y, safe.width, safe.height);
 		context.clip();
-		context.save();
-		context.setLineDash([14, 10]);
-		context.lineWidth = 3.5;
-		context.strokeStyle = "rgba(222,222,224,.86)";
-		roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
-		context.stroke();
-		context.restore();
+		drawComparisonDashedFrame(context, frame, roundedRectPath);
 		drawComparisonCapsule(context, labels.after, "后", scale);
 		drawComparisonCapsule(context, labels.before, "前", scale);
 		context.restore();
@@ -998,6 +1001,18 @@ var NBOCoverCore = (function(exports) {
 			context.globalAlpha *= progress;
 			context.drawImage(frame.image, source.x, source.y, source.width, source.height, textBounds.left - 9 * scale, bottom - 351 * scale + 32 * s * (1 - progress), 480 * scale, 360 * scale);
 			context.restore();
+			if (frame.dashed && scale > 0) {
+				context.save();
+				context.scale(s, s);
+				drawComparisonDashedFrame(context, {
+					x: textBounds.left / s,
+					y: (bottom - 342 * scale) / s,
+					width: 462 * scale / s,
+					height: 342 * scale / s,
+					radius: 21 * scale / s
+				}, roundedRectPath);
+				context.restore();
+			}
 			return;
 		}
 		const bounds = {
@@ -2197,7 +2212,7 @@ var NBOCoverCore = (function(exports) {
 			const style = liveHost.querySelector("[data-style][aria-pressed=true]");
 			const card = style?.closest(".live-card-item");
 			const density = card?.querySelector("[data-density][aria-pressed=true]");
-			const audio = [...card?.querySelectorAll("[data-voice], [data-sfx]") || []].map((control) => ({
+			const toggles = [...card?.querySelectorAll("[data-voice], [data-sfx], [data-dashed]") || []].map((control) => ({
 				control,
 				pressed: control.getAttribute("aria-pressed")
 			}));
@@ -2207,7 +2222,7 @@ var NBOCoverCore = (function(exports) {
 				owner().preview(active, guides);
 				if (style && style.getAttribute("aria-pressed") !== "true") style.click();
 				if (density && density.getAttribute("aria-pressed") !== "true") density.click();
-				for (const { control, pressed } of audio) if (control.getAttribute("aria-pressed") !== pressed) control.click();
+				for (const { control, pressed } of toggles) if (control.getAttribute("aria-pressed") !== pressed) control.click();
 			};
 		}
 		const change = (t, value) => {

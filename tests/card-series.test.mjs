@@ -58,3 +58,18 @@ test('两秒实况封装三条轨道：视频、最后一帧标记、可解码AA
   }
  }
 });
+
+
+test('卡片虚线复用素颜框的同一描边，关闭时仅保留原框，导出无辅助线时仍按开关绘制',async()=>{
+ for(const height of [1920,1440])for(const width of [1080,540])for(const dashed of [false,true]){
+  const env=createTraceEnvironment(),core=loadCurrentCore(await readFile(new URL('../docs/cover-core.js',import.meta.url),'utf8'),env);
+  const settings=getLiveSettings(DEFAULT_COVER_SETTINGS,LIVE_DEFAULT_TEXT),canvas=env.createCanvas('card-border');
+  core.drawCover({canvas,image:null,beforeImage:null,watermark:null,settings,preset:{id:'douyin',width:1080,height},outputSize:{width,height:height*width/1080},includeGuide:false,live:{time:3,animation:cardFrame([{__name:'card'},{__name:'card'}],2,dashed)}});
+  const log=env.recorder.log,indices=log.flatMap((entry,i)=>entry[0]==='setLineDash'&&entry[1]===14&&entry[2]===10?[i]:[]);
+  assert.equal(indices.length,dashed?2:1,'卡片开关不影响素颜框');
+  // Every border's dash, width and color are emitted by the shared helper verbatim.
+  for(const index of indices)assert.deepEqual(log.slice(index,index+3),[
+    ['setLineDash',14,10],['set.lineWidth',3.5],['set.strokeStyle','rgba(222,222,224,.86)']
+  ]);
+ }
+});

@@ -308,6 +308,22 @@ function drawComparisonCapsule(
   context.restore();
 }
 
+// Shared by the original before-photo frame and the optional Live card outline.
+// Coordinates are in the editor's 1080px design space; callers apply output scale.
+export function drawComparisonDashedFrame(
+  context: CanvasRenderingContext2D,
+  frame: CompareRect & { radius: number },
+  roundedRectPath: (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => void,
+) {
+  context.save();
+  context.setLineDash([14, 10]);
+  context.lineWidth = 3.5;
+  context.strokeStyle = "rgba(222,222,224,.86)";
+  roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
+  context.stroke();
+  context.restore();
+}
+
 export function drawComparisonEditorialOverlay(
   context: CanvasRenderingContext2D,
   canvas: CompareCanvasSize,
@@ -325,13 +341,7 @@ export function drawComparisonEditorialOverlay(
   context.beginPath();
   context.rect(safe.x, safe.y, safe.width, safe.height);
   context.clip();
-  context.save();
-  context.setLineDash([14, 10]);
-  context.lineWidth = 3.5;
-  context.strokeStyle = "rgba(222,222,224,.86)";
-  roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
-  context.stroke();
-  context.restore();
+  drawComparisonDashedFrame(context, frame, roundedRectPath);
   drawComparisonCapsule(context, labels.after, "后", scale);
   drawComparisonCapsule(context, labels.before, "前", scale);
   context.restore();

@@ -238,6 +238,16 @@
     context.restore();
   }
 
+  function drawComparisonDashedFrame(context, frame, roundedRectPath) {
+    context.save();
+    context.setLineDash([14, 10]);
+    context.lineWidth = 3.5;
+    context.strokeStyle = "rgba(222,222,224,.86)";
+    roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
+    context.stroke();
+    context.restore();
+  }
+
   function drawComparisonEditorialOverlay(context, canvas, roundedRectPath, frameScale = 100) {
     const scale = canvas.width / 1080;
     const baseCanvas = { width: 1080, height: canvas.height / scale };
@@ -249,13 +259,7 @@
     context.beginPath();
     context.rect(safe.x, safe.y, safe.width, safe.height);
     context.clip();
-    context.save();
-    context.setLineDash([14, 10]);
-    context.lineWidth = 3.5;
-    context.strokeStyle = "rgba(222,222,224,.86)";
-    roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
-    context.stroke();
-    context.restore();
+    drawComparisonDashedFrame(context, frame, roundedRectPath);
     drawComparisonCapsule(context, labels.after, "后", scale);
     drawComparisonCapsule(context, labels.before, "前", scale);
     context.restore();
@@ -288,6 +292,7 @@
     getComparisonEvidenceLayout,
     getComparisonLabelLayout,
     getComparisonAlignmentPlan,
+    drawComparisonDashedFrame,
     drawComparisonEditorialOverlay,
     getComparisonFadeStops,
     getComparisonExportError,

@@ -35,7 +35,7 @@ export default function CoverLiveControls(props: Props) {
     button.disabled = true;
     try {
       const assetBase = new URL("/live/", window.location.origin);
-      const liveModule = await import(/* @vite-ignore */ new URL("controls.js?v=20260908-density-five", assetBase).href);
+      const liveModule = await import(/* @vite-ignore */ new URL("controls.js?v=20260908-card-dash", assetBase).href);
       if (!mounted.current || !hostRef.current) return;
       const controller = liveModule.mountLiveControls({ host, assetBase,
         motionAt: getLiveMotionState,
