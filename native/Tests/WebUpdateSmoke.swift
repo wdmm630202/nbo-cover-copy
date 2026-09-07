@@ -55,7 +55,7 @@ import CryptoKit
             try await expectFailure { try await store.refresh() }
         }
         for key in ["bridgeVersion", "schema"] {
-            var object = try JSONSerialization.jsonObject(with: manifestB) as! [String: Any]; object[key] = key == "bridgeVersion" ? 3 : 2
+            var object = try JSONSerialization.jsonObject(with: manifestB) as! [String: Any]; object[key] = key == "bridgeVersion" ? 4 : 2
             let malformed = try JSONSerialization.data(withJSONObject: object)
             let store = WebUpdateStore(bundleRoot: bundle, cacheRoot: cache, transport: { _, _ in malformed })
             try await expectFailure { try await store.refresh() }
@@ -97,6 +97,14 @@ import CryptoKit
         let cards = WebUpdateStore(bundleRoot: bundle, cacheRoot: cache, transport: { url, _ in url.lastPathComponent == "manifest.json" ? cardManifest : payload })
         let cardRoot = try await cards.refresh()
         try check(await cards.currentRoot() == cardRoot, "两秒五色有声资源必须完整激活")
+        object["bridgeVersion"] = 3
+        object["version"] = String(repeating: "d", count: 64)
+        for file in ["mix-intro.m4a", "voice-intro.m4a", "sfx-intro.m4a"] { cardPaths.append("live/cards/\(file)") }
+        object["files"] = cardPaths.map { ["path": $0, "size": payload.count, "sha256": digest] as [String: Any] }
+        let fourKManifest = try JSONSerialization.data(withJSONObject: object)
+        let fourK = WebUpdateStore(bundleRoot: bundle, cacheRoot: cache, transport: { url, _ in url.lastPathComponent == "manifest.json" ? fourKManifest : payload })
+        let fourKRoot = try await fourK.refresh()
+        try check(await fourK.currentRoot() == fourKRoot, "4K更新必须包含带进场留白的配音")
         print("PASS: bundled fallback, complete activation, reuse, bad hash atomicity, offline cache, staging cleanup, unsafe paths, unsupported schema/bridge, size bounds, immutable generations, corruption fallback, immutable same-version repair")
     }
 }

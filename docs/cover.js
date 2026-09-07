@@ -524,7 +524,8 @@ function syncMobileTransformControls() {
 
 const syncPreviewToolsWidth = () => {
   if (canvasShell && previewTools) {
-    previewTools.style.width = getComputedStyle(canvasShell).width;
+    // Whole CSS pixels stop fractional flex/observer feedback after a 3:4 switch.
+    previewTools.style.width = `${Math.round(parseFloat(getComputedStyle(canvasShell).width))}px`;
     previewTools.parentElement.style.setProperty("--cover-preview-width", previewTools.style.width);
   }
 };
@@ -1912,7 +1913,7 @@ $("#startLive").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
   try {
-    const { mountLiveControls } = await import("./live/controls.js?v=20260908-card-dash");
+    const { mountLiveControls } = await import("./live/controls.js?v=20260908-motion-4k");
     liveController = mountLiveControls({
       host: $("#liveControlHost"),
       motionAt: getLiveMotionState,
@@ -1935,8 +1936,9 @@ $("#startLive").addEventListener("click", async (event) => {
           settings: { ...state }, preset: current,
           retouchStrokes: structuredClone(retouch.strokes), beforeRetouchStrokes: structuredClone(retouch.beforeStrokes),
         };
-        return { width: current.width, height: current.height,
-          render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: current, live }); },
+        return { width: current.width * 2, height: current.height * 2,
+          render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: {width:targetCanvas.width,height:targetCanvas.height}, live }); },
+          createPoster(live) { return createCoverExportAsset({render:{...input,live},format:"jpeg",photoOnly:false,mobile:isMobileExportDevice(),fileStem:input.settings.fileName}); },
         };
       },
     });

@@ -14,7 +14,7 @@ type Props = {
   onToggle(enabled: boolean): void;
   onRefresh(): void;
   onAssetsChanged(): void;
-  captureRender(): { width: number; height: number; render(canvas: HTMLCanvasElement, live: LivePresentation): void };
+  captureRender(): { width: number; height: number; render(canvas: HTMLCanvasElement, live: LivePresentation): void; createPoster(live: LivePresentation): Promise<{blob:Blob;outputSize:{width:number;height:number}}> };
 };
 
 export default function CoverLiveControls(props: Props) {
@@ -35,7 +35,7 @@ export default function CoverLiveControls(props: Props) {
     button.disabled = true;
     try {
       const assetBase = new URL("/live/", window.location.origin);
-      const liveModule = await import(/* @vite-ignore */ new URL("controls.js?v=20260908-card-dash", assetBase).href);
+      const liveModule = await import(/* @vite-ignore */ new URL("controls.js?v=20260908-motion-4k", assetBase).href);
       if (!mounted.current || !hostRef.current) return;
       const controller = liveModule.mountLiveControls({ host, assetBase,
         motionAt: getLiveMotionState,

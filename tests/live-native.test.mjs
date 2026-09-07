@@ -128,11 +128,11 @@ test('native controls start on Save gesture without browser exporter or director
     elements.get('.live-export').listeners.click();
     await new Promise(resolve=>setImmediate(resolve));
     assert.equal(f.calls[0].action,'start','Photos access begins after explicit Save, with selected sound');
-    assert.equal(f.calls[0].duration,2);assert.equal(f.calls[0].audioBase64,'AQID');
+    assert.equal(f.calls[0].duration,3);assert.equal(f.calls[0].audioBase64,'AQID');
     for(let attempt=0;attempt<20&&elements.get('.live-export').disabled;attempt++){
       await new Promise(resolve=>setImmediate(resolve));
     }
-    assert.equal(rendered,60);assert.equal(f.calls.at(-1).action,'finish');
+    assert.equal(rendered,90);assert.equal(f.calls.at(-1).action,'finish');
     assert.match(elements.get('output').textContent,/实况已保存到苹果/);
     assert.equal(elements.get('.live-toggle').disabled,false);
     assert.equal(elements.get('.live-cancel').hidden,true);
@@ -140,4 +140,15 @@ test('native controls start on Save gesture without browser exporter or director
     controls?.setEnabled(false);
     for(const [key,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}
   }
+});
+
+test('4K native export sends a separate original-pixel poster before saving',async()=>{
+ const calls=[],canvas={width:0,height:0,toDataURL(){return 'data:image/jpeg;base64,ZmFrZQ==';}};
+ await exportNativeLive({width:2160,height:3840,duration:3,createCanvas:()=>canvas,
+  bridge:{async postMessage(c){calls.push(c);return c.action==='start'?{session:'4k',version:3}:c.action==='finish'?{saved:true}:{};}},
+  renderFrame(){},async createPoster(){return {blob:new Blob(['original poster'],{type:'image/jpeg'}),outputSize:{width:3000,height:5333}};},
+  onSaving(){assert.equal(calls.at(-1).action,'poster');}});
+ assert.equal(calls.filter(c=>c.action==='frame').length,90);
+ assert.equal(calls[0].width,2160);assert.equal(calls[0].height,3840);
+ assert.equal(calls.at(-2).action,'poster');assert.equal(atob(calls.at(-2).jpeg),'original poster');assert.equal(calls.at(-1).action,'finish');
 });

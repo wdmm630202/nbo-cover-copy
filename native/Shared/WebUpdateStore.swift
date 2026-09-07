@@ -116,7 +116,7 @@ actor WebUpdateStore {
     private static func hash(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
     private static func decode(_ data: Data) throws -> Manifest {
         let manifest = try JSONDecoder().decode(Manifest.self, from: data)
-        guard manifest.schema == 1, [1,2].contains(manifest.bridgeVersion), isHash(manifest.version), !manifest.files.isEmpty, manifest.files.count <= 128 else { throw Failure.invalid("不支持此更新清单。") }
+        guard manifest.schema == 1, [1,2,3].contains(manifest.bridgeVersion), isHash(manifest.version), !manifest.files.isEmpty, manifest.files.count <= 128 else { throw Failure.invalid("不支持此更新清单。") }
         var paths = Set<String>(), total = 0
         for file in manifest.files {
             let parts = file.path.split(separator: "/", omittingEmptySubsequences: false)
@@ -138,7 +138,10 @@ actor WebUpdateStore {
                 }
             }
         }
-        guard total <= (manifest.bridgeVersion == 2 ? 48 : 20) * 1024 * 1024, expected.isSubset(of: paths) else { throw Failure.invalid("更新文件不完整或总大小超限。") }
+        if manifest.bridgeVersion >= 3 {
+            expected.formUnion(["live/cards/mix-intro.m4a", "live/cards/voice-intro.m4a", "live/cards/sfx-intro.m4a"])
+        }
+        guard total <= (manifest.bridgeVersion >= 2 ? 48 : 20) * 1024 * 1024, expected.isSubset(of: paths) else { throw Failure.invalid("更新文件不完整或总大小超限。") }
         for path in paths {
             let parts = path.split(separator: "/")
             for index in 1..<parts.count where paths.contains(parts.prefix(index).joined(separator: "/")) { throw Failure.invalid("文件路径相互冲突。") }

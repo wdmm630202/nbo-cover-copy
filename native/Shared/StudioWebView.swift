@@ -51,7 +51,7 @@ final class StudioCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKNavi
         guard !stopped else { reply(nil, "制作页已关闭，请重新打开"); return }
         if action == "start" {
             guard !busy, encoder == nil else { reply(nil, "正在保存，请稍候"); return }
-            guard let width = body["width"] as? Int, let height = body["height"] as? Int, width == 1080, [1440,1920].contains(height) else { reply(nil, "实况尺寸不受支持"); return }
+            guard let width = body["width"] as? Int, let height = body["height"] as? Int, ((width == 1080 && [1440,1920].contains(height)) || (width == 2160 && [2880,3840].contains(height))) else { reply(nil, "实况尺寸不受支持"); return }
             let duration = body["duration"] as? Int ?? 3
             guard [2,3,4].contains(duration) else { reply(nil, "实况时长不支持"); return }
             var audioData: Data?
@@ -62,7 +62,7 @@ final class StudioCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKNavi
             busy = true
             authorize { allowed in
                 guard !self.stopped, allowed else { self.busy = false; reply(nil, "请在系统设置中允许南铂制作添加照片"); return }
-                do { self.encoder = try LiveEncoder(width: width, height: height, duration: duration, audioData: audioData); self.session = UUID().uuidString; reply(["session": self.session!, "version": 2], nil) }
+                do { self.encoder = try LiveEncoder(width: width, height: height, duration: duration, audioData: audioData); self.session = UUID().uuidString; reply(["session": self.session!, "version": 3], nil) }
                 catch { self.busy = false; reply(nil, "无法开始实况制作，请检查可用空间后重试") }
             }
             return
@@ -90,6 +90,10 @@ final class StudioCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKNavi
             guard let index = body["index"] as? Int, let text = body["jpeg"] as? String, text.count <= 16_000_000, let data = Data(base64Encoded: text) else { reply(nil, "实况画面读取失败"); return }
             do { try encoder.append(jpeg: data, index: index); reply([:], nil) }
             catch { encoder.cancel(); self.encoder = nil; session = nil; busy = false; reply(nil, "实况编码失败，请重试") }
+        } else if action == "poster" {
+            guard let text = body["jpeg"] as? String, text.count <= 28_000_000, let data = Data(base64Encoded: text) else { reply(nil, "封面照片读取失败"); return }
+            do { try encoder.setPoster(jpeg: data); reply([:], nil) }
+            catch { reply(nil, "封面照片尺寸或数据无效"); }
         } else if action == "finish" {
             saving = true
             encoder.finish { result in

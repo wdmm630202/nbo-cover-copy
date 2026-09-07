@@ -478,7 +478,8 @@ export default function CoverStudio() {
     const tools = previewToolsRef.current;
     if (!shell || !tools) return;
     const syncWidth = () => {
-      tools.style.width = getComputedStyle(shell).width;
+      // Match the static shell; fractional widths can oscillate with flex sizing.
+      tools.style.width = `${Math.round(parseFloat(getComputedStyle(shell).width))}px`;
       tools.parentElement?.style.setProperty("--cover-preview-width", tools.style.width);
     };
     const observer = new ResizeObserver(syncWidth);
@@ -1579,8 +1580,9 @@ export default function CoverStudio() {
                   if (!beforeImage) throw new Error("请先添加拍摄前素颜照");
                   const input = { image, beforeImage, watermark: settings.watermarkEnabled ? watermark : null,
                     settings: { ...settings }, preset, retouchStrokes: structuredClone(retouchStrokes), beforeRetouchStrokes: structuredClone(beforeRetouchStrokes) };
-                  return { width: preset.width, height: preset.height,
-                    render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: preset, live }); } };
+                  return { width: preset.width * 2, height: preset.height * 2,
+                    render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: {width:targetCanvas.width,height:targetCanvas.height}, live }); },
+                    createPoster(live) { return createCoverExportAsset({render:{...input,live},format:"jpeg",photoOnly:false,mobile:isMobileExportDevice(),fileStem:fileName}); } };
                 }} />
               {layoutMode === "compact" && image && !isCompactEditorOpen ? (
                 <button className="mobile-editor-launcher" type="button" onClick={() => setIsCompactEditorOpen(true)}>继续手机编辑</button>

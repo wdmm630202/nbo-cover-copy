@@ -6,21 +6,23 @@ export function getNativeLiveBridge(environment=globalThis){
 
 const assertActive=signal=>{if(signal?.aborted)throw new DOMException('已取消导出','AbortError');};
 
-export async function exportNativeLive({width,height,renderFrame,onProgress=()=>{},onSaving=()=>{},signal,duration=3,audioURL=null,bridge=getNativeLiveBridge(),createCanvas=()=>document.createElement('canvas')}){
-  if(width!==1080||![1440,1920].includes(height))throw new Error('实况尺寸须为 1080×1920 或 1080×1440');
+export async function exportNativeLive({width,height,renderFrame,onProgress=()=>{},onSaving=()=>{},signal,duration=3,audioURL=null,createPoster=null,bridge=getNativeLiveBridge(),createCanvas=()=>document.createElement('canvas')}){
+  if(!((width===1080&&[1440,1920].includes(height))||(width===2160&&[2880,3840].includes(height))))throw new Error('实况尺寸须为竖屏 9:16 或 3:4');
   if(!bridge)throw new Error('无法连接实况保存服务，请重新打开应用');
   assertActive(signal);
   if(![2,3,4].includes(duration))throw new Error('实况视频时长无效');
   const frameCount=duration*30;
   let audioBase64=null;
   if(audioURL){const response=await fetch(audioURL,{signal});if(!response.ok)throw new Error('配音读取失败');const bytes=new Uint8Array(await response.arrayBuffer());audioBase64=btoa(Array.from(bytes,b=>String.fromCharCode(b)).join(''));}
+  const needs4K=width===2160||!!createPoster;
   let session=null,canvas=null;
   try{
     // Start immediately from the explicit Save gesture so Photos can ask for access.
     const started=await bridge.postMessage({action:'start',width,height,...(duration!==3||audioBase64?{duration,audioBase64}: {})});
     if(typeof started?.session!=='string'||!started.session)throw new Error('实况保存服务未能启动，请重试');
     session=started.session;
-    if((duration!==3||audioBase64)&&started.version!==2)throw new Error('此版本应用尚不支持两秒有声卡片，请更新应用或在浏览器中导出');
+    if(needs4K&&!(started.version>=3))throw new Error('请更新应用以支持 4K 和原像素照片，或在浏览器中导出');
+    if((duration!==3||audioBase64)&&!(started.version>=2))throw new Error('此版本应用尚不支持两秒有声卡片，请更新应用或在浏览器中导出');
     assertActive(signal);
     canvas=createCanvas();canvas.width=width;canvas.height=height;
     onProgress(0);
@@ -36,6 +38,13 @@ export async function exportNativeLive({width,height,renderFrame,onProgress=()=>
       onProgress(Math.floor((index+1)/frameCount*95));
     }
     assertActive(signal);
+    if(createPoster){
+      const still=await createPoster();assertActive(signal);
+      const bytes=new Uint8Array(await still.blob.arrayBuffer());
+      const parts=[];for(let i=0;i<bytes.length;i+=32768)parts.push(String.fromCharCode(...bytes.subarray(i,i+32768)));
+      await bridge.postMessage({action:'poster',session,jpeg:btoa(parts.join(''))});
+      assertActive(signal);
+    }
     onSaving();
     assertActive(signal);
     const result=await bridge.postMessage({action:'finish',session});

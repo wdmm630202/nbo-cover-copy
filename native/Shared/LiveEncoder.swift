@@ -27,10 +27,11 @@ final class LiveEncoder {
     private var audioInput: AVAssetWriterInput?
     private var nextIndex = 0
     private var finalJPEG: Data?
+    private var posterJPEG: Data?
     private var ended = false
 
     init(width: Int, height: Int, duration: Int = 3, audioData: Data? = nil) throws {
-        guard width == 1080, height == 1920 || height == 1440 else { throw Failure.message("仅支持 1080×1920 或 1080×1440。") }
+        guard (width == 1080 && [1920,1440].contains(height)) || (width == 2160 && [3840,2880].contains(height)) else { throw Failure.message("仅支持竖屏 9:16 或 3:4 实况尺寸。") }
         guard [2,3,4].contains(duration) else { throw Failure.message("实况时长不支持。") }
         self.duration = duration; self.frameCount = duration * 30
         self.width = width; self.height = height
@@ -42,7 +43,7 @@ final class LiveEncoder {
         catch { try? FileManager.default.removeItem(at: directory); throw error }
         video = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: width, AVVideoHeightKey: height,
-            AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: 10_000_000,
+            AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: width == 2160 ? 40_000_000 : 10_000_000,
                 AVVideoExpectedSourceFrameRateKey: 30, AVVideoMaxKeyFrameIntervalKey: 30, AVVideoAllowFrameReorderingKey: false]])
         video.expectsMediaDataInRealTime = false
         adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: video, sourcePixelBufferAttributes: [
@@ -137,8 +138,18 @@ final class LiveEncoder {
         nextIndex += 1
     }
 
+    func setPoster(jpeg: Data) throws {
+        guard !ended, nextIndex == frameCount, jpeg.count < 21_000_000,
+              let source = CGImageSourceCreateWithData(jpeg as CFData, nil), CGImageSourceGetCount(source) == 1,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let w = properties[kCGImagePropertyPixelWidth] as? Int,
+              let h = properties[kCGImagePropertyPixelHeight] as? Int,
+              w > 0, h > 0, abs(Double(w) / Double(h) - Double(width) / Double(height)) < 0.002 else { throw Failure.message("封面照片尺寸或数据无效。") }
+        posterJPEG = jpeg
+    }
+
     func finish(completion: @escaping (Result<(photo: URL, movie: URL), Error>) -> Void) {
-        guard !ended, nextIndex == frameCount, let jpeg = finalJPEG else { completion(.failure(Failure.message("需要完整的动画帧才能保存。"))); return }
+        guard !ended, nextIndex == frameCount, let jpeg = posterJPEG ?? finalJPEG else { completion(.failure(Failure.message("需要完整的动画帧才能保存。"))); return }
         ended = true
         guard let source = CGImageSourceCreateWithData(jpeg as CFData, nil),
               let destination = CGImageDestinationCreateWithURL(photo as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else {
@@ -146,7 +157,7 @@ final class LiveEncoder {
         }
         CGImageDestinationAddImageFromSource(destination, source, 0, [kCGImagePropertyMakerAppleDictionary: ["17": identifier]] as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { cancel(); completion(.failure(Failure.message("封面照片写入失败。"))); return }
-        finalJPEG = nil
+        finalJPEG = nil; posterJPEG = nil
         video.markAsFinished(); writer.endSession(atSourceTime: CMTime(value: Int64(duration), timescale: 1))
         let writer = self.writer, photo = self.photo, movie = self.movie
         let lock = NSLock()
@@ -174,6 +185,6 @@ final class LiveEncoder {
         }
     }
 
-    func cancel() { audioReader?.cancelReading(); ended = true; finalJPEG = nil; if writer.status == .writing { writer.cancelWriting() }; cleanup() }
+    func cancel() { audioReader?.cancelReading(); ended = true; finalJPEG = nil; posterJPEG = nil; if writer.status == .writing { writer.cancelWriting() }; cleanup() }
     func cleanup() { try? FileManager.default.removeItem(at: directory) }
 }

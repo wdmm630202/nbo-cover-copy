@@ -12,13 +12,13 @@ class PublishTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256((out/'versions'/a/f['path']).read_bytes()).hexdigest(),f['sha256'])
             (web/'cover.html').write_text('two');c=publish(web,out)
             self.assertNotEqual(a,c);self.assertEqual((out/'versions'/a/'cover.html').read_text(),'one')
-    def test_two_second_cards_require_audio_bridge(self):
+    def test_current_cards_require_4k_poster_bridge(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);web=root/'web';(web/'live').mkdir(parents=True)
             (web/'cover.html').write_text('cards')
             (web/'live/card-series.js').write_text('export const CARD_DURATION=2;')
             publish(web,root/'feed')
-            self.assertEqual(json.loads((root/'feed/manifest.json').read_text())['bridgeVersion'],2)
+            self.assertEqual(json.loads((root/'feed/manifest.json').read_text())['bridgeVersion'],3)
     def test_reject_symlinks(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);web=root/'web';web.mkdir();(web/'bad').symlink_to('/etc/hosts')

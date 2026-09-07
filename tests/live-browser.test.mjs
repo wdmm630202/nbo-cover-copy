@@ -36,6 +36,31 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.equal(await page.locator('#topText').isDisabled(),false);
     // Every shipped color/density must decode, with all settings inside its own card.
     const names=['曜石银','香槟金','雾海蓝','松石绿','赤陶棕'];
+    await page.waitForFunction(()=>!document.querySelector('.live-play').disabled);
+    const timeline=await page.evaluate(()=>[0,.25,.5,.75,.999,1,1.4,2.5,3].map(t=>{
+      const p=liveController.presentation(t);return {phase:NBOCoverCore.getLiveMotionState(p.time).phase,card:!!p.animation,entrance:p.animation?.entrance};
+    }));
+    assert.deepEqual(timeline.map(f=>f.phase),['before','before','after','after','after','complete','complete','complete','complete'],'前一秒必须播放两段原照片进场');
+    assert.deepEqual(timeline.map(f=>f.card),[false,false,false,false,false,true,true,true,true],'卡片只在第1秒结束后出现');
+    assert.equal(timeline[5].entrance,0);assert.equal(timeline[6].entrance,1);
+    const playback=await page.evaluate(async()=>{
+      const start=performance.now();document.querySelector('.live-play').click();
+      const initialCard=!!liveController.presentation().animation,phases=new Set();let firstCard=null;
+      return await new Promise(resolve=>{const sample=()=>{const elapsed=performance.now()-start,p=liveController.presentation();phases.add(NBOCoverCore.getLiveMotionState(p.time).phase);
+        if(p.animation&&firstCard===null)firstCard=elapsed;
+        if(elapsed>=3100){resolve({initialCard,phases:[...phases],firstCard});return;}requestAnimationFrame(sample);};sample();});
+    });
+    assert.equal(playback.initialCard,false,'重播时立即回到照片首帧，不能先闪出卡片');
+    assert.deepEqual(playback.phases,['before','after','complete']);
+    assert.ok(playback.firstCard>=900&&playback.firstCard<1500,'有声预览也须在1秒后开始卡片');
+    await page.evaluate(()=>document.querySelector('.live-status').textContent='文件包已下载；电脑 Chrome 可直接保存到桌面文件夹');
+    await page.locator('[data-platform="xiaohongshu"]').click();
+    await page.getByRole('button',{name:'导出 Live',exact:true}).click({trial:true,timeout:3000});
+    await page.locator('[data-platform="douyin"]').click();
+    await page.evaluate(()=>document.querySelector('.live-status').textContent='');
+
+
+
     assert.equal(await page.getByRole('button',{name:'曜石银底色50%',exact:true}).getAttribute('aria-pressed'),'true','旧档位迁移到默认50%');
     const densityButtons=page.locator('.live-card-options:visible .live-card-density button');
     assert.deepEqual(await densityButtons.allTextContents(),['0%','25%','50%','75%','100%']);
@@ -43,7 +68,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.ok(positions.every(p=>p.y===positions[0].y&&!p.overflow),'五档同排且没有裁字');
     assert.ok(Math.abs(positions[2].x-(positions[0].x+positions[4].x)/2)<1,'50%位于中间');
     const alphaSamples=await page.evaluate(async()=>{
-      const {compositeCard}=await import('./live/card-series.js?v=20260908-card-dash');
+      const {compositeCard}=await import('./live/card-series.js?v=20260908-motion-4k');
       const foreground=document.createElement('canvas'),mask=document.createElement('canvas');foreground.width=mask.width=2;foreground.height=mask.height=1;
       const fg=foreground.getContext('2d');fg.fillStyle='#fff';fg.fillRect(0,0,1,1);
       const m=mask.getContext('2d');m.fillStyle='#fff';m.fillRect(0,0,2,1);

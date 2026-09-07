@@ -1,6 +1,6 @@
-import { CARD_STYLES, CARD_DENSITIES, CARD_DEFAULT_DENSITY, compositeCard, CARD_DURATION, CARD_INTRO, cardFrame, cardAudioName, cardAssetPath } from './card-series.js?v=20260908-card-dash';
+import { CARD_STYLES, CARD_DENSITIES, CARD_DEFAULT_DENSITY, compositeCard, CARD_DURATION, CARD_INTRO, cardFrame, cardAudioName, cardAssetPath } from './card-series.js?v=20260908-motion-4k';
 import { createLiveSaver, saveLivePair } from './save.js';
-import { exportNativeLive, getNativeLiveBridge } from './native.js?v=20260908-card-dash';
+import { exportNativeLive, getNativeLiveBridge } from './native.js?v=20260908-motion-4k';
 // Shared Live UI. Mounted only on demand by the static and React shells.
 export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{},captureRender,assetBase=new URL('./',import.meta.url)}) {
   const nativeBridge=getNativeLiveBridge();
@@ -27,7 +27,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
           ${CARD_STYLES.map(({id,name})=>`<article class="live-card-item" data-card="${id}"><button type="button" class="live-style-card" data-style="${id}" aria-pressed="${id===selectedStyle}" aria-label="${name}"><span class="live-style-art"><canvas width="480" height="360" data-preview="${id}" aria-hidden="true"></canvas></span><span class="live-style-name">${name}<i aria-hidden="true">✓</i></span></button><div class="live-card-options" data-options="${id}" ${id===selectedStyle?'':'hidden'} aria-label="${name}卡片设置"><span class="live-card-label">底色浓度</span><div class="live-card-density">${CARD_DENSITIES.map(value=>`<button type="button" data-owner="${id}" data-density="${value}" aria-label="${name}底色${value}%" aria-pressed="${value===density}">${value}%</button>`).join('')}</div><div class="live-card-audio"><button type="button" data-voice="${id}" aria-pressed="${voice}">人声</button><button type="button" data-sfx="${id}" aria-pressed="${sfx}">音效</button><button type="button" data-dashed="${id}" aria-pressed="${dashed}">虚线</button><button type="button" data-replay="${id}">重播</button></div></div></article>`).join('')}
         </div>
         <details class="live-help"><summary>使用说明</summary>
-        <p>卡片固定在文案下方，左边与文案对齐、底边与素颜照对齐，向上进入。底色浓度、人声、音效和虚线在选中的卡片内调整，虚线开关也应用于导出。</p>
+        <p>前 1 秒播放照片进场，随后卡片从底部向上滑入并播放完整 2 秒动画。卡片固定在文案下方，左边与文案对齐、底边与素颜照对齐，向上进入。底色浓度、人声、音效和虚线在选中的卡片内调整，虚线开关也应用于导出。视频以 4K 分辨率导出，照片取最后定格并沿用普通封面的原像素规则。</p>
         ${nativeBridge?'<p>点击保存实况，直接保存到苹果「照片」。首次保存时请允许添加照片。</p>':`<p>电脑 Chrome 可直接保存到桌面文件夹，无需解压。首次导出请选择桌面并允许保存；当前页面会复用该位置。其他浏览器下载文件包。</p>
         <p>要在 iPhone 相册长按播放，仍需用保存助手将文件夹导入苹果「照片」。</p>
         <a class="live-helper" href="${new URL('南铂实况保存助手.zip',assetBase).href}" download>下载 Mac 保存助手</a>`}
@@ -40,7 +40,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
   const settingButtons=CARD_STYLES.flatMap(({id})=>[...CARD_DENSITIES.map(d=>q(`[data-owner="${id}"][data-density="${d}"]`)),q(`[data-voice="${id}"]`),q(`[data-sfx="${id}"]`),q(`[data-dashed="${id}"]`),q(`[data-replay="${id}"]`)]);
   function frameFor(images,time,border=dashed){
     const local=time-CARD_INTRO;
-    return {time:local<0?time:3,animation:images&&local>=0?cardFrame(images,local,border):null};
+    return {time:local<0?time*2/CARD_INTRO:3,animation:images&&local>=0?cardFrame(images,local,border):null};
   }
   function stop(){cancelAnimationFrame(animationId);animationId=0;audio?.pause();frameTime=CARD_INTRO+CARD_DURATION;play.removeAttribute('data-active');}
   function presentation(time=frameTime){return enabled?frameFor(atlas,time):undefined;}
@@ -54,14 +54,14 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       q(`[data-dashed="${id}"]`).setAttribute('aria-pressed',String(dashed));
     });
   }
-  function audioURL(){const name=cardAudioName(voice,sfx);return name?new URL(`cards/${name}.m4a`,assetBase).href:null;}
+  function audioURL(){const name=cardAudioName(voice,sfx);return name?new URL(`cards/${name}-intro.m4a`,assetBase).href:null;}
   function playAnimation(){
     if(!enabled||!atlas||busy)return;
-    stop();play.setAttribute('data-active','true');const start=performance.now(),url=audioURL();
+    stop();frameTime=0;onRefresh();play.setAttribute('data-active','true');const start=performance.now(),url=audioURL();
     if(audio&&url){audio.src=url;audio.currentTime=0;audio.play().catch(()=>{if(!disposed)status.textContent='点击卡片内“重播”即可有声播放';});}
     function tick(now){
       if(disposed||!enabled)return;
-      frameTime=audio&&url&&!audio.paused?CARD_INTRO+audio.currentTime:(now-start)/1000;
+      frameTime=audio&&url&&!audio.paused?audio.currentTime:(now-start)/1000;
       if(frameTime>=CARD_INTRO+CARD_DURATION||audio&&url&&audio.ended){stop();onRefresh();return;}
       onRefresh();animationId=requestAnimationFrame(tick);
     }
@@ -121,7 +121,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     try {
       if(bridge){
         status.textContent='正在准备保存到照片…';
-        await exportNativeLive({width:snapshot.width,height:snapshot.height,bridge,signal:abort.signal,duration:CARD_INTRO+CARD_DURATION,audioURL:exportAudioURL,
+        await exportNativeLive({width:snapshot.width,height:snapshot.height,bridge,signal:abort.signal,duration:CARD_INTRO+CARD_DURATION,audioURL:exportAudioURL,createPoster:snapshot.createPoster?()=>snapshot.createPoster(frameFor(image,CARD_INTRO+CARD_DURATION,exportDashed)):undefined,
           onProgress:value=>{status.textContent=value>=95?'正在保存到照片…':`正在生成实况 ${value}%`;},
           onSaving:()=>{cancel.hidden=true;toggle.disabled=true;status.textContent='正在保存到照片…';},
           renderFrame:(canvas,time)=>snapshot.render(canvas,frameFor(image,time,exportDashed))});
@@ -132,8 +132,8 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       const directory=await saver.choose();
       if(disposed||!enabled||abort.signal.aborted)return;
       status.textContent='正在生成实况 0%';
-      const {exportLivePhoto}=await import('./export.js?v=20260908-card-dash');
-      const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,assetBase,signal:abort.signal,duration:CARD_INTRO+CARD_DURATION,audioURL:exportAudioURL,audioDelay:CARD_INTRO,
+      const {exportLivePhoto}=await import('./export.js?v=20260908-motion-4k');
+      const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,assetBase,signal:abort.signal,duration:CARD_INTRO+CARD_DURATION,audioURL:exportAudioURL,audioDelay:0,createPoster:snapshot.createPoster?()=>snapshot.createPoster(frameFor(image,CARD_INTRO+CARD_DURATION,exportDashed)):undefined,
         onProgress:value=>{status.textContent=`正在生成实况 ${value}%`;},
         renderFrame:(canvas,time)=>{
           snapshot.render(canvas,frameFor(image,time,exportDashed));

@@ -5,8 +5,8 @@ from pathlib import Path
 
 def publish(web,output):
     web,output=Path(web),Path(output)
-    bridge_version=2 if (web/"live/card-series.js").exists() else 1
-    size_limit=(48 if bridge_version==2 else 20)*1024*1024
+    bridge_version=3 if (web/"live/card-series.js").exists() else 1
+    size_limit=(48 if bridge_version>=2 else 20)*1024*1024
     files=[]
     for path in sorted(web.rglob('*')):
         if path.is_symlink():raise ValueError('Symlinks are not release assets')

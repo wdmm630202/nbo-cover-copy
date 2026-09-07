@@ -21,13 +21,22 @@ try{
  await page.waitForFunction(()=>{const e=document.querySelector('.live-export');return e&&!e.disabled;});
  await page.waitForTimeout(3200);
  await page.screenshot({path:resolve(out,'desktop-live.png')});
- for(const time of [0,0.5,29/30,1,1.5,59/30,2,2.5,89/30]){
+ for(const time of [0,.25,.5,.75,29/30,1,31/30,1.1,1.2,1.4,1.5,2,2.5,89/30]){
   const data=await page.evaluate(time=>{const c=document.createElement('canvas');NBOCoverCore.drawCover({canvas:c,image:state.image,beforeImage:state.beforeImage,watermark:null,settings:{...state},preset:{id:state.platformId,...preset()},includeGuide:false,live:liveController.presentation(time)});return c.toDataURL('image/png').split(',')[1];},time);
   await writeFile(resolve(out,`frame-${time.toFixed(3)}.png`),Buffer.from(data,'base64'));
  }
- const download=page.waitForEvent('download',{timeout:90000});
- await page.getByRole('button',{name:'导出 Live',exact:true}).click();
- const file=await download;await file.saveAs(resolve(out,'live-export.zip'));
+ const [file]=await Promise.all([page.waitForEvent('download',{timeout:90000}),page.getByRole('button',{name:'导出 Live',exact:true}).click()]);await file.saveAs(resolve(out,'live-export.zip'));
  console.log('EXPORTED',file.suggestedFilename(),await page.locator('.live-status').textContent());
+ const saveNormal=async name=>{
+  const data=await page.evaluate(async()=>{const asset=await buildExportAsset('jpeg');const bytes=new Uint8Array(await asset.blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(binary);});
+  await writeFile(resolve(out,name),Buffer.from(data,'base64'));
+ };
+ await saveNormal('normal-cover-douyin.jpg');
+ await page.locator('[data-platform="xiaohongshu"]').click();
+ console.log('SECOND_READY',await page.locator('.live-export').evaluate(e=>({text:e.textContent,disabled:e.disabled,rect:e.getBoundingClientRect().toJSON()})));
+ const [secondFile]=await Promise.all([page.waitForEvent('download',{timeout:90000}),page.getByRole('button',{name:'导出 Live',exact:true}).click()]);await secondFile.saveAs(resolve(out,'live-export-3x4.zip'));
+ await saveNormal('normal-cover-3x4.jpg');
+ console.log('EXPORTED_3x4',secondFile.suggestedFilename());
+ await page.locator('[data-platform="douyin"]').click();
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:resolve(out,'mobile-live.png')});
-}finally{await browser.close();await new Promise(r=>server.close(r));}
+}catch(error){console.error('SMOKE_FAILURE',error);throw error;}finally{await browser.close();await new Promise(r=>server.close(r));}

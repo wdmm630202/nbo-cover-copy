@@ -14,7 +14,7 @@ test('五色使用完整两秒帧，边界切帧不越界，向上进入后稳�
  assert.equal(CARD_STYLES.length,5);
  const images=[{id:0},{id:1}];
  assert.equal(cardFrame(images,0).entrance,0);
- assert.equal(cardFrame(images,.24).entrance,1);
+ assert.equal(cardFrame(images,.36).entrance,1);
  assert.equal(cardFrame(images,1).image.id,1);
  assert.deepEqual(cardFrame(images,2).source,{x:1920,y:1800,width:480,height:360});
  assert.deepEqual(cardFrame(images,99),cardFrame(images,2));
