@@ -77,3 +77,6 @@
 .live-control-host .live-card-options button::before,.live-control-host .live-card-options button::after{display:none}
 .live-control-host .live-card-options button[aria-pressed="true"]{background:#f1f0ea;color:#262624;border-color:#f1f0ea}
 @media(max-width:799px), (max-width:999px) and (pointer:coarse){.live-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.live-card-density{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px}
+.live-control-host .live-card-density button{padding:2px 0;font-size:8px;white-space:nowrap}

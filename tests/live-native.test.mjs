@@ -114,6 +114,7 @@ test('native controls start on Save gesture without browser exporter or director
   try{
     globalThis.webkit={messageHandlers:{nanboLive:f.bridge}};
     globalThis.fetch=async()=>({ok:true,arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer});
+    f.canvas.getContext=()=>({drawImage(){},fillRect(){}});
     globalThis.document={createElement(type){assert.equal(type,'canvas');return f.canvas;}};
     globalThis.Image=class {async decode(){}};
     globalThis.matchMedia=()=>({matches:true});globalThis.cancelAnimationFrame=()=>{};

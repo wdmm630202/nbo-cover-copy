@@ -1912,7 +1912,7 @@ $("#startLive").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
   try {
-    const { mountLiveControls } = await import("./live/controls.js?v=20260908-five-cards");
+    const { mountLiveControls } = await import("./live/controls.js?v=20260908-density-five");
     liveController = mountLiveControls({
       host: $("#liveControlHost"),
       motionAt: getLiveMotionState,

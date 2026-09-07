@@ -2615,6 +2615,8 @@ var NBOCoverCore = (function(exports) {
 					append(item, b);
 					if (card.getAttribute("aria-pressed") === "true") {
 						const options = element("div", "phone-card-options");
+						const densityRow = element("div", "phone-card-density"), audioRow = element("div", "phone-card-audio");
+						append(options, densityRow, audioRow);
 						for (const control of card.closest(".live-card-item")?.querySelectorAll(".live-card-options button") || []) {
 							const copy = button(control.textContent || "", () => {
 								if (!control.hasAttribute("data-replay") && !rollback) rollback = begin();
@@ -2626,7 +2628,7 @@ var NBOCoverCore = (function(exports) {
 							const pressed = control.getAttribute("aria-pressed");
 							if (pressed !== null) copy.setAttribute("aria-pressed", pressed);
 							copy.setAttribute("aria-label", control.getAttribute("aria-label") || control.textContent || "卡片设置");
-							append(options, copy);
+							append(control.hasAttribute("data-density") ? densityRow : audioRow, copy);
 						}
 						append(item, options);
 					}

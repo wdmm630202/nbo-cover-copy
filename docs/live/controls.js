@@ -1,20 +1,20 @@
-import { CARD_STYLES, CARD_DENSITIES, CARD_DURATION, CARD_INTRO, cardFrame, cardAudioName, cardAssetPath } from './card-series.js?v=20260908-five-cards';
+import { CARD_STYLES, CARD_DENSITIES, CARD_DEFAULT_DENSITY, compositeCard, CARD_DURATION, CARD_INTRO, cardFrame, cardAudioName, cardAssetPath } from './card-series.js?v=20260908-density-five';
 import { createLiveSaver, saveLivePair } from './save.js';
-import { exportNativeLive, getNativeLiveBridge } from './native.js?v=20260908-five-cards';
+import { exportNativeLive, getNativeLiveBridge } from './native.js?v=20260908-density-five';
 // Shared Live UI. Mounted only on demand by the static and React shells.
 export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{},captureRender,assetBase=new URL('./',import.meta.url)}) {
   const nativeBridge=getNativeLiveBridge();
   const saver=nativeBridge?null:createLiveSaver();
-  let enabled=false,atlas=null,frameTime=CARD_INTRO+CARD_DURATION,animationId=0,loadGeneration=0,disposed=false,abort=null,busy=false,selectedStyle="silver",density=20,voice=true,sfx=true,previewsLoaded=false;
+  let enabled=false,atlas=null,frameTime=CARD_INTRO+CARD_DURATION,animationId=0,loadGeneration=0,disposed=false,abort=null,busy=false,selectedStyle="silver",density=CARD_DEFAULT_DENSITY,voice=true,sfx=true,previewsLoaded=false;
   const audio=typeof Audio==='function'?new Audio():null;
   const imageCache=new Map();
   try { const saved=JSON.parse(localStorage.getItem('nbo-live-card-v1')||'null');
     if(saved&&CARD_STYLES.some(x=>x.id===saved.style))selectedStyle=saved.style;
-    if(saved&&CARD_DENSITIES.includes(saved.density))density=saved.density;
+    if(saved?.densityVersion===2&&CARD_DENSITIES.includes(saved.density))density=saved.density;
     if(typeof saved?.voice==='boolean')voice=saved.voice;
     if(typeof saved?.sfx==='boolean')sfx=saved.sfx;
   } catch { /* Preferences must never block the editor. */ }
-  function remember(){try{localStorage.setItem('nbo-live-card-v1',JSON.stringify({style:selectedStyle,density,voice,sfx}));}catch{}}
+  function remember(){try{localStorage.setItem('nbo-live-card-v1',JSON.stringify({style:selectedStyle,density,voice,sfx,densityVersion:2}));}catch{}}
   host.innerHTML=`<button type="button" class="live-toggle" aria-pressed="false">制作 Live</button>
     <div class="live-options" hidden>
       <button type="button" class="live-play">播放动效</button>
@@ -69,13 +69,19 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     if(imageCache.has(path))return imageCache.get(path);
     const image=new Image();image.src=new URL(path,assetBase).href;await image.decode();
     // Bound retained atlas memory; thumbnails are kept separately in their canvases.
-    if(imageCache.size>=6)imageCache.delete(imageCache.keys().next().value);
+    if(imageCache.size>=4)imageCache.delete(imageCache.keys().next().value);
     imageCache.set(path,image);return image;
   }
   async function loadAnimation(){
     const generation=++loadGeneration;atlas=null;onAssetsChanged();onRefresh();play.disabled=exportButton.disabled=true;status.textContent='正在加载卡片…';
     try {
-      const next=await Promise.all([0,1].map(part=>loadImage(cardAssetPath(selectedStyle,density,`${part}.webp`))));
+      const style=selectedStyle,level=density;
+      const next=await Promise.all([0,1].map(async part=>{
+        const foreground=await loadImage(cardAssetPath(style,0,`${part}.webp`));
+        if(level===0)return foreground;
+        const plate=await loadImage(`cards/plate/${part}.webp`);
+        return compositeCard(foreground,plate,style,level);
+      }));
       if(disposed||!enabled||generation!==loadGeneration)return;
       atlas=next;play.disabled=exportButton.disabled=false;status.textContent='';onAssetsChanged();onRefresh();
       if(!matchMedia('(prefers-reduced-motion: reduce)').matches)playAnimation();
@@ -88,9 +94,10 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
     if(previewsLoaded)return;previewsLoaded=true;
     await Promise.all(CARD_STYLES.map(async({id})=>{
       try{
-        const image=new Image();image.src=new URL(cardAssetPath(id,20,'poster.webp'),assetBase).href;await image.decode();if(disposed)return;
+        const image=new Image();image.src=new URL(cardAssetPath(id,0,'poster.webp'),assetBase).href;await image.decode();
+        const plate=await loadImage('cards/plate/poster.webp');if(disposed)return;
         const context=q(`[data-preview="${id}"]`)?.getContext?.('2d');if(!context)return;
-        context.clearRect(0,0,480,360);context.drawImage(image,0,0,480,360);
+        context.clearRect(0,0,480,360);context.drawImage(compositeCard(image,plate,id,CARD_DEFAULT_DENSITY),0,0,480,360);
       }catch{previewsLoaded=false;}
     }));
   }
@@ -123,7 +130,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       const directory=await saver.choose();
       if(disposed||!enabled||abort.signal.aborted)return;
       status.textContent='正在生成实况 0%';
-      const {exportLivePhoto}=await import('./export.js?v=20260908-five-cards');
+      const {exportLivePhoto}=await import('./export.js?v=20260908-density-five');
       const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,assetBase,signal:abort.signal,duration:CARD_INTRO+CARD_DURATION,audioURL:exportAudioURL,audioDelay:CARD_INTRO,
         onProgress:value=>{status.textContent=`正在生成实况 ${value}%`;},
         renderFrame:(canvas,time)=>{

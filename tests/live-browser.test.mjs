@@ -18,7 +18,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
   try {
     const page=await browser.newPage({viewport:{width:1920,height:1080}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    await page.addInitScript(()=>{localStorage.setItem('nbo_cover_access_until',String(Date.now()+1000000));localStorage.setItem('nbo_cover_settings_v1',JSON.stringify({textScale:81,bottomTextScale:62,textScaleLinked:false,subtitleScale:130,titleScaleVersion:3,topText:'原来超出六字标题',bottomText:'原来文案',subtitle:'原来小字'}));});
+    await page.addInitScript(()=>{localStorage.setItem('nbo-live-card-v1',JSON.stringify({style:'silver',density:35,voice:true,sfx:true}));localStorage.setItem('nbo_cover_access_until',String(Date.now()+1000000));localStorage.setItem('nbo_cover_settings_v1',JSON.stringify({textScale:81,bottomTextScale:62,textScaleLinked:false,subtitleScale:130,titleScaleVersion:3,topText:'原来超出六字标题',bottomText:'原来文案',subtitle:'原来小字'}));});
     await page.goto(`http://127.0.0.1:${server.address().port}/cover.html`);
     assert.equal(await page.getByRole('button',{name:'制作 Live',exact:true}).count(),1,'工作台需要独立 Live 开关');
     await page.waitForFunction(()=>document.querySelector('#coverCanvas').width>0);
@@ -36,11 +36,26 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.equal(await page.locator('#topText').isDisabled(),false);
     // Every shipped color/density must decode, with all settings inside its own card.
     const names=['曜石银','香槟金','雾海蓝','松石绿','赤陶棕'];
+    assert.equal(await page.getByRole('button',{name:'曜石银底色50%',exact:true}).getAttribute('aria-pressed'),'true','旧档位迁移到默认50%');
+    const densityButtons=page.locator('.live-card-options:visible .live-card-density button');
+    assert.deepEqual(await densityButtons.allTextContents(),['0%','25%','50%','75%','100%']);
+    const positions=await densityButtons.evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y,overflow:b.scrollWidth>b.clientWidth};}));
+    assert.ok(positions.every(p=>p.y===positions[0].y&&!p.overflow),'五档同排且没有裁字');
+    assert.ok(Math.abs(positions[2].x-(positions[0].x+positions[4].x)/2)<1,'50%位于中间');
+    const alphaSamples=await page.evaluate(async()=>{
+      const {compositeCard}=await import('./live/card-series.js?v=20260908-density-five');
+      const foreground=document.createElement('canvas'),mask=document.createElement('canvas');foreground.width=mask.width=2;foreground.height=mask.height=1;
+      const fg=foreground.getContext('2d');fg.fillStyle='#fff';fg.fillRect(0,0,1,1);
+      const m=mask.getContext('2d');m.fillStyle='#fff';m.fillRect(0,0,2,1);
+      return [0,25,50,75,100].map(d=>Array.from(compositeCard(foreground,mask,'silver',d).getContext('2d').getImageData(0,0,2,1).data));
+    });
+    alphaSamples.forEach((pixels,i)=>{assert.deepEqual(pixels.slice(0,4),[255,255,255,255],'文字不跟随底色淡化');assert.ok(Math.abs(pixels[7]-[0,64,128,191,255][i])<=1,'实际底色透明度符合档位');});
+
     assert.deepEqual(await page.locator('.live-style-card').evaluateAll(cards=>cards.map(c=>c.getAttribute('aria-label'))),names);
     await page.emulateMedia({reducedMotion:'reduce'});
     for(const name of names){
       await page.getByRole('button',{name,exact:true}).click();
-      for(const density of [0,20,35]){
+      for(const density of [0,25,50,75,100]){
         await page.getByRole('button',{name:`${name}底色${density}%`,exact:true}).click();
         await page.waitForFunction(()=>!document.querySelector('.live-play').disabled);
         assert.equal(await page.locator('.live-card-options:visible').count(),1);
@@ -52,7 +67,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
       const button=selected.getByRole('button',{name,exact:true});await button.click();
       assert.equal(await button.getAttribute('aria-pressed'),'false');
     }
-    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('nbo-live-card-v1'))),{style:'clay',density:35,voice:false,sfx:false});
+    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('nbo-live-card-v1'))),{style:'clay',density:100,voice:false,sfx:false,densityVersion:2});
     await page.evaluate(()=>{const zoom=document.querySelector('#zoom');zoom.value=117;zoom.dispatchEvent(new Event('input',{bubbles:true}));});
     assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
     await page.getByRole('button',{name:'恢复默认',exact:true}).click();
