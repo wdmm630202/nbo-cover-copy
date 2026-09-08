@@ -7,18 +7,21 @@ import {DEFAULT_COVER_SETTINGS} from '../app/cover/core/editor-settings.ts';
 import {cardFrame} from '../public/live/card-series.js';
 import {createTraceEnvironment,loadCurrentCore} from './helpers/render-trace-harness.mjs';
 
-test('上下卡片等大，三处间距一致，整列与素颜框上下对齐',()=>{
+test('上下卡片等大且内部间距一致，左右安全线留白对称，整列与素颜框上下对齐',()=>{
  assert.equal(typeof layout.getLiveCardPairLayout,'function','需要从素颜框计算统一的两卡布局');
  for(const width of [540,1080,2160])for(const ratio of [16/9,4/3]){
-  const size={width,height:Math.round(width*ratio)},left=54*width/1080;
+  const size={width,height:Math.round(width*ratio)},guideInset=18*width/1080;
   const {frame}=getComparisonEvidenceLayout(size,114.4);
-  const {upper,lower,gap}=layout.getLiveCardPairLayout(frame,left,width/1080);
+  const {upper,lower,gap}=layout.getLiveCardPairLayout(frame,width,width/1080);
   for(const a of ['width','height','x'])assert.equal(upper[a],lower[a]);
   assert.equal(upper.y,frame.y);
   assert.ok(Math.abs(lower.y+lower.height-frame.y-frame.height)<1e-6);
   assert.ok(Math.abs(lower.y-upper.y-upper.height-gap)<1e-6);
   assert.ok(Math.abs(frame.x-upper.x-upper.width-gap)<1e-6);
-  assert.equal(upper.x,left);
+  const leftGuideGap=upper.x-guideInset;
+  const rightGuideGap=width-guideInset-frame.x-frame.width;
+  assert.ok(leftGuideGap>=0);
+  assert.ok(Math.abs(leftGuideGap-rightGuideGap)<1e-6,'左卡片和右素颜框到黄色安全线的距离相同');
  }
 });
 

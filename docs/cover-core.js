@@ -607,7 +607,8 @@ var NBOCoverCore = (function(exports) {
 			animationTime: second === 2 ? linear > .999999999 ? 3 : linear * 3 : 0
 		};
 	}
-	function getLiveCardPairLayout(frame, left, scale) {
+	function getLiveCardPairLayout(frame, canvasWidth, scale) {
+		const left = canvasWidth - frame.x - frame.width;
 		const gap = 24 * scale;
 		const width = Math.max(1, frame.x - left - gap), height = (frame.height - gap) / 2;
 		const upper = {
@@ -724,7 +725,7 @@ var NBOCoverCore = (function(exports) {
 		const { upper, lower } = getLiveCardPairLayout(getComparisonEvidenceLayout({
 			width,
 			height
-		}, settings.beforeFrameScale).frame, text.left, s);
+		}, settings.beforeFrameScale).frame, width, s);
 		const entrance = frame.entrance ?? 1;
 		if (entrance > 0) {
 			ctx.save();

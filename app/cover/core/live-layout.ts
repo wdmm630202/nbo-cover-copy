@@ -68,7 +68,10 @@ export function getLiveMotionState(time: number) {
 }
 
 // One shared gap for the vertical stack and the right-hand comparison photo.
-export function getLiveCardPairLayout(frame: CompareRect, left: number, scale: number) {
+export function getLiveCardPairLayout(frame: CompareRect, canvasWidth: number, scale: number) {
+  // Mirror the actual comparison-frame margin, including its pixel rounding.
+  // The yellow guides have equal insets, so their gaps to both frames also match.
+  const left=canvasWidth-frame.x-frame.width;
   const gap=24*scale;
   const width=Math.max(1,frame.x-left-gap),height=(frame.height-gap)/2;
   const upper={x:left,y:frame.y,width,height,radius:21*scale};

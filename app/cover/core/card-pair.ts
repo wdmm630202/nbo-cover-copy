@@ -76,7 +76,7 @@ export function drawLiveCardPair(ctx: CanvasRenderingContext2D, frame: CoverLive
   ctx.save(); ctx.globalAlpha = 0;
   const text = drawText(ctx, settings, width, height, null);
   ctx.restore();
-  const { upper, lower } = getLiveCardPairLayout(getComparisonEvidenceLayout({ width, height }, settings.beforeFrameScale).frame, text.left, s);
+  const { upper, lower } = getLiveCardPairLayout(getComparisonEvidenceLayout({ width, height }, settings.beforeFrameScale).frame, width, s);
   const entrance = frame.entrance ?? 1;
   if (entrance > 0) {
     ctx.save();
