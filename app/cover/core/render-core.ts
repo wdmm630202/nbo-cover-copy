@@ -565,6 +565,7 @@ export function drawCoverText(
   height: number,
   watermark: HTMLImageElement | null,
   lineProgress?: readonly number[],
+  textOrder: "top-down" | "bottom-up" = "top-down",
 ) {
   const isRight = settings.templateId.endsWith("-right");
   const isCenter = settings.templateId.endsWith("-center");
@@ -639,6 +640,15 @@ export function drawCoverText(
   const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
   const dividerY = y + relativeDividerY;
   const subtitleBaseline = y + relativeSubtitleBaseline;
+  // Reverse row positions inside the measured block, keeping every glyph upright
+  // and its original font, color, ink spacing and editable field unchanged.
+  const bottomUp = textOrder === "bottom-up";
+  const mirrorY = 2 * y + blockTop + blockBottom;
+  const firstDrawBaseline = bottomUp ? mirrorY - y + topHeadlineInk.ascent - topHeadlineInk.descent : y;
+  const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
+  const dividerDrawY = bottomUp ? mirrorY - dividerY - dividerThickness : dividerY;
+  const subtitleDrawBaseline = settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
+  const reversedSubtitleBaseline = mirrorY - subtitleDrawBaseline + subtitleInk.ascent - subtitleInk.descent - Math.max(0, subtitleLines - 1) * subtitleLineHeight;
 
   // Optional per-line reveal for the theme card. Drawing and gradient styling
   // below stay identical to the normal cover; no animation means no extra transforms.
@@ -653,16 +663,16 @@ export function drawCoverText(
   beginLine(0);
   context.fillStyle = settings.topColor;
   context.font = `900 ${topFontSize}px sans-serif`;
-  if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, y, maxWidth);
-  context.fillText(settings.topText || "上行标题", x, y, maxWidth);
+  if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
+  context.fillText(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
   endLine();
 
   if (settings.bottomText.trim()) {
     beginLine(1);
     context.fillStyle = settings.bottomColor;
     context.font = `900 ${bottomFontSize}px sans-serif`;
-    if (textStroke > 0) context.strokeText(settings.bottomText, x, secondBaseline, maxWidth);
-    context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
+    if (textStroke > 0) context.strokeText(settings.bottomText, x, secondDrawBaseline, maxWidth);
+    context.fillText(settings.bottomText, x, secondDrawBaseline, maxWidth);
     endLine();
   }
 
@@ -680,7 +690,7 @@ export function drawCoverText(
     dividerGradient.addColorStop(0.82, colorWithAlpha(settings.dividerColor, 1));
     dividerGradient.addColorStop(1, colorWithAlpha(settings.dividerColor, 0));
     context.fillStyle = dividerGradient;
-    context.fillRect(Math.round(dividerX), dividerY, Math.round(dividerWidth), dividerThickness);
+    context.fillRect(Math.round(dividerX), dividerDrawY, Math.round(dividerWidth), dividerThickness);
   }
 
   if (settings.subtitle.trim()) {
@@ -694,7 +704,7 @@ export function drawCoverText(
       context,
       settings.subtitle,
       x,
-      settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent,
+      bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline,
       maxWidth,
       subtitleLineHeight,
       textAlign,

@@ -6,7 +6,7 @@ import { getLiveCardPairLayout } from './live-layout';
 
 type Rect = { x: number; y: number; width: number; height: number; radius: number };
 type RoundPath = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => void;
-type DrawText = (ctx: CanvasRenderingContext2D, settings: CoverSettings, width: number, height: number, watermark: HTMLImageElement | null, lines?: readonly number[]) => CompareTextBounds;
+type DrawText = (ctx: CanvasRenderingContext2D, settings: CoverSettings, width: number, height: number, watermark: HTMLImageElement | null, lines?: readonly number[], order?: "top-down" | "bottom-up") => CompareTextBounds;
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const smooth = (n: number) => { const x = clamp(n); return x * x * (3 - 2 * x); };
 function rgba(hex: string, alpha: number) {
@@ -74,7 +74,7 @@ export function drawLiveCardPair(ctx: CanvasRenderingContext2D, frame: CoverLive
   // Measure with the actual cover renderer so edits, shadows and the original
   // one-character gradient divider never acquire a separate card-only style.
   ctx.save(); ctx.globalAlpha = 0;
-  const text = drawText(ctx, settings, width, height, null);
+  const text = drawText(ctx, settings, width, height, null, undefined, "bottom-up");
   ctx.restore();
   // Match drawComparisonEditorialOverlay: round once on its 1080px design grid,
   // then scale the dashed-frame geometry for previews and original-size exports.
@@ -103,7 +103,7 @@ export function drawLiveCardPair(ctx: CanvasRenderingContext2D, frame: CoverLive
   const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));
   ctx.translate(lower.x + 18 * s - text.left * fit, movingLower.y + (lower.height - (text.bottom - text.top) * fit) / 2 - text.top * fit);
   ctx.scale(fit, fit);
-  drawText(ctx, settings, width, height, null, frame.lines);
+  drawText(ctx, settings, width, height, null, frame.lines, "bottom-up");
   ctx.restore();
   const flash = Math.sin(clamp((t - 1.4) / .3) * Math.PI);
   if (t > 1.4 && t < 1.7) {

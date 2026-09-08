@@ -720,7 +720,7 @@ var NBOCoverCore = (function(exports) {
 		const s = width / 1080, t = frame.time ?? 2.1;
 		ctx.save();
 		ctx.globalAlpha = 0;
-		const text = drawText(ctx, settings, width, height, null);
+		const text = drawText(ctx, settings, width, height, null, void 0, "bottom-up");
 		ctx.restore();
 		const reference = getComparisonEvidenceLayout({
 			width: 1080,
@@ -762,7 +762,7 @@ var NBOCoverCore = (function(exports) {
 		const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));
 		ctx.translate(lower.x + 18 * s - text.left * fit, movingLower.y + (lower.height - (text.bottom - text.top) * fit) / 2 - text.top * fit);
 		ctx.scale(fit, fit);
-		drawText(ctx, settings, width, height, null, frame.lines);
+		drawText(ctx, settings, width, height, null, frame.lines, "bottom-up");
 		ctx.restore();
 		const flash = Math.sin(clamp((t - 1.4) / .3) * Math.PI);
 		if (t > 1.4 && t < 1.7) {
@@ -1276,7 +1276,7 @@ var NBOCoverCore = (function(exports) {
 		const value = Number.parseInt(color.replace("#", ""), 16);
 		return `rgba(${value >> 16},${value >> 8 & 255},${value & 255},${alpha})`;
 	}
-	function drawCoverText(context, settings, width, height, watermark, lineProgress) {
+	function drawCoverText(context, settings, width, height, watermark, lineProgress, textOrder = "top-down") {
 		const isRight = settings.templateId.endsWith("-right");
 		const isCenter = settings.templateId.endsWith("-center");
 		const textAlign = isRight ? "right" : isCenter ? "center" : "left";
@@ -1339,6 +1339,13 @@ var NBOCoverCore = (function(exports) {
 		const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
 		const dividerY = y + relativeDividerY;
 		const subtitleBaseline = y + relativeSubtitleBaseline;
+		const bottomUp = textOrder === "bottom-up";
+		const mirrorY = 2 * y + blockTop + blockBottom;
+		const firstDrawBaseline = bottomUp ? mirrorY - y + topHeadlineInk.ascent - topHeadlineInk.descent : y;
+		const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
+		const dividerDrawY = bottomUp ? mirrorY - dividerY - dividerThickness : dividerY;
+		const subtitleDrawBaseline = settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
+		const reversedSubtitleBaseline = mirrorY - subtitleDrawBaseline + subtitleInk.ascent - subtitleInk.descent - Math.max(0, subtitleLines - 1) * subtitleLineHeight;
 		const beginLine = (index) => {
 			if (!lineProgress) return;
 			const progress = lineProgress[index] ?? 1;
@@ -1352,15 +1359,15 @@ var NBOCoverCore = (function(exports) {
 		beginLine(0);
 		context.fillStyle = settings.topColor;
 		context.font = `900 ${topFontSize}px sans-serif`;
-		if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, y, maxWidth);
-		context.fillText(settings.topText || "上行标题", x, y, maxWidth);
+		if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
+		context.fillText(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
 		endLine();
 		if (settings.bottomText.trim()) {
 			beginLine(1);
 			context.fillStyle = settings.bottomColor;
 			context.font = `900 ${bottomFontSize}px sans-serif`;
-			if (textStroke > 0) context.strokeText(settings.bottomText, x, secondBaseline, maxWidth);
-			context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
+			if (textStroke > 0) context.strokeText(settings.bottomText, x, secondDrawBaseline, maxWidth);
+			context.fillText(settings.bottomText, x, secondDrawBaseline, maxWidth);
 			endLine();
 		}
 		beginLine(2);
@@ -1377,7 +1384,7 @@ var NBOCoverCore = (function(exports) {
 			dividerGradient.addColorStop(.82, colorWithAlpha(settings.dividerColor, 1));
 			dividerGradient.addColorStop(1, colorWithAlpha(settings.dividerColor, 0));
 			context.fillStyle = dividerGradient;
-			context.fillRect(Math.round(dividerX), dividerY, Math.round(dividerWidth), dividerThickness);
+			context.fillRect(Math.round(dividerX), dividerDrawY, Math.round(dividerWidth), dividerThickness);
 		}
 		if (settings.subtitle.trim()) {
 			context.shadowColor = `rgba(0,0,0,${.78 * textShadow})`;
@@ -1386,7 +1393,7 @@ var NBOCoverCore = (function(exports) {
 			context.shadowOffsetY = width * .006 * textShadow;
 			context.fillStyle = settings.subtitleColor;
 			context.font = `400 ${subtitleFontSize}px sans-serif`;
-			drawWrappedText(context, settings.subtitle, x, settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent, maxWidth, subtitleLineHeight, textAlign);
+			drawWrappedText(context, settings.subtitle, x, bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline, maxWidth, subtitleLineHeight, textAlign);
 		}
 		endLine();
 		context.font = `900 ${topFontSize}px sans-serif`;
