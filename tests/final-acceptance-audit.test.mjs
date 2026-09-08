@@ -26,8 +26,8 @@ test("核心实现由唯一 canonical 模块持有，HTML 先加载 core 再加�
   assert.equal(result.duplicateCanvasAlgorithms.length, 0);
   const html = await readFile(new URL("../docs/cover.html", import.meta.url), "utf8");
   assert.deepEqual(parseScriptSources(html).slice(-2), [
-    "./cover-core.js?v=20260908-live-name",
-    "./cover.js?v=20260908-live-name",
+    "./cover-core.js?v=20260908-card-center",
+    "./cover.js?v=20260908-card-center",
   ]);
 });
 

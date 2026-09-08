@@ -81,7 +81,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
   async function loadAnimation(){
     const generation=++loadGeneration;atlas=null;onAssetsChanged();onRefresh();play.disabled=exportButton.disabled=true;status.textContent='正在加载卡片…';
     try {
-      const next=[await loadImage('cards/pair/hero.webp')];
+      const next=[await loadImage('cards/pair/hero.webp?v=20260908-card-center')];
       if(disposed||!enabled||generation!==loadGeneration)return;
       atlas=next;play.disabled=exportButton.disabled=false;status.textContent='';onAssetsChanged();onRefresh();
       if(!matchMedia('(prefers-reduced-motion: reduce)').matches)playAnimation();

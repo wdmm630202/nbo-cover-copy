@@ -765,7 +765,7 @@ var NBOCoverCore = (function(exports) {
 		path(ctx, movingLower.x, movingLower.y, lower.width, lower.height, lower.radius);
 		ctx.clip();
 		const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));
-		ctx.translate(lower.x + 18 * s - text.left * fit, movingLower.y + (lower.height - (text.bottom - text.top) * fit) / 2 - text.top * fit);
+		ctx.translate(lower.x + (lower.width - (text.right - text.left) * fit) / 2 - text.left * fit, movingLower.y + (lower.height - (text.bottom - text.top) * fit) / 2 - text.top * fit);
 		ctx.scale(fit, fit);
 		drawText(ctx, settings, width, height, null, frame.lines, "bottom-up");
 		ctx.restore();
@@ -1345,6 +1345,25 @@ var NBOCoverCore = (function(exports) {
 		const dividerY = y + relativeDividerY;
 		const subtitleBaseline = y + relativeSubtitleBaseline;
 		const bottomUp = textOrder === "bottom-up";
+		const inkBounds = {
+			left: Infinity,
+			right: -Infinity,
+			top: Infinity,
+			bottom: -Infinity
+		};
+		const includeInkRect = (left, top, right, bottom) => {
+			inkBounds.left = Math.min(inkBounds.left, left);
+			inkBounds.right = Math.max(inkBounds.right, right);
+			inkBounds.top = Math.min(inkBounds.top, top);
+			inkBounds.bottom = Math.max(inkBounds.bottom, bottom);
+		};
+		const recordInk = bottomUp ? (text, drawX, baseline, limit) => {
+			if (!text.trim()) return;
+			const metrics = context.measureText(text);
+			const squeeze = Math.min(1, (limit ?? Infinity) / Math.max(1, metrics.width));
+			const stroke = textStroke > 0 ? context.lineWidth / 2 : 0;
+			includeInkRect(drawX - metrics.actualBoundingBoxLeft * squeeze - stroke, baseline - metrics.actualBoundingBoxAscent - stroke, drawX + metrics.actualBoundingBoxRight * squeeze + stroke, baseline + metrics.actualBoundingBoxDescent + stroke);
+		} : void 0;
 		const mirrorY = 2 * y + blockTop + blockBottom;
 		const firstDrawBaseline = bottomUp ? mirrorY - y + topHeadlineInk.ascent - topHeadlineInk.descent : y;
 		const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
@@ -1364,6 +1383,7 @@ var NBOCoverCore = (function(exports) {
 		beginLine(0);
 		context.fillStyle = settings.topColor;
 		context.font = `900 ${topFontSize}px sans-serif`;
+		recordInk?.(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
 		if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
 		context.fillText(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
 		endLine();
@@ -1371,6 +1391,7 @@ var NBOCoverCore = (function(exports) {
 			beginLine(1);
 			context.fillStyle = settings.bottomColor;
 			context.font = `900 ${bottomFontSize}px sans-serif`;
+			recordInk?.(settings.bottomText, x, secondDrawBaseline, maxWidth);
 			if (textStroke > 0) context.strokeText(settings.bottomText, x, secondDrawBaseline, maxWidth);
 			context.fillText(settings.bottomText, x, secondDrawBaseline, maxWidth);
 			endLine();
@@ -1389,6 +1410,7 @@ var NBOCoverCore = (function(exports) {
 			dividerGradient.addColorStop(.82, colorWithAlpha(settings.dividerColor, 1));
 			dividerGradient.addColorStop(1, colorWithAlpha(settings.dividerColor, 0));
 			context.fillStyle = dividerGradient;
+			if (bottomUp) includeInkRect(Math.round(dividerX), dividerDrawY, Math.round(dividerX) + Math.round(dividerWidth), dividerDrawY + dividerThickness);
 			context.fillRect(Math.round(dividerX), dividerDrawY, Math.round(dividerWidth), dividerThickness);
 		}
 		if (settings.subtitle.trim()) {
@@ -1398,7 +1420,7 @@ var NBOCoverCore = (function(exports) {
 			context.shadowOffsetY = width * .006 * textShadow;
 			context.fillStyle = settings.subtitleColor;
 			context.font = `400 ${subtitleFontSize}px sans-serif`;
-			drawWrappedText(context, settings.subtitle, x, bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline, maxWidth, subtitleLineHeight, textAlign);
+			drawWrappedText(context, settings.subtitle, x, bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline, maxWidth, subtitleLineHeight, textAlign, recordInk);
 		}
 		endLine();
 		context.font = `900 ${topFontSize}px sans-serif`;
@@ -1416,7 +1438,7 @@ var NBOCoverCore = (function(exports) {
 			bottom: y + blockBottom
 		};
 		context.restore();
-		return bounds;
+		return bottomUp ? inkBounds : bounds;
 	}
 	function drawWatermark(context, watermark, settings, width, height) {
 		const bounds = getWatermarkVisibleBounds(watermark);
@@ -1505,13 +1527,14 @@ var NBOCoverCore = (function(exports) {
 			descent: descent || fallbackSize * .22
 		};
 	}
-	function drawWrappedText(context, text, x, y, maxWidth, lineHeight, align) {
+	function drawWrappedText(context, text, x, y, maxWidth, lineHeight, align, recordInk) {
 		const characters = Array.from(text);
 		const lines = Array.from({ length: Math.ceil(characters.length / 12) }, (_, index) => characters.slice(index * 12, index * 12 + 12).join(""));
 		context.textAlign = align;
 		lines.slice(0, 2).forEach((line, index) => {
 			const lineY = y + index * lineHeight;
 			if (Array.from(line).length !== 12) {
+				recordInk?.(line, x, lineY, maxWidth);
 				if (context.lineWidth > 0) context.strokeText(line, x, lineY, maxWidth);
 				context.fillText(line, x, lineY, maxWidth);
 				return;
@@ -1526,6 +1549,7 @@ var NBOCoverCore = (function(exports) {
 			let cursor = left;
 			context.textAlign = "left";
 			glyphs.forEach(({ character, metrics }, glyphIndex) => {
+				recordInk?.(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
 				if (context.lineWidth > 0) context.strokeText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
 				context.fillText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
 				cursor += widths[glyphIndex] + gap;

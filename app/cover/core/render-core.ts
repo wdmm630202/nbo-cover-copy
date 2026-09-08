@@ -643,6 +643,25 @@ export function drawCoverText(
   // Reverse row positions inside the measured block, keeping every glyph upright
   // and its original font, color, ink spacing and editable field unchanged.
   const bottomUp = textOrder === "bottom-up";
+  // Live cards center the actual ink, including the divider. Normal covers keep
+  // their original advance-width layout. Measure every row even during its reveal.
+  const inkBounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+  const includeInkRect = (left: number, top: number, right: number, bottom: number) => {
+    inkBounds.left = Math.min(inkBounds.left, left);
+    inkBounds.right = Math.max(inkBounds.right, right);
+    inkBounds.top = Math.min(inkBounds.top, top);
+    inkBounds.bottom = Math.max(inkBounds.bottom, bottom);
+  };
+  const recordInk = bottomUp ? (text: string, drawX: number, baseline: number, limit?: number) => {
+    if (!text.trim()) return;
+    const metrics = context.measureText(text);
+    const squeeze = Math.min(1, (limit ?? Infinity) / Math.max(1, metrics.width));
+    const stroke = textStroke > 0 ? context.lineWidth / 2 : 0;
+    includeInkRect(drawX - metrics.actualBoundingBoxLeft * squeeze - stroke,
+      baseline - metrics.actualBoundingBoxAscent - stroke,
+      drawX + metrics.actualBoundingBoxRight * squeeze + stroke,
+      baseline + metrics.actualBoundingBoxDescent + stroke);
+  } : undefined;
   const mirrorY = 2 * y + blockTop + blockBottom;
   const firstDrawBaseline = bottomUp ? mirrorY - y + topHeadlineInk.ascent - topHeadlineInk.descent : y;
   const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
@@ -663,6 +682,7 @@ export function drawCoverText(
   beginLine(0);
   context.fillStyle = settings.topColor;
   context.font = `900 ${topFontSize}px sans-serif`;
+  recordInk?.(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
   if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
   context.fillText(settings.topText || "上行标题", x, firstDrawBaseline, maxWidth);
   endLine();
@@ -671,6 +691,7 @@ export function drawCoverText(
     beginLine(1);
     context.fillStyle = settings.bottomColor;
     context.font = `900 ${bottomFontSize}px sans-serif`;
+    recordInk?.(settings.bottomText, x, secondDrawBaseline, maxWidth);
     if (textStroke > 0) context.strokeText(settings.bottomText, x, secondDrawBaseline, maxWidth);
     context.fillText(settings.bottomText, x, secondDrawBaseline, maxWidth);
     endLine();
@@ -690,6 +711,7 @@ export function drawCoverText(
     dividerGradient.addColorStop(0.82, colorWithAlpha(settings.dividerColor, 1));
     dividerGradient.addColorStop(1, colorWithAlpha(settings.dividerColor, 0));
     context.fillStyle = dividerGradient;
+    if (bottomUp) includeInkRect(Math.round(dividerX), dividerDrawY, Math.round(dividerX) + Math.round(dividerWidth), dividerDrawY + dividerThickness);
     context.fillRect(Math.round(dividerX), dividerDrawY, Math.round(dividerWidth), dividerThickness);
   }
 
@@ -708,6 +730,7 @@ export function drawCoverText(
       maxWidth,
       subtitleLineHeight,
       textAlign,
+      recordInk,
     );
   }
   endLine();
@@ -727,7 +750,7 @@ export function drawCoverText(
     bottom: y + blockBottom,
   };
   context.restore();
-  return bounds;
+  return bottomUp ? inkBounds : bounds;
 }
 
 function drawWatermark(
@@ -836,6 +859,7 @@ function drawWrappedText(
   maxWidth: number,
   lineHeight: number,
   align: CanvasTextAlign,
+  recordInk?: (text: string, x: number, y: number, maxWidth?: number) => void,
 ) {
   const characters = Array.from(text);
   const lines = Array.from({ length: Math.ceil(characters.length / 12) }, (_, index) =>
@@ -846,6 +870,7 @@ function drawWrappedText(
   lines.slice(0, 2).forEach((line, index) => {
     const lineY = y + index * lineHeight;
     if (Array.from(line).length !== 12) {
+      recordInk?.(line, x, lineY, maxWidth);
       if (context.lineWidth > 0) context.strokeText(line, x, lineY, maxWidth);
       context.fillText(line, x, lineY, maxWidth);
       return;
@@ -859,6 +884,7 @@ function drawWrappedText(
     let cursor = left;
     context.textAlign = "left";
     glyphs.forEach(({ character, metrics }, glyphIndex) => {
+      recordInk?.(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
       if (context.lineWidth > 0) context.strokeText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
       context.fillText(character, cursor + (metrics.actualBoundingBoxLeft || 0), lineY);
       cursor += widths[glyphIndex] + gap;

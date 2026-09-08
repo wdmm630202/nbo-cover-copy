@@ -101,7 +101,9 @@ export function drawLiveCardPair(ctx: CanvasRenderingContext2D, frame: CoverLive
   panel(ctx, movingLower, frame, s, path);
   path(ctx, movingLower.x, movingLower.y, lower.width, lower.height, lower.radius); ctx.clip();
   const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));
-  ctx.translate(lower.x + 18 * s - text.left * fit, movingLower.y + (lower.height - (text.bottom - text.top) * fit) / 2 - text.top * fit);
+  // Anchor the completed block, not the currently visible rows, so later reveals
+  // never move a line that has already appeared.
+  ctx.translate(lower.x + (lower.width - (text.right - text.left) * fit) / 2 - text.left * fit, movingLower.y + (lower.height - (text.bottom - text.top) * fit) / 2 - text.top * fit);
   ctx.scale(fit, fit);
   drawText(ctx, settings, width, height, null, frame.lines, "bottom-up");
   ctx.restore();
