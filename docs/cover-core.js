@@ -722,10 +722,16 @@ var NBOCoverCore = (function(exports) {
 		ctx.globalAlpha = 0;
 		const text = drawText(ctx, settings, width, height, null);
 		ctx.restore();
-		const { upper, lower } = getLiveCardPairLayout(getComparisonEvidenceLayout({
-			width,
-			height
-		}, settings.beforeFrameScale).frame, width, s);
+		const reference = getComparisonEvidenceLayout({
+			width: 1080,
+			height: height / s
+		}, settings.beforeFrameScale).frame;
+		const { upper, lower } = getLiveCardPairLayout({
+			x: reference.x * s,
+			y: reference.y * s,
+			width: reference.width * s,
+			height: reference.height * s
+		}, width, s);
 		const entrance = frame.entrance ?? 1;
 		if (entrance > 0) {
 			ctx.save();

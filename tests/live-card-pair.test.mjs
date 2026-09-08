@@ -9,9 +9,11 @@ import {createTraceEnvironment,loadCurrentCore} from './helpers/render-trace-har
 
 test('上下卡片等大且内部间距一致，左右安全线留白对称，整列与素颜框上下对齐',()=>{
  assert.equal(typeof layout.getLiveCardPairLayout,'function','需要从素颜框计算统一的两卡布局');
- for(const width of [540,1080,2160])for(const ratio of [16/9,4/3]){
+ for(const width of [540,900,1080,2160])for(const ratio of [16/9,4/3]){
   const size={width,height:Math.round(width*ratio)},guideInset=18*width/1080;
-  const {frame}=getComparisonEvidenceLayout(size,114.4);
+  const s=width/1080;
+  const {frame:reference}=getComparisonEvidenceLayout({width:1080,height:size.height/s},114.4);
+  const frame={x:reference.x*s,y:reference.y*s,width:reference.width*s,height:reference.height*s};
   const {upper,lower,gap}=layout.getLiveCardPairLayout(frame,width,width/1080);
   for(const a of ['width','height','x'])assert.equal(upper[a],lower[a]);
   assert.equal(upper.y,frame.y);

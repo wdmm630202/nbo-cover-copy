@@ -76,7 +76,11 @@ export function drawLiveCardPair(ctx: CanvasRenderingContext2D, frame: CoverLive
   ctx.save(); ctx.globalAlpha = 0;
   const text = drawText(ctx, settings, width, height, null);
   ctx.restore();
-  const { upper, lower } = getLiveCardPairLayout(getComparisonEvidenceLayout({ width, height }, settings.beforeFrameScale).frame, width, s);
+  // Match drawComparisonEditorialOverlay: round once on its 1080px design grid,
+  // then scale the dashed-frame geometry for previews and original-size exports.
+  const reference = getComparisonEvidenceLayout({ width: 1080, height: height / s }, settings.beforeFrameScale).frame;
+  const comparisonFrame = { x: reference.x * s, y: reference.y * s, width: reference.width * s, height: reference.height * s };
+  const { upper, lower } = getLiveCardPairLayout(comparisonFrame, width, s);
   const entrance = frame.entrance ?? 1;
   if (entrance > 0) {
     ctx.save();
