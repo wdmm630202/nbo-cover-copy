@@ -8,7 +8,7 @@ async function bounded(promise) {
   finally { clearTimeout(timer); }
 }
 
-export async function exportLivePhoto({width,height,renderFrame,onProgress=()=>{},signal,assetBase=new URL('./',import.meta.url),duration=3,audioURL=null,audioDelay=0,createPoster=null}) {
+export async function exportLivePhoto({width,height,renderFrame,onProgress=()=>{},signal,assetBase=new URL('./',import.meta.url),duration=3,audioURL=null,audioDelay=0,createPoster=null,name=null}) {
   assertActive(signal);
   if(![2,3,4].includes(duration))throw new Error('实况视频时长无效');
   const frameCount=duration*30;
@@ -60,8 +60,7 @@ export async function exportLivePhoto({width,height,renderFrame,onProgress=()=>{
     const identifier=crypto.randomUUID();
     const photo=addLivePhotoMetadata(jpeg,identifier,photoSize.width,photoSize.height,templates);
     const movie=createLiveMovie({samples,avcConfig,width,height,assetIdentifier:identifier,templates,duration,audio,audioDelay});
-    const timestamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15).replace('T','_');
-    const stem=`南铂_Live_${timestamp}`;
+    const stem=(name?name.replace(/\.zip$/i,''):`实况live_${identifier}`).replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_');
     const instructions=new TextEncoder().encode(`南铂 Live Photo\n\n此文件夹中的 JPG 和 MOV 是同一张实况照片的配对资源，请保留两者。\n在 Mac 上：解压后使用「南铂实况保存助手」选择这个文件夹，再点「存入照片」。从苹果「照片」同步或分享至 iPhone。\n仅把 JPG、MOV 分别存入手机相册不会自动成为实况照片。网页文件下载不等于相册保存。\n\n${duration} 秒，30 帧/秒，视频 ${width}×${height}，照片 ${photoSize.width}×${photoSize.height}。照片取最后定格，沿用普通封面的原像素和 JPG 规则；实况关键帧标记位于视频最后一帧。${audio?'已包含所选人声和音效。':'当前为无声导出。'}照片、视频均在浏览器本地生成。\n`);
     const zip=createZip([{name:`${stem}.JPG`,data:photo},{name:`${stem}.MOV`,data:movie},{name:'保存到苹果照片.txt',data:instructions}]);
     onProgress(100);

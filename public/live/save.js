@@ -3,7 +3,12 @@ const assertActive=signal=>{if(signal?.aborted)throw new DOMException('已取消
 // Keep permission scoped to this page; the browser owns the directory grant.
 export function createLiveSaver(environment=globalThis){
   let directory=null;
-  return {async choose(){
+  return {async choose(name){
+    if(typeof environment.showSaveFilePicker==='function'){
+      const handle=await environment.showSaveFilePicker({suggestedName:name,types:[{description:'实况照片文件包（JPG＋MOV）',accept:{'application/zip':['.zip']}}]});
+      await assertEmptyFile(handle);
+      return {kind:'file',handle};
+    }
     if(typeof environment.showDirectoryPicker!=='function')return null;
     if(directory){
       if(await directory.requestPermission({mode:'readwrite'})!=='granted'){
@@ -14,6 +19,19 @@ export function createLiveSaver(environment=globalThis){
     directory=await environment.showDirectoryPicker({id:'nanbo-live-export',startIn:'desktop',mode:'readwrite'});
     return directory;
   }};
+}
+
+async function assertEmptyFile(handle){
+  if((await handle.getFile()).size>0)throw new Error('这个文件已经存在，为避免覆盖，请重新导出并使用新的文件名');
+}
+
+export async function saveLiveArchive(handle,blob,signal){
+  assertActive(signal);
+  await assertEmptyFile(handle);
+  assertActive(signal);
+  const stream=await handle.createWritable();
+  try{assertActive(signal);await stream.write(blob);assertActive(signal);await stream.close();}
+  catch(error){await stream.abort().catch(()=>{});throw error;}
 }
 
 export async function saveLivePair(directory,result,signal){

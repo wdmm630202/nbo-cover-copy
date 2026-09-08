@@ -48,6 +48,11 @@ var NBOCoverCore = (function(exports) {
 		const extension = format === "png" ? "png" : "jpg";
 		return `${normalizeFileStem(fileStem)}_${variant}_${platformLabel}_${ratio.replace(":", "x")}_${formatExportTimestamp(date)}.${extension}`;
 	}
+	function getLiveExportFileName(fileStem, platformLabel, ratio, date = /* @__PURE__ */ new Date()) {
+		const ordinary = getExportFileName(fileStem, "设计", platformLabel, ratio, "jpeg", date);
+		const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
+		return `实况live_${ordinary.slice(0, -4)}_${milliseconds}.zip`.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_");
+	}
 	function getOriginalPixelExportPlan(source, preset, format) {
 		const sourceWidth = Math.max(1, Math.round(source.width));
 		const sourceHeight = Math.max(1, Math.round(source.height));
@@ -3173,6 +3178,7 @@ var NBOCoverCore = (function(exports) {
 	exports.getExportAttemptSizes = getExportAttemptSizes;
 	exports.getExportFileName = getExportFileName;
 	exports.getLiveCardPairLayout = getLiveCardPairLayout;
+	exports.getLiveExportFileName = getLiveExportFileName;
 	exports.getLiveMotionState = getLiveMotionState;
 	exports.getLiveSettings = getLiveSettings;
 	exports.getMobileRetouchTargetChoices = getMobileRetouchTargetChoices;

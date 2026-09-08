@@ -81,6 +81,12 @@ export function getExportFileName(
   return `${normalizeFileStem(fileStem)}_${variant}_${platformLabel}_${ratio.replace(":", "x")}_${formatExportTimestamp(date)}.${extension}`;
 }
 
+export function getLiveExportFileName(fileStem: string, platformLabel: string, ratio: string, date = new Date()) {
+  const ordinary = getExportFileName(fileStem, "设计", platformLabel, ratio, "jpeg", date);
+  const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
+  return `实况live_${ordinary.slice(0, -4)}_${milliseconds}.zip`.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_");
+}
+
 export function getOriginalPixelExportPlan(
   source: CoverExportSize,
   preset: CoverExportSize,

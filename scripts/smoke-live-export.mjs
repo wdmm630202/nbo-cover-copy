@@ -9,7 +9,7 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({executablePath,headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1920,height:1080}});page.on('pageerror',e=>process.stderr.write(e.message+'\n'));
- await page.addInitScript(()=>{window.showDirectoryPicker=undefined;localStorage.setItem('nbo_cover_access_until',String(Date.now()+1000000));});
+ await page.addInitScript(()=>{window.showDirectoryPicker=undefined;window.showSaveFilePicker=undefined;localStorage.setItem('nbo_cover_access_until',String(Date.now()+1000000));});
  await page.goto(`http://127.0.0.1:${server.address().port}/cover.html`);
  for(const [id,color,title] of [['fileInput','#5b402c','精修画面'],['beforeFileInput','#3a5866','素颜画面']]){
   const data=await page.evaluate(({color,title})=>{const c=document.createElement('canvas');c.width=1200;c.height=1600;const x=c.getContext('2d');x.fillStyle=color;x.fillRect(0,0,c.width,c.height);x.fillStyle='#ffffff15';for(let i=0;i<12;i++)x.fillRect(i*110,0,50,1600);x.fillStyle='#e8d8bf';x.font='bold 90px sans-serif';x.fillText(title,220,450);x.beginPath();x.arc(600,730,210,0,7);x.fill();x.fillRect(330,980,540,620);return c.toDataURL('image/png').split(',')[1];},{color,title});

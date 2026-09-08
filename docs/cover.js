@@ -27,6 +27,7 @@ const {
   drawCover,
   drawCoverText,
   getExportFileName,
+  getLiveExportFileName,
   getBeforeImageFrame,
   getBeforeOffsetLimits,
   getMobileRetouchTargetChoices,
@@ -1913,7 +1914,7 @@ $("#startLive").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
   try {
-    const { mountLiveControls } = await import("./live/controls.js?v=20260908-card-pair");
+    const { mountLiveControls } = await import("./live/controls.js?v=20260908-live-name");
     liveController = mountLiveControls({
       host: $("#liveControlHost"),
       motionAt: getLiveMotionState,
@@ -1937,6 +1938,7 @@ $("#startLive").addEventListener("click", async (event) => {
           retouchStrokes: structuredClone(retouch.strokes), beforeRetouchStrokes: structuredClone(retouch.beforeStrokes),
         };
         return { width: current.width * 2, height: current.height * 2,
+          exportName(date) { return getLiveExportFileName(input.settings.fileName, current.label, current.ratio, date); },
           render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: {width:targetCanvas.width,height:targetCanvas.height}, live }); },
           createPoster(live) { return createCoverExportAsset({render:{...input,live},format:"jpeg",photoOnly:false,mobile:isMobileExportDevice(),fileStem:input.settings.fileName}); },
         };

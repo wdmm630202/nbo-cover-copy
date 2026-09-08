@@ -37,6 +37,7 @@ import {
 import {
   createCoverExportAsset,
   getExportFileName,
+  getLiveExportFileName,
   type CoverExportAsset,
 } from "./core/static-entry";
 import {
@@ -1581,6 +1582,7 @@ export default function CoverStudio() {
                   const input = { image, beforeImage, watermark: settings.watermarkEnabled ? watermark : null,
                     settings: { ...settings }, preset, retouchStrokes: structuredClone(retouchStrokes), beforeRetouchStrokes: structuredClone(beforeRetouchStrokes) };
                   return { width: preset.width * 2, height: preset.height * 2,
+                    exportName(date) { return getLiveExportFileName(fileName, preset.label, preset.ratio, date); },
                     render(targetCanvas, live) { drawCover({ ...input, canvas: targetCanvas, includeGuide: false, outputSize: {width:targetCanvas.width,height:targetCanvas.height}, live }); },
                     createPoster(live) { return createCoverExportAsset({render:{...input,live},format:"jpeg",photoOnly:false,mobile:isMobileExportDevice(),fileStem:fileName}); } };
                 }} />

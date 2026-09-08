@@ -1,10 +1,12 @@
 import { CARD_STYLES, CARD_DENSITIES, CARD_DEFAULT_DENSITY, compositeCard, CARD_DURATION, cardFrame, cardAudioName, cardAssetPath } from './card-series.js?v=20260908-card-pair';
-import { createLiveSaver, saveLivePair } from './save.js';
+import { createLiveSaver, saveLivePair, saveLiveArchive } from './save.js?v=20260908-live-name';
+import { createLiveNameAllocator } from './name.js?v=20260908-live-name';
 import { exportNativeLive, getNativeLiveBridge } from './native.js?v=20260908-card-pair';
 // Shared Live UI. Mounted only on demand by the static and React shells.
 export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{},captureRender,assetBase=new URL('./',import.meta.url)}) {
   const nativeBridge=getNativeLiveBridge();
   const saver=nativeBridge?null:createLiveSaver();
+  const reserveName=createLiveNameAllocator();
   let enabled=false,atlas=null,frameTime=CARD_DURATION,animationId=0,loadGeneration=0,disposed=false,abort=null,busy=false,selectedStyle="silver",density=CARD_DEFAULT_DENSITY,voice=true,sfx=true,dashed=true,previewsLoaded=false;
   const audio=typeof Audio==='function'?new Audio():null;
   const imageCache=new Map();
@@ -28,8 +30,8 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
         </div>
         <details class="live-help"><summary>使用说明</summary>
         <p>全程 3 秒：下卡依次显示三句可编辑文案，随后上卡从下卡上沿滑出，与改造后照片一起揭晓“主角登场”，最后 0.9 秒定格。两卡等大，上下留缝与右侧素颜照留缝一致，整列与素颜框上下对齐。底色浓度、人声、音效和虚线在选中的卡片内调整，虚线开关也应用于导出。视频以 4K 分辨率导出，照片取最后定格并沿用普通封面的原像素规则。</p>
-        ${nativeBridge?'<p>点击保存实况，直接保存到苹果「照片」。首次保存时请允许添加照片。</p>':`<p>电脑 Chrome 可直接保存到桌面文件夹，无需解压。首次导出请选择桌面并允许保存；当前页面会复用该位置。其他浏览器下载文件包。</p>
-        <p>要在 iPhone 相册长按播放，仍需用保存助手将文件夹导入苹果「照片」。</p>
+        ${nativeBridge?'<p>点击保存实况，直接保存到苹果「照片」。首次保存时请允许添加照片。</p>':`<p>像普通封面一样选择文件保存位置。文件名沿用原图名称、平台、比例和日期时间，前面加“实况live”，时间精确到毫秒并自动防重。</p>
+        <p>文件包内是同名 JPG＋MOV 配对资源。解压后用保存助手导入苹果「照片」，即可在 iPhone 相册长按播放。</p>
         <a class="live-helper" href="${new URL('南铂实况保存助手.zip',assetBase).href}" download>下载 Mac 保存助手</a>`}
         </details>
       </div></details>
@@ -124,18 +126,25 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
         if(!disposed&&enabled&&!abort.signal.aborted)status.textContent='实况已保存到苹果「照片」，可长按播放';
         return;
       }
-      status.textContent='请选择桌面或其他保存文件夹';
-      const directory=await saver.choose();
+      const exportName=await reserveName(snapshot.exportName);
+      if(disposed||!enabled||abort.signal.aborted)return;
+      status.textContent='请选择实况文件包的保存位置';
+      const directory=await saver.choose(exportName);
       if(disposed||!enabled||abort.signal.aborted)return;
       status.textContent='正在生成实况 0%';
-      const {exportLivePhoto}=await import('./export.js?v=20260908-card-pair');
-      const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,assetBase,signal:abort.signal,duration:CARD_DURATION,audioURL:exportAudioURL,audioDelay:0,createPoster:snapshot.createPoster?()=>snapshot.createPoster(frameFor(image,CARD_DURATION,exportDashed,exportAppearance)):undefined,
+      const {exportLivePhoto}=await import('./export.js?v=20260908-live-name');
+      const result=await exportLivePhoto({width:snapshot.width,height:snapshot.height,name:directory?.kind==='file'?directory.handle.name:exportName,assetBase,signal:abort.signal,duration:CARD_DURATION,audioURL:exportAudioURL,audioDelay:0,createPoster:snapshot.createPoster?()=>snapshot.createPoster(frameFor(image,CARD_DURATION,exportDashed,exportAppearance)):undefined,
         onProgress:value=>{status.textContent=`正在生成实况 ${value}%`;},
         renderFrame:(canvas,time)=>{
           snapshot.render(canvas,frameFor(image,time,exportDashed,exportAppearance));
         }});
       if(disposed||!enabled||abort.signal.aborted)return;
-      if(directory){
+      if(directory?.kind==='file'){
+        status.textContent='正在保存实况文件包…';
+        await saveLiveArchive(directory.handle,result.zip,abort.signal);
+        if(disposed||!enabled||abort.signal.aborted)return;
+        status.textContent=`已保存「${directory.handle.name}」，解压后是同名 JPG＋MOV`;
+      }else if(directory){
         status.textContent='正在保存到文件夹…';
         const folderName=await saveLivePair(directory,result,abort.signal);
         if(disposed||!enabled||abort.signal.aborted)return;
@@ -143,7 +152,7 @@ export function mountLiveControls({host,onToggle,onRefresh,onAssetsChanged=()=>{
       }else{
         const url=URL.createObjectURL(result.zip),link=document.createElement('a');link.href=url;link.download=result.name;link.click();
         setTimeout(()=>URL.revokeObjectURL(url),30000);
-        status.textContent='文件包已下载；电脑 Chrome 可直接保存到桌面文件夹';
+        status.textContent=`已发起下载「${result.name}」，解压后是同名 JPG＋MOV`;
       }
     }catch(error){
       if(!disposed&&enabled)status.textContent=error.name==='AbortError'?'已取消导出':(/[\u3400-\u9fff]/.test(error.message)?error.message:'实况导出失败，请重试');
