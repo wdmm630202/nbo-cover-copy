@@ -1,3 +1,4 @@
+import type { CompareRect } from "../compare-layout";
 import type { CoverSettings } from "./editor-settings";
 
 export const LIVE_LOCKED_VALUES = Object.freeze({
@@ -15,7 +16,7 @@ export type LiveText = Pick<CoverSettings, typeof LIVE_TEXT_KEYS[number]>;
 // User-approved defaults: other Live controls must not replace these three lines.
 export const LIVE_DEFAULT_TEXT: Readonly<LiveText> = Object.freeze({
   topText: "男士素人改造",
-  bottomText: "原来普通男生",
+  bottomText: "原来普通男士",
   subtitle: "也能拍成这样",
 });
 
@@ -64,4 +65,13 @@ export function getLiveMotionState(time: number) {
     overlayOpacity: second === 2 ? Math.min(1, linear * 5) : 0,
     animationTime: second === 2 ? (linear > 1 - 1e-9 ? 3 : linear * 3) : 0,
   };
+}
+
+// One shared gap for the vertical stack and the right-hand comparison photo.
+export function getLiveCardPairLayout(frame: CompareRect, left: number, scale: number) {
+  const gap=24*scale;
+  const width=Math.max(1,frame.x-left-gap),height=(frame.height-gap)/2;
+  const upper={x:left,y:frame.y,width,height,radius:21*scale};
+  const lower={...upper,y:frame.y+height+gap};
+  return {upper,lower,gap};
 }

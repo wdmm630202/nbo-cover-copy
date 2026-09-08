@@ -21,7 +21,7 @@ try{
  await page.waitForFunction(()=>{const e=document.querySelector('.live-export');return e&&!e.disabled;});
  await page.waitForTimeout(3200);
  await page.screenshot({path:resolve(out,'desktop-live.png')});
- for(const time of [0,.25,.5,.75,29/30,1,31/30,1.1,1.2,1.4,1.5,2,2.5,89/30]){
+ for(const time of [0,.2,.4,.7,.9,1.15,1.35,1.4,1.55,1.7,1.9,2.1,2.5,89/30]){
   const data=await page.evaluate(time=>{const c=document.createElement('canvas');NBOCoverCore.drawCover({canvas:c,image:state.image,beforeImage:state.beforeImage,watermark:null,settings:{...state},preset:{id:state.platformId,...preset()},includeGuide:false,live:liveController.presentation(time)});return c.toDataURL('image/png').split(',')[1];},time);
   await writeFile(resolve(out,`frame-${time.toFixed(3)}.png`),Buffer.from(data,'base64'));
  }

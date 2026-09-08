@@ -23,7 +23,7 @@ test('React 实际工作台 Live 反复切换、编辑、动画切换与卸载�
       await page.waitForFunction(()=>document.querySelector('.live-export')?.disabled===false);
       assert.equal(await size.inputValue(),'45');assert.ok(await size.isDisabled());
       assert.equal(await page.getByRole('textbox',{name:'上行主标题',exact:true}).inputValue(),'男士素人改造');
-      assert.equal(await page.getByRole('textbox',{name:'下行主标题',exact:true}).inputValue(),'原来普通男生');
+      assert.equal(await page.getByRole('textbox',{name:'下行主标题',exact:true}).inputValue(),'原来普通男士');
       assert.equal(await page.locator('textarea').inputValue(),'也能拍成这样');
       const brightness=page.getByRole('spinbutton',{name:'亮度准确数值',exact:true});
       await brightness.fill(String(92+i));await brightness.press('Enter');

@@ -567,7 +567,7 @@ var NBOCoverCore = (function(exports) {
 	];
 	var LIVE_DEFAULT_TEXT = Object.freeze({
 		topText: "男士素人改造",
-		bottomText: "原来普通男生",
+		bottomText: "原来普通男士",
 		subtitle: "也能拍成这样"
 	});
 	function normalizeLiveLine(value) {
@@ -606,6 +606,170 @@ var NBOCoverCore = (function(exports) {
 			overlayOpacity: second === 2 ? Math.min(1, linear * 5) : 0,
 			animationTime: second === 2 ? linear > .999999999 ? 3 : linear * 3 : 0
 		};
+	}
+	function getLiveCardPairLayout(frame, left, scale) {
+		const gap = 24 * scale;
+		const width = Math.max(1, frame.x - left - gap), height = (frame.height - gap) / 2;
+		const upper = {
+			x: left,
+			y: frame.y,
+			width,
+			height,
+			radius: 21 * scale
+		};
+		return {
+			upper,
+			lower: {
+				...upper,
+				y: frame.y + height + gap
+			},
+			gap
+		};
+	}
+	//#endregion
+	//#region app/cover/core/card-pair.ts
+	var clamp = (n) => Math.max(0, Math.min(1, n));
+	var smooth = (n) => {
+		const x = clamp(n);
+		return x * x * (3 - 2 * x);
+	};
+	function rgba(hex, alpha) {
+		const n = parseInt(hex.slice(1), 16);
+		return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${alpha})`;
+	}
+	function panel(ctx, box, frame, scale, path) {
+		ctx.save();
+		path(ctx, box.x, box.y, box.width, box.height, box.radius);
+		ctx.fillStyle = rgba(frame.base ?? "#171b20", clamp((frame.density ?? 50) / 100));
+		ctx.fill();
+		ctx.strokeStyle = rgba(frame.accent ?? "#cbd7e0", .16);
+		ctx.lineWidth = .8 * scale;
+		ctx.stroke();
+		if (frame.dashed) {
+			ctx.scale(scale, scale);
+			drawComparisonDashedFrame(ctx, {
+				x: box.x / scale,
+				y: box.y / scale,
+				width: box.width / scale,
+				height: box.height / scale,
+				radius: box.radius / scale
+			}, path);
+		}
+		ctx.restore();
+	}
+	function laser(ctx, box, time, color, scale) {
+		const p = clamp((time - 1.48) / .62);
+		const envelope = smooth(p / .2) * (1 - smooth((p - .66) / .34));
+		if (envelope === 0) return;
+		const w = box.width / scale, h = box.height / scale, r = box.radius / scale;
+		const sx = w - 2 * r, sy = h - 2 * r, arc = Math.PI * r / 2;
+		const segments = [
+			sx,
+			arc,
+			sy,
+			arc,
+			sx,
+			arc,
+			sy,
+			arc
+		];
+		const length = 2 * (sx + sy) + 4 * arc;
+		const point = (distance) => {
+			let q = (distance % length + length) % length, seg = 0;
+			while (seg < 7 && q > segments[seg]) q -= segments[seg++];
+			const a = q / r;
+			switch (seg) {
+				case 0: return [r + q, 0];
+				case 1: return [w - r + r * Math.cos(-Math.PI / 2 + a), r + r * Math.sin(-Math.PI / 2 + a)];
+				case 2: return [w, r + q];
+				case 3: return [w - r + r * Math.cos(a), h - r + r * Math.sin(a)];
+				case 4: return [w - r - q, h];
+				case 5: return [r + r * Math.cos(Math.PI / 2 + a), h - r + r * Math.sin(Math.PI / 2 + a)];
+				case 6: return [0, h - r - q];
+				default: return [r + r * Math.cos(Math.PI + a), r + r * Math.sin(Math.PI + a)];
+			}
+		};
+		const head = (.025 + (1 - Math.cos(Math.PI * p)) / 2) * length;
+		ctx.save();
+		ctx.translate(box.x, box.y);
+		ctx.scale(scale, scale);
+		ctx.lineCap = "round";
+		for (let i = 0; i < 160; i++) {
+			const distance = i / 160 * length;
+			const d = (head - distance + length * 1.5) % length - length / 2;
+			const intensity = Math.exp(-.5 * (d / (d < 0 ? 22 : 107)) ** 2) * envelope;
+			if (intensity < .002) continue;
+			const a = point(distance), b = point((i + 1) / 160 * length);
+			ctx.beginPath();
+			ctx.moveTo(a[0], a[1]);
+			ctx.lineTo(b[0], b[1]);
+			ctx.shadowColor = rgba(color, intensity * .5);
+			ctx.shadowBlur = 5;
+			ctx.strokeStyle = rgba(color, intensity * .14);
+			ctx.lineWidth = 6;
+			ctx.stroke();
+			ctx.shadowBlur = 0;
+			ctx.strokeStyle = rgba(color, intensity * .85);
+			ctx.lineWidth = .85;
+			ctx.stroke();
+		}
+		ctx.restore();
+	}
+	function drawLiveCardPair(ctx, frame, settings, width, height, drawText, path) {
+		const s = width / 1080, t = frame.time ?? 2.1;
+		ctx.save();
+		ctx.globalAlpha = 0;
+		const text = drawText(ctx, settings, width, height, null);
+		ctx.restore();
+		const { upper, lower } = getLiveCardPairLayout(getComparisonEvidenceLayout({
+			width,
+			height
+		}, settings.beforeFrameScale).frame, text.left, s);
+		const entrance = frame.entrance ?? 1;
+		if (entrance > 0) {
+			ctx.save();
+			ctx.beginPath();
+			ctx.rect(upper.x - 8 * s, upper.y - 8 * s, upper.width + 16 * s, lower.y - upper.y + 8 * s);
+			ctx.clip();
+			ctx.globalAlpha *= entrance;
+			const moving = {
+				...upper,
+				y: upper.y + (lower.y - upper.y) * (1 - entrance)
+			};
+			panel(ctx, moving, frame, s, path);
+			const fit = Math.min(upper.width / 462, upper.height / 342);
+			const source = frame.source;
+			ctx.drawImage(frame.image, source.x + 9, source.y + 9, 462, 342, upper.x + (upper.width - 462 * fit) / 2, moving.y + (upper.height - 342 * fit) / 2, 462 * fit, 342 * fit);
+			laser(ctx, moving, t, frame.accent ?? "#cbd7e0", s);
+			ctx.restore();
+		}
+		ctx.save();
+		ctx.globalAlpha *= frame.intro ?? 1;
+		const movingLower = {
+			...lower,
+			y: lower.y + 18 * s * (1 - (frame.intro ?? 1))
+		};
+		panel(ctx, movingLower, frame, s, path);
+		path(ctx, movingLower.x, movingLower.y, lower.width, lower.height, lower.radius);
+		ctx.clip();
+		const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));
+		ctx.translate(lower.x + 18 * s - text.left * fit, movingLower.y + (lower.height - (text.bottom - text.top) * fit) / 2 - text.top * fit);
+		ctx.scale(fit, fit);
+		drawText(ctx, settings, width, height, null, frame.lines);
+		ctx.restore();
+		const flash = Math.sin(clamp((t - 1.4) / .3) * Math.PI);
+		if (t > 1.4 && t < 1.7) {
+			ctx.save();
+			const light = ctx.createLinearGradient(lower.x, 0, lower.x + lower.width, 0);
+			light.addColorStop(0, rgba(frame.accent ?? "#cbd7e0", 0));
+			light.addColorStop(.5, rgba(frame.accent ?? "#cbd7e0", flash * .72));
+			light.addColorStop(1, rgba(frame.accent ?? "#cbd7e0", 0));
+			ctx.shadowColor = frame.accent ?? "#cbd7e0";
+			ctx.shadowBlur = 6 * s;
+			ctx.fillStyle = light;
+			ctx.fillRect(lower.x + lower.radius, lower.y, lower.width - lower.radius * 2, 1.4 * s);
+			ctx.restore();
+		}
 	}
 	//#endregion
 	//#region app/cover/core/render-core.ts
@@ -810,22 +974,45 @@ var NBOCoverCore = (function(exports) {
 		context.fillStyle = "#151515";
 		context.fillRect(0, 0, width, height);
 		const motion = live ? getLiveMotionState(live.time ?? 3) : null;
-		if (motion && motion.phase !== "complete" && !photoOnly && image && beforeImage) drawLiveIntro({
-			canvas,
-			image,
-			beforeImage,
-			watermark,
-			settings,
-			preset,
-			includeGuide: false,
-			outputSize: {
-				width,
-				height
-			},
-			retouchStrokes,
-			beforeRetouchStrokes
-		}, motion);
-		else {
+		if (motion && motion.phase !== "complete" && !photoOnly && image && beforeImage) {
+			drawLiveIntro({
+				canvas,
+				image,
+				beforeImage,
+				watermark,
+				settings,
+				preset,
+				includeGuide: false,
+				outputSize: {
+					width,
+					height
+				},
+				retouchStrokes,
+				beforeRetouchStrokes
+			}, motion);
+			if (live?.animation?.layout === "card-pair") {
+				drawLiveCardPair(context, live.animation, settings, width, height, drawCoverText, roundedRectPath);
+				context.save();
+				context.globalAlpha = live.overlayOpacity ?? 0;
+				if (settings.compareEnabled) drawComparisonEditorialOverlay(context, {
+					width,
+					height
+				}, roundedRectPath, settings.beforeFrameScale);
+				if (watermark) drawWatermark(context, watermark, settings, width, height);
+				context.restore();
+			} else if (live?.animation?.layout === "card-series") {
+				context.save();
+				context.globalAlpha = live.overlayOpacity ?? 0;
+				const textBounds = drawCoverText(context, settings, width, height, watermark);
+				if (settings.compareEnabled) drawComparisonEditorialOverlay(context, {
+					width,
+					height
+				}, roundedRectPath, settings.beforeFrameScale);
+				if (watermark) drawWatermark(context, watermark, settings, width, height);
+				context.restore();
+				drawLiveAnimation(context, live.animation, width, height, textBounds, settings.beforeFrameScale);
+			}
+		} else {
 			if (image) {
 				const radians = settings.rotation * Math.PI / 180;
 				const rotatedWidth = Math.abs(image.naturalWidth * Math.cos(radians)) + Math.abs(image.naturalHeight * Math.sin(radians));
@@ -866,10 +1053,22 @@ var NBOCoverCore = (function(exports) {
 				if (settings.compareEnabled) drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, beforeRetouchStrokes);
 				if (live) {
 					context.save();
-					context.globalAlpha = motion?.overlayOpacity ?? 1;
+					context.globalAlpha = live.overlayOpacity ?? motion?.overlayOpacity ?? 1;
 				}
-				const textBounds = drawCoverText(context, settings, width, height, watermark);
-				if (live?.animation) drawLiveAnimation(context, live.animation, width, height, textBounds, settings.beforeFrameScale);
+				if (live?.animation?.layout === "card-pair") {
+					context.save();
+					context.globalAlpha = 1;
+					drawLiveCardPair(context, live.animation, settings, width, height, drawCoverText, roundedRectPath);
+					context.restore();
+				} else {
+					const textBounds = drawCoverText(context, settings, width, height, watermark);
+					if (live?.animation) {
+						context.save();
+						if (live.animation.layout === "card-series") context.globalAlpha = 1;
+						drawLiveAnimation(context, live.animation, width, height, textBounds, settings.beforeFrameScale);
+						context.restore();
+					}
+				}
 				if (settings.compareEnabled) drawComparisonEditorialOverlay(context, {
 					width,
 					height
@@ -1070,7 +1269,7 @@ var NBOCoverCore = (function(exports) {
 		const value = Number.parseInt(color.replace("#", ""), 16);
 		return `rgba(${value >> 16},${value >> 8 & 255},${value & 255},${alpha})`;
 	}
-	function drawCoverText(context, settings, width, height, watermark) {
+	function drawCoverText(context, settings, width, height, watermark, lineProgress) {
 		const isRight = settings.templateId.endsWith("-right");
 		const isCenter = settings.templateId.endsWith("-center");
 		const textAlign = isRight ? "right" : isCenter ? "center" : "left";
@@ -1133,16 +1332,31 @@ var NBOCoverCore = (function(exports) {
 		const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
 		const dividerY = y + relativeDividerY;
 		const subtitleBaseline = y + relativeSubtitleBaseline;
+		const beginLine = (index) => {
+			if (!lineProgress) return;
+			const progress = lineProgress[index] ?? 1;
+			context.save();
+			context.globalAlpha *= progress;
+			context.translate(0, 24 * geometryScale * (1 - progress));
+		};
+		const endLine = () => {
+			if (lineProgress) context.restore();
+		};
+		beginLine(0);
 		context.fillStyle = settings.topColor;
 		context.font = `900 ${topFontSize}px sans-serif`;
 		if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, y, maxWidth);
 		context.fillText(settings.topText || "上行标题", x, y, maxWidth);
+		endLine();
 		if (settings.bottomText.trim()) {
+			beginLine(1);
 			context.fillStyle = settings.bottomColor;
 			context.font = `900 ${bottomFontSize}px sans-serif`;
 			if (textStroke > 0) context.strokeText(settings.bottomText, x, secondBaseline, maxWidth);
 			context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
+			endLine();
 		}
+		beginLine(2);
 		if (settings.showDivider) {
 			const dividerWidth = activeHeadlineFontSize;
 			const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
@@ -1167,6 +1381,7 @@ var NBOCoverCore = (function(exports) {
 			context.font = `400 ${subtitleFontSize}px sans-serif`;
 			drawWrappedText(context, settings.subtitle, x, settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent, maxWidth, subtitleLineHeight, textAlign);
 		}
+		endLine();
 		context.font = `900 ${topFontSize}px sans-serif`;
 		const topWidth = Math.min(maxWidth, context.measureText(settings.topText || "上行标题").width);
 		context.font = `900 ${bottomFontSize}px sans-serif`;
@@ -2943,6 +3158,7 @@ var NBOCoverCore = (function(exports) {
 	exports.getCoverDesktopScale = getCoverDesktopScale;
 	exports.getExportAttemptSizes = getExportAttemptSizes;
 	exports.getExportFileName = getExportFileName;
+	exports.getLiveCardPairLayout = getLiveCardPairLayout;
 	exports.getLiveMotionState = getLiveMotionState;
 	exports.getLiveSettings = getLiveSettings;
 	exports.getMobileRetouchTargetChoices = getMobileRetouchTargetChoices;

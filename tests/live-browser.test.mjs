@@ -26,7 +26,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     await page.getByRole('button',{name:'制作 Live',exact:true}).click();
     await page.getByRole('button',{name:'关闭 Live',exact:true}).waitFor();
     await page.waitForFunction(()=>document.querySelector('#textScale').value==='45');
-    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
+    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男士','也能拍成这样']);
     assert.equal(await page.locator('#textScale').isDisabled(),true);
     assert.equal(await page.locator('#textScaleValue').isDisabled(),true);
     assert.equal(await page.locator('#subtitleScale').isDisabled(),true);
@@ -37,12 +37,12 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     // Every shipped color/density must decode, with all settings inside its own card.
     const names=['曜石银','香槟金','雾海蓝','松石绿','赤陶棕'];
     await page.waitForFunction(()=>!document.querySelector('.live-play').disabled);
-    const timeline=await page.evaluate(()=>[0,.25,.5,.75,.999,1,1.4,2.5,3].map(t=>{
+    const timeline=await page.evaluate(()=>[0,.4,.9,1.35,1.4,1.55,2.1,2.5,3].map(t=>{
       const p=liveController.presentation(t);return {phase:NBOCoverCore.getLiveMotionState(p.time).phase,card:!!p.animation,entrance:p.animation?.entrance};
     }));
-    assert.deepEqual(timeline.map(f=>f.phase),['before','before','after','after','after','complete','complete','complete','complete'],'前一秒必须播放两段原照片进场');
-    assert.deepEqual(timeline.map(f=>f.card),[false,false,false,false,false,true,true,true,true],'卡片只在第1秒结束后出现');
-    assert.equal(timeline[5].entrance,0);assert.equal(timeline[6].entrance,1);
+    assert.deepEqual(timeline.map(f=>f.phase),['before','before','before','before','after','after','complete','complete','complete'],'三句先与素颜同步，1.4秒起共同揭晓改造后');
+    assert.deepEqual(timeline.map(f=>f.card),[true,true,true,true,true,true,true,true,true],'卡片和素颜照从开头同步播放');
+    assert.equal(timeline[3].entrance,0);assert.ok(timeline[5].entrance>0);assert.equal(timeline[6].entrance,1);
     const playback=await page.evaluate(async()=>{
       const start=performance.now();document.querySelector('.live-play').click();
       const initialCard=!!liveController.presentation().animation,phases=new Set();let firstCard=null;
@@ -50,9 +50,9 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
         if(p.animation&&firstCard===null)firstCard=elapsed;
         if(elapsed>=3100){resolve({initialCard,phases:[...phases],firstCard});return;}requestAnimationFrame(sample);};sample();});
     });
-    assert.equal(playback.initialCard,false,'重播时立即回到照片首帧，不能先闪出卡片');
+    assert.equal(playback.initialCard,true,'重播时卡片与素颜同时回到首帧');
     assert.deepEqual(playback.phases,['before','after','complete']);
-    assert.ok(playback.firstCard>=900&&playback.firstCard<1500,'有声预览也须在1秒后开始卡片');
+    assert.ok(playback.firstCard<150,'有声预览不能再延后卡片入场');
     await page.evaluate(()=>document.querySelector('.live-status').textContent='文件包已下载；电脑 Chrome 可直接保存到桌面文件夹');
     await page.locator('[data-platform="xiaohongshu"]').click();
     await page.getByRole('button',{name:'导出 Live',exact:true}).click({trial:true,timeout:3000});
@@ -68,7 +68,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.ok(positions.every(p=>p.y===positions[0].y&&!p.overflow),'五档同排且没有裁字');
     assert.ok(Math.abs(positions[2].x-(positions[0].x+positions[4].x)/2)<1,'50%位于中间');
     const alphaSamples=await page.evaluate(async()=>{
-      const {compositeCard}=await import('./live/card-series.js?v=20260908-motion-4k');
+      const {compositeCard}=await import('./live/card-series.js?v=20260908-card-pair');
       const foreground=document.createElement('canvas'),mask=document.createElement('canvas');foreground.width=mask.width=2;foreground.height=mask.height=1;
       const fg=foreground.getContext('2d');fg.fillStyle='#fff';fg.fillRect(0,0,1,1);
       const m=mask.getContext('2d');m.fillStyle='#fff';m.fillRect(0,0,2,1);
@@ -105,9 +105,9 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     }
     assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('nbo-live-card-v1'))),{style:'clay',density:100,voice:false,sfx:false,dashed:false,densityVersion:2});
     await page.evaluate(()=>{const zoom=document.querySelector('#zoom');zoom.value=117;zoom.dispatchEvent(new Event('input',{bubbles:true}));});
-    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
+    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男士','也能拍成这样']);
     await page.getByRole('button',{name:'恢复默认',exact:true}).click();
-    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男生','也能拍成这样']);
+    assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男士','也能拍成这样']);
     await page.getByRole('button',{name:'关闭 Live',exact:true}).click();
     await page.waitForFunction(value=>document.querySelector('#textScale').value===value,before.size);
     assert.equal(await page.locator('#textScale').isDisabled(),false);
@@ -135,7 +135,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
       const image=new Image();image.src=source.toDataURL();await image.decode();
       const results=[];
       for(const height of [1920,1440]) for(const showDivider of [true,false]) {
-        const settings=NBOCoverCore.getLiveSettings({...state,topText:'男士素人改造',bottomText:'原来普通男生',subtitle:'也能拍成这样',showDivider,textStroke:18,textShadow:64,dividerColor:'#c49e67',zoom:116,offsetX:-7,beforeBrightness:92});
+        const settings=NBOCoverCore.getLiveSettings({...state,topText:'男士素人改造',bottomText:'原来普通男士',subtitle:'也能拍成这样',showDivider,textStroke:18,textShadow:64,dividerColor:'#c49e67',zoom:116,offsetX:-7,beforeBrightness:92});
         const draw=live=>{const canvas=document.createElement('canvas');NBOCoverCore.drawCover({canvas,image,beforeImage:image,watermark:image,settings,preset:{id:height===1920?'douyin':'xiaohongshu',width:1080,height},includeGuide:false,live});return canvas.getContext('2d').getImageData(0,0,1080,height).data;};
         const normal=draw(undefined),final=draw({time:3});
         results.push({height,showDivider,differentChannels:final.reduce((sum,value,index)=>sum+Number(value!==normal[index]),0)});

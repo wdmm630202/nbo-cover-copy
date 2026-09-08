@@ -1,0 +1,166 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><title>曜石银 · 轻透叠片</title><link rel="stylesheet" href="card.css"><style>:root{--base:#171b20;--base-rgb:23,27,32;--plate-opacity:0.2;--accent:#cbd7e0;--text:#f1f5f7;--muted:#b7c3cd;--rgb:203,215,224}</style></head><body><div id="card-series" data-composition-id="card-series" data-start="0" data-duration="2" data-width="960" data-height="720" data-track-index="0"><div class="card"><div class="face front" data-layout-allow-overflow data-layout-allow-overlap data-layout-allow-occlusion><div class="content"><div class="header"><span class="state"><i></i>改造前</span><span class="serial">BEFORE</span></div><div class="heading"><div class="overline" data-layout-allow-overlap>镜头之前</div><div class="hero" data-layout-allow-overlap>普通男生</div></div><div class="foot"><span class="tagline">男士素人改造</span><span class="brand">NANBO</span></div></div></div><div class="face back" data-layout-allow-overflow data-layout-allow-overlap data-layout-allow-occlusion><div class="grain" data-layout-ignore></div><div class="content"><div class="header"><span class="state"><i></i>改造后</span><span class="serial">AFTER</span></div><div class="heading"><div class="overline">这一刻</div><svg class="art-title" viewBox="0 0 810 450" role="img" aria-label="主角登场" data-layout-allow-overflow><defs><linearGradient id="metal" x1="0" y1="0" x2=".25" y2="1"><stop offset="0" stop-color="var(--text)"/><stop offset=".38" stop-color="#ffffff"/><stop offset=".52" stop-color="var(--accent)"/><stop offset=".68" stop-color="var(--text)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient><linearGradient id="pearl" x1="0" y1="0" x2=".18" y2="1"><stop stop-color="#ffffff"/><stop offset=".52" stop-color="var(--text)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient><linearGradient id="gleam" gradientUnits="userSpaceOnUse" x1="-450" y1="0" x2="-160" y2="0"><stop stop-color="#ffffff" stop-opacity="0"/><stop offset=".5" stop-color="#ffffff" stop-opacity=".97"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient><image id="letter-0" width="231" height="222"/><image id="outline-0" width="231" height="222"/><mask id="letter-mask-0" mask-type="alpha"><use href="#letter-0"/></mask><image id="letter-1" width="230" height="226"/><image id="outline-1" width="230" height="226"/><mask id="letter-mask-1" mask-type="alpha"><use href="#letter-1"/></mask><image id="letter-2" width="216" height="198"/><image id="outline-2" width="216" height="198"/><mask id="letter-mask-2" mask-type="alpha"><use href="#letter-2"/></mask><image id="letter-3" width="228" height="201"/><image id="outline-3" width="228" height="201"/><mask id="letter-mask-3" mask-type="alpha"><use href="#letter-3"/></mask></defs><g transform="translate(26 10)"><g class="glyph glyph-0" data-char="主"><use href="#letter-0" class="letter-shadow"/><use href="#letter-0" class="letter-fill pearl"/><use href="#outline-0" class="letter-outline"/><rect width="231" height="222" class="letter-gleam" mask="url(#letter-mask-0)"/></g></g><g transform="translate(272 12)"><g class="glyph glyph-1" data-char="角"><use href="#letter-1" class="letter-shadow"/><use href="#letter-1" class="letter-fill pearl"/><use href="#outline-1" class="letter-outline"/><rect width="230" height="226" class="letter-gleam" mask="url(#letter-mask-1)"/></g></g><g transform="translate(288 240)"><g class="glyph glyph-2" data-char="登"><use href="#letter-2" class="letter-shadow"/><use href="#letter-2" class="letter-fill metal"/><use href="#outline-2" class="letter-outline"/><rect width="216" height="198" class="letter-gleam" mask="url(#letter-mask-2)"/></g></g><g transform="translate(521 237)"><g class="glyph glyph-3" data-char="场"><use href="#letter-3" class="letter-shadow"/><use href="#letter-3" class="letter-fill metal"/><use href="#outline-3" class="letter-outline"/><rect width="228" height="201" class="letter-gleam" mask="url(#letter-mask-3)"/></g></g><g class="type-spark" transform="translate(660 125)" aria-hidden="true" data-layout-ignore><path d="M0 -44 C4 -7 6 -4 40 0 C6 4 4 7 0 44 C-4 7 -6 4 -40 0 C-6 -4 -4 -7 0 -44" fill="var(--text)"/><circle r="58" stroke="var(--accent)" stroke-width="1.4" fill="none" opacity=".35"/></g></svg></div><div class="foot"><span class="tagline">本来，就很帅。</span><span class="brand">NANBO</span></div></div></div><div class="frame-brackets" data-layout-ignore></div><div class="transition-effects" data-layout-ignore><div class="rays" data-layout-ignore></div><div class="slash" data-layout-ignore></div><div class="flash" data-layout-ignore></div></div><svg class="rim-hairline" viewBox="0 0 920 680" preserveAspectRatio="none" data-layout-ignore aria-hidden="true"><rect x="6" y="6" width="908" height="668" rx="37"/></svg><div class="laser-light" data-layout-ignore aria-hidden="true"><canvas class="laser-halo" width="920" height="680"></canvas><canvas class="laser-core" width="920" height="680"></canvas></div></div></div><script src="gsap.min.js"></script><script>// Title styling reused from nbo-cover-copy/cover-core.js drawCoverText.
+// Container fitting is card-specific; glyph drawing keeps the original cover's settings.
+function drawCoverTitle(context,text,x,y,size,width,outline=false){
+ const textShadow=.5,textStroke=0;
+ context.save();
+ context.lineJoin='round';
+ context.strokeStyle=`rgba(0,0,0,${.92 * textStroke})`;
+ context.lineWidth=width * .012 * textStroke;
+ context.shadowColor=`rgba(0,0,0,${.78 * textShadow})`;
+ context.shadowBlur=width * .024 * textShadow;
+ context.shadowOffsetX=width * .004 * textShadow;
+ context.shadowOffsetY=width * .006 * textShadow;
+ context.fillStyle='#FFFFFF';
+ context.font=`900 ${size}px sans-serif`;
+ if(outline){context.shadowColor='transparent';context.strokeStyle='#FFFFFF';context.lineWidth=2.5;context.strokeText(text,x,y);}
+ else {context.strokeStyle='rgba(0,0,0,.84)';context.lineWidth=Math.max(1.4,size*(size<90?.05:.020));context.strokeText(text,x,y);context.fillText(text,x,y);}
+ context.restore();
+}
+const titleFrames=[['主',231,222],['角',230,226],['登',216,198],['场',228,201]];
+titleFrames.forEach(([letter,w,h],i)=>{
+ const c=document.createElement('canvas');c.width=w*3;c.height=h*3;
+ const ctx=c.getContext('2d');ctx.scale(3,3);ctx.font='900 230px sans-serif';
+ const m=ctx.measureText(letter);const size=230*Math.min((w-18)/(m.actualBoundingBoxLeft+m.actualBoundingBoxRight),(h-18)/(m.actualBoundingBoxAscent+m.actualBoundingBoxDescent));
+ ctx.font=`900 ${size}px sans-serif`;const ink=ctx.measureText(letter);
+ const x=(w-ink.actualBoundingBoxLeft-ink.actualBoundingBoxRight)/2+ink.actualBoundingBoxLeft;
+ const y=(h-ink.actualBoundingBoxAscent-ink.actualBoundingBoxDescent)/2+ink.actualBoundingBoxAscent;
+ drawCoverTitle(ctx,letter,x,y,size,960);
+ document.getElementById('letter-'+i).setAttribute('href',c.toDataURL('image/png'));
+ ctx.clearRect(0,0,w,h);drawCoverTitle(ctx,letter,x,y,size,960,true);
+ document.getElementById('outline-'+i).setAttribute('href',c.toDataURL('image/png'));
+});
+
+// The four marked labels use the exact same canvas font renderer as 主角登场.
+const auxGlyphs=[];
+const NS='http://www.w3.org/2000/svg';
+function svgNode(tag,attrs={}){const node=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))node.setAttribute(k,String(v));return node;}
+['.back .state','.back .serial','.back .tagline','.back .brand'].forEach((selector,groupIndex)=>{
+ const label=document.querySelector(selector),text=label.textContent.trim(),style=getComputedStyle(label);
+ const size=parseFloat(style.fontSize),tracking=parseFloat(style.letterSpacing)||0,pad=4;
+ const measure=document.createElement('canvas').getContext('2d');measure.font=`900 ${size}px sans-serif`;
+ const lineInk=measure.measureText(text),height=Math.ceil(size*1.35),baseline=(height-lineInk.actualBoundingBoxAscent-lineInk.actualBoundingBoxDescent)/2+lineInk.actualBoundingBoxAscent;
+ const svg=svgNode('svg',{class:'aux-title',role:'img','aria-label':text,height});
+ let cursor=0;
+ [...text].forEach((ch,i)=>{
+  const metrics=measure.measureText(ch),advance=metrics.width,w=Math.ceil(advance+pad*2);
+  const canvas=document.createElement('canvas');canvas.width=w*3;canvas.height=height*3;
+  const ctx=canvas.getContext('2d');ctx.scale(3,3);
+  const scaledWidth=960*size/220;
+  drawCoverTitle(ctx,ch,pad,baseline,size,scaledWidth);
+  const fill=canvas.toDataURL('image/png');ctx.clearRect(0,0,w,height);
+  // The same outline pass, optically scaled to these smaller letters.
+  ctx.save();ctx.font=`900 ${size}px sans-serif`;ctx.lineJoin='round';ctx.strokeStyle='#FFFFFF';ctx.lineWidth=Math.max(.65,2.5*size/220);ctx.strokeText(ch,pad,baseline);ctx.restore();
+  const outline=canvas.toDataURL('image/png');
+  const slot=svgNode('g',{transform:`translate(${cursor-pad} 0)`}),glyph=svgNode('g',{class:`glyph aux-glyph aux-${groupIndex}-${i}`,'data-char':ch});
+  for(const [cls,url] of [['letter-shadow',fill],['letter-fill',fill],['letter-outline',outline]])glyph.append(svgNode('image',{class:cls,href:url,width:w,height}));
+  slot.append(glyph);svg.append(slot);auxGlyphs.push({selector:'.aux-'+groupIndex+'-'+i,index:i,ratio:size/220});
+  cursor+=advance+tracking;
+ });
+ const width=Math.max(1,cursor-tracking);svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.setAttribute('width',width);
+ const dot=label.querySelector('i');label.replaceChildren(...(dot?[dot]:[]),svg);
+});
+// Deterministic soft laser reflection. Every seek redraws a fresh frame.
+// Spatial Gaussian intensity removes the rectangular ends of dash-based highlights.
+const laserLayer=document.querySelector('.laser-light');
+const laserHalo=document.querySelector('.laser-halo').getContext('2d');
+const laserCore=document.querySelector('.laser-core').getContext('2d');
+const laserRGB=getComputedStyle(document.documentElement).getPropertyValue('--rgb').trim().split(',').map(Number);
+const LW=920,LH=680,lx=6,ly=6,lw=908,lh=668,lr=37;
+const straightX=lw-2*lr,straightY=lh-2*lr,arcLen=Math.PI*lr/2;
+const perimeterLength=2*(straightX+straightY)+4*arcLen;
+function perimeterPoint(distance){
+ let q=((distance%perimeterLength)+perimeterLength)%perimeterLength;
+ const segments=[straightX,arcLen,straightY,arcLen,straightX,arcLen,straightY,arcLen];
+ let seg=0;while(q>segments[seg]&&seg<7){q-=segments[seg];seg++;}
+ const a=q/lr;
+ if(seg===0)return {x:lx+lr+q,y:ly,angle:0};
+ if(seg===1)return {x:lx+lw-lr+lr*Math.cos(-Math.PI/2+a),y:ly+lr+lr*Math.sin(-Math.PI/2+a),angle:a};
+ if(seg===2)return {x:lx+lw,y:ly+lr+q,angle:Math.PI/2};
+ if(seg===3)return {x:lx+lw-lr+lr*Math.cos(a),y:ly+lh-lr+lr*Math.sin(a),angle:Math.PI/2+a};
+ if(seg===4)return {x:lx+lw-lr-q,y:ly+lh,angle:Math.PI};
+ if(seg===5)return {x:lx+lr+lr*Math.cos(Math.PI/2+a),y:ly+lh-lr+lr*Math.sin(Math.PI/2+a),angle:Math.PI+a};
+ if(seg===6)return {x:lx,y:ly+lh-lr-q,angle:-Math.PI/2};
+ return {x:lx+lr+lr*Math.cos(Math.PI+a),y:ly+lr+lr*Math.sin(Math.PI+a),angle:Math.PI*1.5+a};
+}
+const laserSteps=440,laserSamples=Array.from({length:laserSteps+1},(_,i)=>perimeterPoint(i/laserSteps*perimeterLength));
+const smoothstep=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};
+function laserIntensity(s,head){
+ let d=((head-s+perimeterLength*1.5)%perimeterLength)-perimeterLength/2;
+ return Math.exp(-.5*(d/(d<0?44:214))**2);
+}
+function laserColor(alpha,white=0){return `rgba(${laserRGB.map(c=>Math.round(c+(255-c)*white)).join(',')},${alpha})`;}
+function drawLaser(t){
+ laserHalo.clearRect(0,0,LW,LH);laserCore.clearRect(0,0,LW,LH);
+ const envelope=smoothstep((t-.63)/.24)*(1-smoothstep((t-1.57)/.40));
+ if(envelope<.0001)return;
+ const p=Math.max(0,Math.min(1,(t-.65)/1.28));
+ const progress=(1-Math.cos(Math.PI*p))/2;
+ const head=(.025+progress)*perimeterLength;
+ for(let i=0;i<laserSteps;i++){
+  const p0=laserSamples[i],p1=laserSamples[i+1];
+  const a=laserIntensity(i/laserSteps*perimeterLength,head),b=laserIntensity((i+1)/laserSteps*perimeterLength,head);
+  if(Math.max(a,b)<.001)continue;
+  const halo=laserHalo.createLinearGradient(p0.x,p0.y,p1.x,p1.y);
+  halo.addColorStop(0,laserColor(a*envelope*.23));halo.addColorStop(1,laserColor(b*envelope*.23));
+  laserHalo.strokeStyle=halo;laserHalo.lineWidth=18;laserHalo.lineCap='butt';laserHalo.beginPath();laserHalo.moveTo(p0.x,p0.y);laserHalo.lineTo(p1.x,p1.y);laserHalo.stroke();
+  const core=laserCore.createLinearGradient(p0.x,p0.y,p1.x,p1.y);
+  core.addColorStop(0,laserColor(a*envelope*.88,a*.88));core.addColorStop(1,laserColor(b*envelope*.88,b*.88));
+  laserCore.strokeStyle=core;laserCore.lineWidth=1.65;laserCore.lineCap='butt';laserCore.beginPath();laserCore.moveTo(p0.x,p0.y);laserCore.lineTo(p1.x,p1.y);laserCore.stroke();
+ }
+ // A small elliptical glint follows the exact tangent, including all four corners.
+ const spot=perimeterPoint(head);
+ laserCore.save();laserCore.translate(spot.x,spot.y);laserCore.rotate(spot.angle);laserCore.scale(2.2,.8);
+ const glow=laserCore.createRadialGradient(0,0,0,0,0,12);
+ glow.addColorStop(0,laserColor(envelope*.82,.95));glow.addColorStop(.12,laserColor(envelope*.42,.75));glow.addColorStop(.48,laserColor(envelope*.10,.22));glow.addColorStop(1,laserColor(0));
+ laserCore.fillStyle=glow;laserCore.fillRect(-12,-12,24,24);laserCore.restore();
+}
+drawLaser(0);
+// Continuous clip reveal: the outgoing face remains filled until the light wipe covers it.
+gsap.set('.front',{clipPath:'polygon(0% 0%,100% 0%,100% 100%,-25% 100%)'});
+gsap.set('.back',{clipPath:'polygon(0% 0%,0% 0%,-25% 100%,0% 100%)'});
+gsap.set('.letter-fill',{clipPath:'inset(0% 100% 0% 0%)'});
+gsap.set('.letter-shadow',{opacity:0});
+gsap.set('.letter-outline',{clipPath:'inset(0% 0% 100% 0%)',opacity:1});
+gsap.set('.type-spark',{scale:0,rotation:-55});
+const glyphStarts=[{x:-92,y:20,scaleX:.38,scaleY:1.26,skewX:-18},{x:-70,y:-24,scaleX:1.40,scaleY:.38,skewX:16},{x:90,y:15,scaleX:.36,scaleY:1.24,skewX:-17},{x:112,y:-20,scaleX:1.48,scaleY:.38,skewX:16}];
+function prepareCoverGlyph(selector,index,ratio=1){const start=glyphStarts[index%4];gsap.set(selector,{...start,x:start.x*ratio,y:start.y*ratio});}
+[0,1,2,3].forEach(i=>prepareCoverGlyph('.glyph-'+i,i));
+auxGlyphs.forEach(g=>prepareCoverGlyph(g.selector,g.index,g.ratio));
+gsap.set('.back .overline',{x:75,opacity:0});
+
+const tl=gsap.timeline({paused:true});
+tl.from('.front .header',{opacity:0,y:-12,duration:.16,ease:'power1.out'},.08)
+  .from('.front .heading',{opacity:0,x:-18,duration:.20,ease:'power2.out'},.10)
+  .from('.front .foot',{opacity:0,duration:.18,ease:'sine.out'},.12)
+  .to('.card',{scale:.94,rotation:-2.5,y:9,duration:.15,ease:'power2.in'},.35)
+  .to('.card',{scale:1,rotation:0,y:0,duration:.46,ease:'back.out(1.25)'},.50)
+  .to('.front .content',{x:-105,scale:1.13,duration:.3,ease:'power3.inOut'},.41)
+  .to('.back',{clipPath:'polygon(0% 0%,125% 0%,100% 100%,0% 100%)',duration:.34,ease:'expo.inOut'},.43)
+  .to('.front',{clipPath:'polygon(125% 0%,100% 0%,100% 100%,100% 100%)',duration:.34,ease:'expo.inOut'},.43)
+  .set('.front',{opacity:0},.79)
+  .set('.front .content',{x:0,scale:1},.79)
+  .to('.back .overline',{x:0,opacity:1,duration:.25,ease:'power3.out'},.61)
+  .to('.type-spark',{scale:1,rotation:0,duration:.46,ease:'back.out(1.15)'},.89)
+  .fromTo('.slash',{xPercent:-30,opacity:0},{xPercent:30,opacity:.95,duration:.32,ease:'power2.inOut'},.41)
+  .to('.slash',{opacity:0,duration:.17,ease:'power1.out'},.73)
+  .to('.flash',{opacity:.40,duration:.07,ease:'power2.in'},.60)
+  .to('.flash',{opacity:0,duration:.22,ease:'power2.out'},.67)
+  .fromTo('.rays',{x:-160,opacity:0},{x:140,opacity:.6,duration:.18,ease:'power1.inOut'},.47)
+  .to('.rays',{opacity:0,duration:.16,ease:'sine.out'},.65);
+// One shared choreography function for the hero and all four marked labels.
+function animateCoverGlyph(selector,index,at){
+ tl.to(selector,{x:0,y:0,scaleX:1,scaleY:1,skewX:0,duration:.47,ease:index%2?'power3.out':'expo.out'},at)
+   .to(selector+' .letter-outline',{clipPath:'inset(0% 0% 0% 0%)',duration:.32,ease:'sine.out'},at)
+   .to(selector+' .letter-fill',{clipPath:'inset(0% 0% 0% 0%)',duration:.30,ease:'power2.out'},at+.12)
+   .to(selector+' .letter-shadow',{opacity:.15,duration:.24,ease:'sine.out'},at+.15)
+   .to(selector+' .letter-outline',{opacity:0,duration:.22,ease:'power1.out'},at+.31);
+}
+[0,1,2,3].forEach(i=>animateCoverGlyph('.glyph-'+i,i,.57+i*.045));
+auxGlyphs.forEach(g=>animateCoverGlyph(g.selector,g.index,.57+g.index*.045));
+tl.to('#gleam',{attr:{x1:900,x2:1190},duration:.60,ease:'power1.inOut'},1.09);
+const laserClock={value:0,get t(){return this.value},set t(value){this.value=value;drawLaser(value)}};
+tl.to(laserClock,{t:2,duration:2,ease:'none'},0);
+window.__timelines={'card-series':tl};
+
+window.setCardDensity=value=>document.documentElement.style.setProperty('--plate-opacity',Math.max(0,Math.min(35,Number(value)||0))/100);
+</script></body></html>

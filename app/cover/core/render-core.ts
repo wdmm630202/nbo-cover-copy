@@ -13,12 +13,19 @@ import {
 import type { CoverSettings } from "./editor-settings";
 import { eraseShadeWithBrush, type RetouchStroke } from "./retouch-core";
 import { getLiveSettings, getLiveMotionState } from "./live-layout";
+import { drawLiveCardPair } from "./card-pair";
 
 export type CoverLiveFrame = {
   image: CanvasImageSource;
-  layout?: "card-series";
+  layout?: "card-series" | "card-pair";
   entrance?: number;
   dashed?: boolean;
+  time?: number;
+  intro?: number;
+  lines?: number[];
+  base?: string;
+  accent?: string;
+  density?: number;
   source: { x: number; y: number; width: number; height: number };
 };
 
@@ -34,7 +41,7 @@ export type CoverRenderInput = {
   photoOnly?: boolean;
   retouchStrokes?: RetouchStroke[];
   beforeRetouchStrokes?: RetouchStroke[];
-  live?: { animation?: CoverLiveFrame | null; time?: number };
+  live?: { animation?: CoverLiveFrame | null; time?: number; overlayOpacity?: number };
 };
 
 type CoverScratchKind = "shade" | "stroke" | "compare";
@@ -288,6 +295,24 @@ export function drawCover({
   if (motion && motion.phase !== "complete" && !photoOnly && image && beforeImage) {
     drawLiveIntro({ canvas, image, beforeImage, watermark, settings, preset, includeGuide: false,
       outputSize: { width, height }, retouchStrokes, beforeRetouchStrokes }, motion);
+    if (live?.animation?.layout === "card-pair") {
+      drawLiveCardPair(context, live.animation, settings, width, height, drawCoverText, roundedRectPath);
+      context.save(); context.globalAlpha = live.overlayOpacity ?? 0;
+      if (settings.compareEnabled) drawComparisonEditorialOverlay(context, { width, height }, roundedRectPath, settings.beforeFrameScale);
+      if (watermark) drawWatermark(context, watermark, settings, width, height);
+      context.restore();
+    } else if (live?.animation?.layout === "card-series") {
+      // Use the original text renderer for both the fixed card bounds and the
+      // headline/divider reveal. The card has its own entrance, starting with the before photo.
+      context.save(); context.globalAlpha = live.overlayOpacity ?? 0;
+      const textBounds = drawCoverText(context, settings, width, height, watermark);
+      if (settings.compareEnabled) {
+        drawComparisonEditorialOverlay(context, { width, height }, roundedRectPath, settings.beforeFrameScale);
+      }
+      if (watermark) drawWatermark(context, watermark, settings, width, height);
+      context.restore();
+      drawLiveAnimation(context, live.animation, width, height, textBounds, settings.beforeFrameScale);
+    }
   } else {
   if (image) {
     const radians = settings.rotation * Math.PI / 180;
@@ -333,10 +358,19 @@ export function drawCover({
     if (settings.compareEnabled) {
       drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, beforeRetouchStrokes);
     }
-    if (live) { context.save(); context.globalAlpha = motion?.overlayOpacity ?? 1; }
+    if (live) { context.save(); context.globalAlpha = live.overlayOpacity ?? motion?.overlayOpacity ?? 1; }
+    if (live?.animation?.layout === "card-pair") {
+      context.save(); context.globalAlpha = 1;
+      drawLiveCardPair(context, live.animation, settings, width, height, drawCoverText, roundedRectPath);
+      context.restore();
+    } else {
     const textBounds = drawCoverText(context, settings, width, height, watermark);
     if (live?.animation) {
+      context.save();
+      if (live.animation.layout === "card-series") context.globalAlpha = 1;
       drawLiveAnimation(context, live.animation, width, height, textBounds, settings.beforeFrameScale);
+      context.restore();
+    }
     }
     if (settings.compareEnabled) {
       drawComparisonEditorialOverlay(context, { width, height }, roundedRectPath, settings.beforeFrameScale);
@@ -530,6 +564,7 @@ export function drawCoverText(
   width: number,
   height: number,
   watermark: HTMLImageElement | null,
+  lineProgress?: readonly number[],
 ) {
   const isRight = settings.templateId.endsWith("-right");
   const isCenter = settings.templateId.endsWith("-center");
@@ -605,18 +640,33 @@ export function drawCoverText(
   const dividerY = y + relativeDividerY;
   const subtitleBaseline = y + relativeSubtitleBaseline;
 
+  // Optional per-line reveal for the theme card. Drawing and gradient styling
+  // below stay identical to the normal cover; no animation means no extra transforms.
+  const beginLine = (index: number) => {
+    if (!lineProgress) return;
+    const progress = lineProgress[index] ?? 1;
+    context.save(); context.globalAlpha *= progress;
+    context.translate(0, 24 * geometryScale * (1 - progress));
+  };
+  const endLine = () => { if (lineProgress) context.restore(); };
+
+  beginLine(0);
   context.fillStyle = settings.topColor;
   context.font = `900 ${topFontSize}px sans-serif`;
   if (textStroke > 0) context.strokeText(settings.topText || "上行标题", x, y, maxWidth);
   context.fillText(settings.topText || "上行标题", x, y, maxWidth);
+  endLine();
 
   if (settings.bottomText.trim()) {
+    beginLine(1);
     context.fillStyle = settings.bottomColor;
     context.font = `900 ${bottomFontSize}px sans-serif`;
     if (textStroke > 0) context.strokeText(settings.bottomText, x, secondBaseline, maxWidth);
     context.fillText(settings.bottomText, x, secondBaseline, maxWidth);
+    endLine();
   }
 
+  beginLine(2);
   if (settings.showDivider) {
     const dividerWidth = activeHeadlineFontSize;
     const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
@@ -650,6 +700,7 @@ export function drawCoverText(
       textAlign,
     );
   }
+  endLine();
 
   context.font = `900 ${topFontSize}px sans-serif`;
   const topWidth = Math.min(maxWidth, context.measureText(settings.topText || "上行标题").width);

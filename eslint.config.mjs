@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "scripts/live-hero-source/gsap.min.js",
   ]),
 ]);
 

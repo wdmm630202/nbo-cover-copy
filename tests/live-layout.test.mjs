@@ -12,7 +12,7 @@ try { live = await import(moduleUrl.href); } catch (error) {
 }
 
 test('Live 固定默认三句独立于普通文案，其它参数更新不能重写默认文案或普通草稿', () => {
-  assert.deepEqual(live.LIVE_DEFAULT_TEXT,{topText:'男士素人改造',bottomText:'原来普通男生',subtitle:'也能拍成这样'});
+  assert.deepEqual(live.LIVE_DEFAULT_TEXT,{topText:'男士素人改造',bottomText:'原来普通男士',subtitle:'也能拍成这样'});
   const original={...DEFAULT_COVER_SETTINGS,topText:'普通模式原有长标题',bottomText:'普通下行',subtitle:'普通小字'};
   const active=live.getLiveSettings(original,live.LIVE_DEFAULT_TEXT);
   assert.equal(active.topText,'男士素人改造');
@@ -94,7 +94,7 @@ test('三秒分镜依次是素颜收进框、精修落到构图、完成动效�
 test('真实绘制在 Live 模式锁定三行字号和首行顶对齐，普通渲染输入不被写回', async () => {
   const environment = createTraceEnvironment();
   const core = loadCurrentCore(await readFile(new URL('../docs/cover-core.js', import.meta.url), 'utf8'), environment);
-  const settings = { ...DEFAULT_COVER_SETTINGS, topText: '男士素人改造', bottomText: '原来普通男生', subtitle: '也能拍成这样', textScale: 100 };
+  const settings = { ...DEFAULT_COVER_SETTINGS, topText: '男士素人改造', bottomText: '原来普通男士', subtitle: '也能拍成这样', textScale: 100 };
   core.drawCover({ canvas: environment.createCanvas('live'), image: null, beforeImage: null, watermark: null,
     settings, preset: { id: 'douyin', width: 1080, height: 1920 }, includeGuide: false, live: {} });
   const lines = environment.recorder.log.filter(([name, value]) => name === 'fillText' && [settings.topText, settings.bottomText, settings.subtitle].includes(value));

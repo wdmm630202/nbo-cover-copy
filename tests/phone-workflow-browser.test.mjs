@@ -96,7 +96,7 @@ test('手机单屏工作台：固定入口、原地调整、手势、Live 与原
       await page.setViewportSize({width:390,height:844});await page.waitForTimeout(100);assert.equal(await canvas.evaluate(c=>c.toDataURL()),content);
       await tap('Live');await page.waitForFunction(()=>document.querySelector('.phone-shortcut-rail button[aria-pressed=true]')&&document.querySelector('.live-play'));await tap('文字');
       const values=[];for(const id of ['topText','bottomText','subtitle']){await tool(id);values.push(await phone.getByRole('textbox').inputValue());}
-      assert.deepEqual(values,['男士素人改造','原来普通男生','也能拍成这样']);assert.ok(await phone.locator('[data-tool="textScale"]').isDisabled(),'Live 锁定字号');
+      assert.deepEqual(values,['男士素人改造','原来普通男士','也能拍成这样']);assert.ok(await phone.locator('[data-tool="textScale"]').isDisabled(),'Live 锁定字号');
       await tap('贴图');await phone.getByRole('button',{name:'香槟金',exact:true}).waitFor();await tap('香槟金');await tap('撤销');assert.equal(await phone.getByRole('button',{name:'曜石银',exact:true}).getAttribute('aria-pressed'),'true');
       assert.deepEqual(await phone.locator('.phone-card-audio button').allTextContents(),['人声','音效','虚线','重播']);
       await tap('曜石银底色100%');await tap('人声');await tap('音效');await tap('虚线');await tap('撤销');
