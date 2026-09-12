@@ -314,11 +314,12 @@ export function drawComparisonDashedFrame(
   context: CanvasRenderingContext2D,
   frame: CompareRect & { radius: number },
   roundedRectPath: (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => void,
+  strokeStyle: string | CanvasGradient = "rgba(222,222,224,.86)",
 ) {
   context.save();
   context.setLineDash([14, 10]);
   context.lineWidth = 3.5;
-  context.strokeStyle = "rgba(222,222,224,.86)";
+  context.strokeStyle = strokeStyle;
   roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
   context.stroke();
   context.restore();

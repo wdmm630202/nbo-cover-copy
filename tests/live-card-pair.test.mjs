@@ -61,3 +61,17 @@ test('两卡文字使用现有可编辑值且随时间显示，导出的虚线�
   assert.equal(env.recorder.log.filter(([name,a,b])=>name==='setLineDash'&&a===14&&b===10).length,time<1.4?2:3,'两卡和素颜框使用相同虚线');
  }
 });
+
+test('文字框按下中上三行透明度渐显，结束后恢复原虚线样式', async()=>{
+ const source=await readFile(new URL('../docs/cover-core.js',import.meta.url),'utf8');
+ for(const time of [0,.15,.4,.6,.9,1.1,1.35,3]){
+  const env=createTraceEnvironment(),core=loadCurrentCore(source,env),canvas=env.createCanvas('pair');
+  const frame=cardFrame([{__name:'hero'}],time,true);
+  core.drawCover({canvas,image:null,beforeImage:null,watermark:null,settings:layout.getLiveSettings(DEFAULT_COVER_SETTINGS),preset:{id:'douyin',width:1080,height:1920},includeGuide:false,live:{time:3,animation:frame}});
+  const stops=env.recorder.log.filter(([name,,,color])=>name==='gradient.addColorStop'&&color.startsWith('rgba(222,222,224,'));
+  if(time>=1.35){assert.equal(stops.length,0);continue;}
+  assert.equal(stops.length,4,'渐变虚线不能提前整框显示');
+  const alphas=stops.map(row=>Number(row[3].split(',').at(-1).slice(0,-1)));
+  assert.deepEqual(alphas,[frame.lines[2],frame.lines[1],frame.lines[0],frame.lines[0]].map(x=>x*.86));
+ }
+});

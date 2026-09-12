@@ -462,11 +462,11 @@ var NBOCoverCore = (function(exports) {
 		context.fillText(word, circleX, textY);
 		context.restore();
 	}
-	function drawComparisonDashedFrame(context, frame, roundedRectPath) {
+	function drawComparisonDashedFrame(context, frame, roundedRectPath, strokeStyle = "rgba(222,222,224,.86)") {
 		context.save();
 		context.setLineDash([14, 10]);
 		context.lineWidth = 3.5;
-		context.strokeStyle = "rgba(222,222,224,.86)";
+		context.strokeStyle = strokeStyle;
 		roundedRectPath(context, frame.x, frame.y, frame.width, frame.height, frame.radius);
 		context.stroke();
 		context.restore();
@@ -643,7 +643,7 @@ var NBOCoverCore = (function(exports) {
 		const n = parseInt(hex.slice(1), 16);
 		return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${alpha})`;
 	}
-	function panel(ctx, box, frame, scale, path) {
+	function panel(ctx, box, frame, scale, path, lines) {
 		ctx.save();
 		path(ctx, box.x, box.y, box.width, box.height, box.radius);
 		ctx.fillStyle = rgba(frame.base ?? "#171b20", clamp((frame.density ?? 50) / 100));
@@ -653,13 +653,23 @@ var NBOCoverCore = (function(exports) {
 		ctx.stroke();
 		if (frame.dashed) {
 			ctx.scale(scale, scale);
+			let stroke;
+			if (lines && lines.some((value) => value < 1)) {
+				stroke = ctx.createLinearGradient(0, box.y / scale, 0, (box.y + box.height) / scale);
+				for (const [position, index] of [
+					[0, 2],
+					[.5, 1],
+					[.85, 0],
+					[1, 0]
+				]) stroke.addColorStop(position, `rgba(222,222,224,${.86 * clamp(lines[index] ?? 1)})`);
+			}
 			drawComparisonDashedFrame(ctx, {
 				x: box.x / scale,
 				y: box.y / scale,
 				width: box.width / scale,
 				height: box.height / scale,
 				radius: box.radius / scale
-			}, path);
+			}, path, stroke);
 		}
 		ctx.restore();
 	}
@@ -761,7 +771,7 @@ var NBOCoverCore = (function(exports) {
 			...lower,
 			y: lower.y + 18 * s * (1 - (frame.intro ?? 1))
 		};
-		panel(ctx, movingLower, frame, s, path);
+		panel(ctx, movingLower, frame, s, path, frame.lines);
 		path(ctx, movingLower.x, movingLower.y, lower.width, lower.height, lower.radius);
 		ctx.clip();
 		const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));

@@ -14,7 +14,7 @@ function rgba(hex: string, alpha: number) {
   return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${alpha})`;
 }
 
-function panel(ctx: CanvasRenderingContext2D, box: Rect, frame: CoverLiveFrame, scale: number, path: RoundPath) {
+function panel(ctx: CanvasRenderingContext2D, box: Rect, frame: CoverLiveFrame, scale: number, path: RoundPath, lines?: readonly number[]) {
   ctx.save();
   path(ctx, box.x, box.y, box.width, box.height, box.radius);
   ctx.fillStyle = rgba(frame.base ?? '#171b20', clamp((frame.density ?? 50) / 100));
@@ -23,7 +23,16 @@ function panel(ctx: CanvasRenderingContext2D, box: Rect, frame: CoverLiveFrame, 
   ctx.lineWidth = .8 * scale; ctx.stroke();
   if (frame.dashed) {
     ctx.scale(scale, scale);
-    drawComparisonDashedFrame(ctx, { x: box.x / scale, y: box.y / scale, width: box.width / scale, height: box.height / scale, radius: box.radius / scale }, path);
+    // Share the text's eased opacity for each height of the frame. A continuous
+    // vertical gradient joins the rows without clipping or restarting dash spacing.
+    let stroke: CanvasGradient | undefined;
+    if (lines && lines.some(value => value < 1)) {
+      stroke = ctx.createLinearGradient(0, box.y / scale, 0, (box.y + box.height) / scale);
+      for (const [position, index] of [[0, 2], [.5, 1], [.85, 0], [1, 0]]) {
+        stroke.addColorStop(position, `rgba(222,222,224,${.86 * clamp(lines[index] ?? 1)})`);
+      }
+    }
+    drawComparisonDashedFrame(ctx, { x: box.x / scale, y: box.y / scale, width: box.width / scale, height: box.height / scale, radius: box.radius / scale }, path, stroke);
   }
   ctx.restore();
 }
@@ -98,7 +107,7 @@ export function drawLiveCardPair(ctx: CanvasRenderingContext2D, frame: CoverLive
   }
   ctx.save(); ctx.globalAlpha *= frame.intro ?? 1;
   const movingLower = { ...lower, y: lower.y + 18 * s * (1 - (frame.intro ?? 1)) };
-  panel(ctx, movingLower, frame, s, path);
+  panel(ctx, movingLower, frame, s, path, frame.lines);
   path(ctx, movingLower.x, movingLower.y, lower.width, lower.height, lower.radius); ctx.clip();
   const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));
   // Anchor the completed block, not the currently visible rows, so later reveals
