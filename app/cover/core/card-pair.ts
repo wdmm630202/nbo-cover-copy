@@ -14,10 +14,20 @@ function rgba(hex: string, alpha: number) {
   return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${alpha})`;
 }
 
-function panel(ctx: CanvasRenderingContext2D, box: Rect, frame: CoverLiveFrame, scale: number, path: RoundPath, lines?: readonly number[]) {
+function panel(ctx: CanvasRenderingContext2D, box: Rect, frame: CoverLiveFrame, scale: number, path: RoundPath, lines?: readonly number[], direction: "up" | "right" = "up") {
   ctx.save();
   path(ctx, box.x, box.y, box.width, box.height, box.radius);
-  ctx.fillStyle = rgba(frame.base ?? '#171b20', clamp((frame.density ?? 50) / 100));
+  // Only the plate fades toward its related photo; glyphs and guides stay crisp.
+  // Several eased stops avoid a hard band where the card blends into the image.
+  const density = clamp((frame.density ?? 50) / 100);
+  const base = frame.base ?? '#171b20';
+  const plate = direction === "up"
+    ? ctx.createLinearGradient(0, box.y + box.height, 0, box.y)
+    : ctx.createLinearGradient(box.x, 0, box.x + box.width, 0);
+  for (const [position, opacity] of [[0, 1], [.3, .97], [.55, .8], [.75, .46], [.9, .13], [1, 0]]) {
+    plate.addColorStop(position, rgba(base, density * opacity));
+  }
+  ctx.fillStyle = plate;
   ctx.fill();
   ctx.strokeStyle = rgba(frame.accent ?? '#cbd7e0', .16);
   ctx.lineWidth = .8 * scale; ctx.stroke();
@@ -107,7 +117,7 @@ export function drawLiveCardPair(ctx: CanvasRenderingContext2D, frame: CoverLive
   }
   ctx.save(); ctx.globalAlpha *= frame.intro ?? 1;
   const movingLower = { ...lower, y: lower.y + 18 * s * (1 - (frame.intro ?? 1)) };
-  panel(ctx, movingLower, frame, s, path, frame.lines);
+  panel(ctx, movingLower, frame, s, path, frame.lines, "right");
   path(ctx, movingLower.x, movingLower.y, lower.width, lower.height, lower.radius); ctx.clip();
   const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));
   // Anchor the completed block, not the currently visible rows, so later reveals

@@ -643,10 +643,21 @@ var NBOCoverCore = (function(exports) {
 		const n = parseInt(hex.slice(1), 16);
 		return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${alpha})`;
 	}
-	function panel(ctx, box, frame, scale, path, lines) {
+	function panel(ctx, box, frame, scale, path, lines, direction = "up") {
 		ctx.save();
 		path(ctx, box.x, box.y, box.width, box.height, box.radius);
-		ctx.fillStyle = rgba(frame.base ?? "#171b20", clamp((frame.density ?? 50) / 100));
+		const density = clamp((frame.density ?? 50) / 100);
+		const base = frame.base ?? "#171b20";
+		const plate = direction === "up" ? ctx.createLinearGradient(0, box.y + box.height, 0, box.y) : ctx.createLinearGradient(box.x, 0, box.x + box.width, 0);
+		for (const [position, opacity] of [
+			[0, 1],
+			[.3, .97],
+			[.55, .8],
+			[.75, .46],
+			[.9, .13],
+			[1, 0]
+		]) plate.addColorStop(position, rgba(base, density * opacity));
+		ctx.fillStyle = plate;
 		ctx.fill();
 		ctx.strokeStyle = rgba(frame.accent ?? "#cbd7e0", .16);
 		ctx.lineWidth = .8 * scale;
@@ -771,7 +782,7 @@ var NBOCoverCore = (function(exports) {
 			...lower,
 			y: lower.y + 18 * s * (1 - (frame.intro ?? 1))
 		};
-		panel(ctx, movingLower, frame, s, path, frame.lines);
+		panel(ctx, movingLower, frame, s, path, frame.lines, "right");
 		path(ctx, movingLower.x, movingLower.y, lower.width, lower.height, lower.radius);
 		ctx.clip();
 		const fit = Math.min(1, (lower.width - 36 * s) / Math.max(1, text.right - text.left), (lower.height - 36 * s) / Math.max(1, text.bottom - text.top));
@@ -1011,7 +1022,7 @@ var NBOCoverCore = (function(exports) {
 				},
 				retouchStrokes,
 				beforeRetouchStrokes
-			}, motion);
+			}, motion, live?.animation?.layout === "card-pair" ? live.animation.entrance : void 0);
 			if (live?.animation?.layout === "card-pair") {
 				drawLiveCardPair(context, live.animation, settings, width, height, drawCoverText, roundedRectPath);
 				context.save();
@@ -1130,12 +1141,12 @@ var NBOCoverCore = (function(exports) {
 			context.restore();
 		}
 	}
-	function drawLiveIntro(input, motion) {
+	function drawLiveIntro(input, motion, cardEntrance) {
 		const { canvas, image, beforeImage, settings } = input;
 		if (!image || !beforeImage) return;
 		const { width, height } = input.outputSize ?? input.preset;
 		const context = canvas.getContext("2d");
-		const p = motion.progress;
+		const p = motion.phase === "after" ? cardEntrance ?? motion.progress : motion.progress;
 		const mix = (start, end) => start + (end - start) * p;
 		if (motion.phase === "after") {
 			if (p === 1) {
@@ -1145,19 +1156,18 @@ var NBOCoverCore = (function(exports) {
 				});
 				return;
 			}
+			const after = getCoverScratch(canvas, "after-intro", width, height);
 			drawCover({
 				...input,
-				photoOnly: true,
+				canvas: after,
 				live: void 0,
-				settings: {
-					...settings,
-					zoom: mix(100, settings.zoom),
-					offsetX: mix(0, settings.offsetX),
-					offsetY: mix(0, settings.offsetY),
-					rotation: mix(0, settings.rotation),
-					brightness: mix(100, settings.brightness)
-				}
+				photoOnly: true
 			});
+			context.save();
+			context.beginPath();
+			context.rect(0, 0, width, height * p);
+			context.clip();
+			context.drawImage(after, 0, 0);
 			if (p > 0) {
 				const shade = getCoverScratch(canvas, "shade", width, height);
 				const stroke = getCoverScratch(canvas, "stroke", width, height);
@@ -1165,11 +1175,9 @@ var NBOCoverCore = (function(exports) {
 				shadeContext.clearRect(0, 0, width, height);
 				drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
 				if (input.retouchStrokes?.length) eraseShadeWithBrush(shadeContext, stroke, width, height, input.retouchStrokes);
-				context.save();
-				context.globalAlpha = p;
 				context.drawImage(shade, 0, 0);
-				context.restore();
 			}
+			context.restore();
 			drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, input.beforeRetouchStrokes ?? []);
 			return;
 		}

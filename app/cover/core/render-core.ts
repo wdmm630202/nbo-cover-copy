@@ -44,7 +44,7 @@ export type CoverRenderInput = {
   live?: { animation?: CoverLiveFrame | null; time?: number; overlayOpacity?: number };
 };
 
-type CoverScratchKind = "shade" | "stroke" | "compare";
+type CoverScratchKind = "shade" | "stroke" | "compare" | "after-intro";
 type CoverScratch = Partial<Record<CoverScratchKind, HTMLCanvasElement>>;
 
 const coverScratch = new WeakMap<HTMLCanvasElement, CoverScratch>();
@@ -294,7 +294,8 @@ export function drawCover({
   const motion = live ? getLiveMotionState(live.time ?? 3) : null;
   if (motion && motion.phase !== "complete" && !photoOnly && image && beforeImage) {
     drawLiveIntro({ canvas, image, beforeImage, watermark, settings, preset, includeGuide: false,
-      outputSize: { width, height }, retouchStrokes, beforeRetouchStrokes }, motion);
+      outputSize: { width, height }, retouchStrokes, beforeRetouchStrokes }, motion,
+      live?.animation?.layout === "card-pair" ? live.animation.entrance : undefined);
     if (live?.animation?.layout === "card-pair") {
       drawLiveCardPair(context, live.animation, settings, width, height, drawCoverText, roundedRectPath);
       context.save(); context.globalAlpha = live.overlayOpacity ?? 0;
@@ -412,12 +413,13 @@ export function drawCover({
   }
 }
 
-function drawLiveIntro(input: CoverRenderInput, motion: ReturnType<typeof getLiveMotionState>) {
+function drawLiveIntro(input: CoverRenderInput, motion: ReturnType<typeof getLiveMotionState>, cardEntrance?: number) {
   const { canvas, image, beforeImage, settings } = input;
   if (!image || !beforeImage) return;
   const { width, height } = input.outputSize ?? input.preset;
   const context = canvas.getContext("2d")!;
-  const p = motion.progress;
+  // The downward reveal and upward card entrance share one eased progress.
+  const p = motion.phase === "after" ? cardEntrance ?? motion.progress : motion.progress;
   const mix = (start: number, end: number) => start + (end - start) * p;
   if (motion.phase === "after") {
     if (p === 1) {
@@ -425,11 +427,12 @@ function drawLiveIntro(input: CoverRenderInput, motion: ReturnType<typeof getLiv
       drawCover({ ...input, live: { time: 2 } });
       return;
     }
-    // Use the same normal-photo renderer so the landing frame is exactly the user's crop.
-    drawCover({ ...input, photoOnly: true, live: undefined, settings: {
-      ...settings, zoom: mix(100, settings.zoom), offsetX: mix(0, settings.offsetX), offsetY: mix(0, settings.offsetY),
-      rotation: mix(0, settings.rotation), brightness: mix(100, settings.brightness),
-    } });
+    // Reveal the final crop from top to bottom; the photo itself stays in place.
+    const after = getCoverScratch(canvas, "after-intro", width, height);
+    drawCover({ ...input, canvas: after, live: undefined, photoOnly: true });
+    context.save();
+    context.beginPath(); context.rect(0, 0, width, height * p); context.clip();
+    context.drawImage(after, 0, 0);
     if (p > 0) {
       const shade = getCoverScratch(canvas, "shade", width, height);
       const stroke = getCoverScratch(canvas, "stroke", width, height);
@@ -437,8 +440,9 @@ function drawLiveIntro(input: CoverRenderInput, motion: ReturnType<typeof getLiv
       shadeContext.clearRect(0, 0, width, height);
       drawTemplateShade(shadeContext, settings.templateId, width, height, settings.shade, settings.bottomShade);
       if (input.retouchStrokes?.length) eraseShadeWithBrush(shadeContext, stroke, width, height, input.retouchStrokes);
-      context.save(); context.globalAlpha = p; context.drawImage(shade, 0, 0); context.restore();
+      context.drawImage(shade, 0, 0);
     }
+    context.restore();
     drawComparisonEvidence(context, canvas, beforeImage, settings, width, height, input.beforeRetouchStrokes ?? []);
     return;
   }
