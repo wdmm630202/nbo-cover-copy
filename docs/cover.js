@@ -1494,7 +1494,7 @@ $("#resetBeforeControls").addEventListener("click", () => {
   state.beforeBrightness = 100;
   state.beforeShade = 0;
   state.beforeBottomShade = 100;
-  state.beforeFrameScale = 100;
+  state.beforeFrameScale = DEFAULT_COVER_SETTINGS.beforeFrameScale;
   updateUi();
   saveSettings();
   draw();
@@ -1532,7 +1532,7 @@ $("#alignBeforeFrame").addEventListener("click", () => {
   setStatus("已与左侧文字顶部对齐");
 });
 $("#resetBeforeFrame").addEventListener("click", () => {
-  state.beforeFrameScale = 100;
+  state.beforeFrameScale = DEFAULT_COVER_SETTINGS.beforeFrameScale;
   clampBeforeOffsets();
   updateUi();
   saveSettings();

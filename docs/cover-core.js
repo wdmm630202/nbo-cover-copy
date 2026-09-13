@@ -1591,7 +1591,7 @@ var NBOCoverCore = (function(exports) {
 	//#region app/cover/core/editor-settings.ts
 	var DEFAULT_COVER_SETTINGS = {
 		platformId: "douyin",
-		templateId: "middle-left",
+		templateId: "bottom-left",
 		topText: "男人的",
 		bottomText: "高级感",
 		subtitle: "不被定义的自己",
@@ -1617,7 +1617,7 @@ var NBOCoverCore = (function(exports) {
 		shade: 0,
 		bottomShade: 100,
 		showSafeArea: true,
-		compareEnabled: false,
+		compareEnabled: true,
 		beforeZoom: 100,
 		beforeOffsetX: 0,
 		beforeOffsetY: 0,
@@ -1625,7 +1625,7 @@ var NBOCoverCore = (function(exports) {
 		beforeBrightness: 100,
 		beforeShade: 0,
 		beforeBottomShade: 100,
-		beforeFrameScale: 100,
+		beforeFrameScale: 106.7,
 		watermarkScale: 100,
 		watermarkAlign: "left",
 		watermarkOpacity: 50,

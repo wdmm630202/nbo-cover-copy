@@ -56,7 +56,7 @@ export type StaticCoverSettings = CoverSettings & {
 
 export const DEFAULT_COVER_SETTINGS: CoverSettings = {
   platformId: "douyin",
-  templateId: "middle-left",
+  templateId: "bottom-left",
   topText: "男人的",
   bottomText: "高级感",
   subtitle: "不被定义的自己",
@@ -82,7 +82,7 @@ export const DEFAULT_COVER_SETTINGS: CoverSettings = {
   shade: 0,
   bottomShade: 100,
   showSafeArea: true,
-  compareEnabled: false,
+  compareEnabled: true,
   beforeZoom: 100,
   beforeOffsetX: 0,
   beforeOffsetY: 0,
@@ -90,7 +90,7 @@ export const DEFAULT_COVER_SETTINGS: CoverSettings = {
   beforeBrightness: 100,
   beforeShade: 0,
   beforeBottomShade: 100,
-  beforeFrameScale: 100,
+  beforeFrameScale: 106.7,
   watermarkScale: 100,
   watermarkAlign: "left",
   watermarkOpacity: 50,

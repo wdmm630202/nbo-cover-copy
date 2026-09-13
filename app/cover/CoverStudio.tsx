@@ -1205,7 +1205,7 @@ export default function CoverStudio() {
       case "uploadBefore": beforeFileInputRef.current?.click(); break;
       case "syncCover": applySyncedImage(); break;
       case "alignBefore": alignBeforeFrame(); break;
-      case "resetBeforeFrame": updateSetting("beforeFrameScale", 100); setNotice("已恢复对比图默认尺寸"); break;
+      case "resetBeforeFrame": updateSetting("beforeFrameScale", DEFAULT_COVER_SETTINGS.beforeFrameScale); setNotice("已恢复对比图默认尺寸"); break;
       case "syncCopy": applySyncedCopy("all"); break;
       case "retouchBefore": setShowRetouchBefore(true); break;
       case "retouchAfter": setShowRetouchBefore(false); break;
@@ -1752,13 +1752,13 @@ export default function CoverStudio() {
                   beforeBrightness: 100,
                   beforeShade: 0,
                   beforeBottomShade: 100,
-                  beforeFrameScale: 100,
+                  beforeFrameScale: DEFAULT_COVER_SETTINGS.beforeFrameScale,
                 }))}>恢复默认</button>
               </div>
               <div className="studio-before-align-actions">
                 <button type="button" data-live-lock={liveEnabled ? "" : undefined} onClick={alignBeforeFrame} disabled={liveEnabled || !beforeImage}>尝试对齐</button>
                 <button type="button" disabled={liveEnabled} data-live-lock={liveEnabled ? "" : undefined} onClick={() => {
-                  setSettings((current) => ({ ...current, beforeFrameScale: 100 }));
+                  setSettings((current) => ({ ...current, beforeFrameScale: DEFAULT_COVER_SETTINGS.beforeFrameScale }));
                   setNotice("已恢复对比图默认尺寸");
                 }}>恢复对比图默认尺寸</button>
               </div>
