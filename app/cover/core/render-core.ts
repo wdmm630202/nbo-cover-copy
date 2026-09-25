@@ -688,6 +688,10 @@ export function drawCoverText(
   const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
   const dividerDrawY = bottomUp ? mirrorY - dividerY - dividerThickness : dividerY;
   const subtitleDrawBaseline = plan ? plan.subtitleBaseline : settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
+  // Small optical lift above the play-count area; keep title and divider geometry.
+  const subtitleLift = !lineProgress && !bottomUp && !settings.compareEnabled
+    && settings.templateId === "bottom-left" && settings.subtitle.trim()
+    ? 16 * geometryScale : 0;
   const reversedSubtitleBaseline = mirrorY - subtitleDrawBaseline + subtitleInk.ascent - subtitleInk.descent - Math.max(0, subtitleLines - 1) * subtitleLineHeight;
 
   // Optional per-line reveal for the theme card. Drawing and gradient styling
@@ -748,12 +752,12 @@ export function drawCoverText(
     context.shadowOffsetY = width * 0.006 * textShadow;
     context.fillStyle = settings.subtitleColor;
     context.font = `400 ${subtitleFontSize}px sans-serif`;
-    if (plan) context.fillText(settings.subtitle, x, plan.subtitleBaseline);
+    if (plan) context.fillText(settings.subtitle, x, plan.subtitleBaseline - subtitleLift);
     else drawWrappedText(
       context,
       settings.subtitle,
       x,
-      bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline,
+      bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline - subtitleLift,
       maxWidth,
       subtitleLineHeight,
       textAlign,
@@ -774,7 +778,7 @@ export function drawCoverText(
     left,
     right: left + contentWidth,
     top: plan?.top ?? y + blockTop,
-    bottom: plan?.bottom ?? y + blockBottom,
+    bottom: (plan?.bottom ?? y + blockBottom) - subtitleLift,
   };
   context.restore();
   return bottomUp ? inkBounds : bounds;
