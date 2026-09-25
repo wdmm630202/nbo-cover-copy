@@ -1,5 +1,88 @@
 var NBOCoverCore = (function(exports) {
 	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+	//#region app/cover/core/fixed-text-layout.ts
+	/** Normal portrait cover typography. Coordinates are in a 1080px-wide canvas. */
+	var FIXED_TEXT_FRAME = {
+		left: 54,
+		width: 576,
+		top: 1008,
+		bottom: 1482,
+		maxFont: 168,
+		minFont: 96,
+		subtitleFont: 54,
+		dividerThickness: 4,
+		minGap: 16,
+		maxGap: 120
+	};
+	function usesFixedTextLayout(settings) {
+		return settings.fixedTextLayout === true && settings.templateId === "bottom-left" && !settings.compareEnabled;
+	}
+	function solveFixedTextLayout(input) {
+		const { topText, bottomText, subtitle, measure } = input;
+		const s = input.width / 1080;
+		const offset = input.height / input.width < 1.5 ? 240 : 0;
+		const top = (FIXED_TEXT_FRAME.top - offset) * s;
+		const bottom = (FIXED_TEXT_FRAME.bottom - offset) * s;
+		const maxWidth = FIXED_TEXT_FRAME.width * s;
+		const subtitleFontSize = FIXED_TEXT_FRAME.subtitleFont * s;
+		const subtitleInk = measure(subtitle, subtitleFontSize, false);
+		const dividerThickness = input.showDivider === false ? 0 : FIXED_TEXT_FRAME.dividerThickness * s;
+		const gapCount = input.showDivider === false ? 2 : 3;
+		let error = null;
+		const count = (text) => Array.from(new Intl.Segmenter("zh", { granularity: "grapheme" }).segment(text)).length;
+		if (!topText.trim() || !bottomText.trim()) error = "请填写两行主标题，每行最多5个字";
+		else if ([topText, bottomText].some((t) => count(t) > 5 || /[\r\n]/.test(t))) error = "主标题每行最多5个字，请精简后导出";
+		else if (!subtitle.trim() || /[\r\n]/.test(subtitle) || subtitleInk.width > maxWidth) error = "副标题请保持一行并缩短文字（建议10字以内）";
+		let fontSize = FIXED_TEXT_FRAME.maxFont * s;
+		let topInk = measure(topText, fontSize, true);
+		let bottomInk = measure(bottomText, fontSize, true);
+		const available = bottom - top;
+		for (; fontSize >= FIXED_TEXT_FRAME.minFont * s; fontSize -= .25 * s) {
+			topInk = measure(topText, fontSize, true);
+			bottomInk = measure(bottomText, fontSize, true);
+			const occupied = topInk.ascent + topInk.descent + bottomInk.ascent + bottomInk.descent + subtitleInk.ascent + subtitleInk.descent + dividerThickness;
+			if (Math.max(topInk.width, bottomInk.width) <= maxWidth && available - occupied >= gapCount * FIXED_TEXT_FRAME.minGap * s) break;
+		}
+		const gap = (available - topInk.ascent - topInk.descent - bottomInk.ascent - bottomInk.descent - subtitleInk.ascent - subtitleInk.descent - dividerThickness) / gapCount;
+		if (!error && (fontSize < FIXED_TEXT_FRAME.minFont * s || gap > FIXED_TEXT_FRAME.maxGap * s || gap < FIXED_TEXT_FRAME.minGap * s)) error = "文案不适合当前文字区域，请精简或更换表达";
+		const topBaseline = top + topInk.ascent;
+		const bottomBaseline = topBaseline + topInk.descent + gap + bottomInk.ascent;
+		const dividerY = bottomBaseline + bottomInk.descent + gap;
+		const subtitleBaseline = bottom - subtitleInk.descent;
+		return {
+			error,
+			top,
+			bottom,
+			left: FIXED_TEXT_FRAME.left * s,
+			maxWidth,
+			fontSize,
+			subtitleFontSize,
+			topInk,
+			bottomInk,
+			subtitleInk,
+			gap,
+			topBaseline,
+			bottomBaseline,
+			dividerY,
+			dividerThickness,
+			subtitleBaseline
+		};
+	}
+	function measureFixedText(context, text, size, bold) {
+		context.font = `${bold ? 900 : 400} ${size}px sans-serif`;
+		let ascent = 0, descent = 0;
+		for (const character of Array.from(text || "国")) {
+			const metrics = context.measureText(character);
+			ascent = Math.max(ascent, metrics.actualBoundingBoxAscent || 0);
+			descent = Math.max(descent, metrics.actualBoundingBoxDescent || 0);
+		}
+		return {
+			width: context.measureText(text).width,
+			ascent: ascent || size * .8,
+			descent
+		};
+	}
+	//#endregion
 	//#region app/cover/core/export-core.ts
 	var CoverExportError = class extends Error {
 		constructor(code, message, cause) {
@@ -117,6 +200,23 @@ var NBOCoverCore = (function(exports) {
 		if (request.isCancelled?.()) throw cancellationError();
 		const { image } = request.render;
 		if (!image?.naturalWidth || !image.naturalHeight) throw new CoverExportError("SOURCE_IMAGE_MISSING", "请先上传一张照片");
+		if (!request.photoOnly && !request.render.live && usesFixedTextLayout(request.render.settings)) {
+			const validationCanvas = runtime.createCanvas();
+			try {
+				const context = validationCanvas.getContext("2d");
+				if (!context) throw new CoverExportError("CANVAS_RENDER_FAILED", "无法检查封面文字，请刷新重试");
+				const preset = getPreset(request.render);
+				const plan = solveFixedTextLayout({
+					...request.render.settings,
+					width: preset.width,
+					height: preset.height,
+					measure: (text, size, bold) => measureFixedText(context, text, size, bold)
+				});
+				if (plan?.error) throw new CoverExportError("TEXT_LAYOUT_INVALID", plan.error);
+			} finally {
+				runtime.releaseCoverCanvas(validationCanvas);
+			}
+		}
 		const attempts = getExportAttemptSizes({
 			width: image.naturalWidth,
 			height: image.naturalHeight
@@ -583,6 +683,7 @@ var NBOCoverCore = (function(exports) {
 		return {
 			...settings,
 			...LIVE_LOCKED_VALUES,
+			fixedTextLayout: false,
 			topText: normalizeLiveLine(text?.topText ?? settings.topText),
 			bottomText: normalizeLiveLine(text?.bottomText ?? settings.bottomText),
 			subtitle: normalizeLiveLine(text?.subtitle ?? settings.subtitle)
@@ -1299,14 +1400,42 @@ var NBOCoverCore = (function(exports) {
 		const value = Number.parseInt(color.replace("#", ""), 16);
 		return `rgba(${value >> 16},${value >> 8 & 255},${value & 255},${alpha})`;
 	}
+	function getFixedCoverTextPlan(context, settings, width, height) {
+		if (!usesFixedTextLayout(settings)) return null;
+		context.save();
+		const plan = solveFixedTextLayout({
+			...settings,
+			width,
+			height,
+			measure(text, size, bold) {
+				return measureFixedText(context, text, size, bold);
+			}
+		});
+		context.restore();
+		return plan;
+	}
 	function drawCoverText(context, settings, width, height, watermark, lineProgress, textOrder = "top-down") {
+		const plan = !lineProgress && textOrder === "top-down" ? getFixedCoverTextPlan(context, settings, width, height) : null;
+		if (plan?.error) {
+			context.save();
+			context.font = `${24 * width / 1080}px sans-serif`;
+			context.fillStyle = "#FFFFFF";
+			context.fillText(plan.error, plan.left, plan.top, width - plan.left * 2);
+			context.restore();
+			return {
+				left: plan.left,
+				right: plan.left + plan.maxWidth,
+				top: plan.top,
+				bottom: plan.bottom
+			};
+		}
 		const isRight = settings.templateId.endsWith("-right");
 		const isCenter = settings.templateId.endsWith("-center");
 		const textAlign = isRight ? "right" : isCenter ? "center" : "left";
 		const geometryScale = width / 1080;
 		const horizontalInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * geometryScale;
 		const x = isRight ? width - horizontalInset : isCenter ? width / 2 : horizontalInset;
-		const maxWidth = width - horizontalInset * 2;
+		const maxWidth = plan?.maxWidth ?? width - horizontalInset * 2;
 		const topBaseFont = Math.max(1, Math.round(width * .074 * 2.1 * (settings.textScale / 100)));
 		const bottomBaseFont = Math.max(1, Math.round(width * .074 * 2.1 * (settings.bottomTextScale / 100)));
 		context.save();
@@ -1324,9 +1453,9 @@ var NBOCoverCore = (function(exports) {
 		const topFit = fitText(context, settings.topText, topBaseFont, maxWidth);
 		const bottomFit = hasBottomText ? fitText(context, settings.bottomText, settings.textScaleLinked ? topBaseFont : bottomBaseFont, maxWidth) : topFit;
 		const linkedFontSize = Math.min(topFit, bottomFit);
-		const topFontSize = settings.textScaleLinked ? linkedFontSize : topFit;
-		const bottomFontSize = settings.textScaleLinked ? linkedFontSize : bottomFit;
-		const subtitleFontSize = Math.round(width * .061 * (settings.subtitleScale / 100));
+		const topFontSize = plan?.fontSize ?? (settings.textScaleLinked ? linkedFontSize : topFit);
+		const bottomFontSize = plan?.fontSize ?? (settings.textScaleLinked ? linkedFontSize : bottomFit);
+		const subtitleFontSize = plan?.subtitleFontSize ?? Math.round(width * .061 * (settings.subtitleScale / 100));
 		const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
 		context.font = `900 ${topFontSize}px sans-serif`;
 		const topHeadlineInk = measureInkBounds(context, settings.topText || "国");
@@ -1336,7 +1465,7 @@ var NBOCoverCore = (function(exports) {
 		const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
 		const fixedVerticalGap = getWatermarkVisibleHeight(width);
 		const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
-		const dividerThickness = 4;
+		const dividerThickness = plan?.dividerThickness ?? 4;
 		const relativeActiveBaseline = hasBottomText ? lineGap : 0;
 		const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
 		const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
@@ -1357,11 +1486,11 @@ var NBOCoverCore = (function(exports) {
 		const watermarkTop = watermark ? watermarkBottom - ((watermarkBounds?.bottom ?? 0) - (watermarkBounds?.top ?? 0)) * fixedWatermarkScale : Number.POSITIVE_INFINITY;
 		const bottomTextLimit = Math.min(usableBottom, watermarkTop - fixedVerticalGap);
 		const requestedY = settings.templateId.startsWith("top-") ? usableTop - blockTop : settings.templateId.startsWith("bottom-") ? bottomTextLimit - blockBottom : (cropTop + cropBottom) / 2 - blockTop;
-		const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
-		const secondBaseline = y + lineGap;
+		const y = plan?.topBaseline ?? Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
+		const secondBaseline = plan?.bottomBaseline ?? y + lineGap;
 		const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
-		const dividerY = y + relativeDividerY;
-		const subtitleBaseline = y + relativeSubtitleBaseline;
+		const dividerY = plan?.dividerY ?? y + relativeDividerY;
+		const subtitleBaseline = plan?.subtitleBaseline ?? y + relativeSubtitleBaseline;
 		const bottomUp = textOrder === "bottom-up";
 		const inkBounds = {
 			left: Infinity,
@@ -1386,7 +1515,7 @@ var NBOCoverCore = (function(exports) {
 		const firstDrawBaseline = bottomUp ? mirrorY - y + topHeadlineInk.ascent - topHeadlineInk.descent : y;
 		const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
 		const dividerDrawY = bottomUp ? mirrorY - dividerY - dividerThickness : dividerY;
-		const subtitleDrawBaseline = settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
+		const subtitleDrawBaseline = plan ? plan.subtitleBaseline : settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
 		const reversedSubtitleBaseline = mirrorY - subtitleDrawBaseline + subtitleInk.ascent - subtitleInk.descent - Math.max(0, subtitleLines - 1) * subtitleLineHeight;
 		const beginLine = (index) => {
 			if (!lineProgress) return;
@@ -1438,7 +1567,8 @@ var NBOCoverCore = (function(exports) {
 			context.shadowOffsetY = width * .006 * textShadow;
 			context.fillStyle = settings.subtitleColor;
 			context.font = `400 ${subtitleFontSize}px sans-serif`;
-			drawWrappedText(context, settings.subtitle, x, bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline, maxWidth, subtitleLineHeight, textAlign, recordInk);
+			if (plan) context.fillText(settings.subtitle, x, plan.subtitleBaseline);
+			else drawWrappedText(context, settings.subtitle, x, bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline, maxWidth, subtitleLineHeight, textAlign, recordInk);
 		}
 		endLine();
 		context.font = `900 ${topFontSize}px sans-serif`;
@@ -1452,8 +1582,8 @@ var NBOCoverCore = (function(exports) {
 		const bounds = {
 			left,
 			right: left + contentWidth,
-			top: y + blockTop,
-			bottom: y + blockBottom
+			top: plan?.top ?? y + blockTop,
+			bottom: plan?.bottom ?? y + blockBottom
 		};
 		context.restore();
 		return bottomUp ? inkBounds : bounds;
@@ -1610,6 +1740,7 @@ var NBOCoverCore = (function(exports) {
 		textScale: 100,
 		bottomTextScale: 100,
 		textScaleLinked: true,
+		fixedTextLayout: true,
 		textStroke: 0,
 		textShadow: 50,
 		textShadowDefaultVersion: 1,
@@ -1728,6 +1859,7 @@ var NBOCoverCore = (function(exports) {
 			textScale: numberValue("textScale", 0, 200),
 			bottomTextScale: numberValue("bottomTextScale", 0, 200),
 			textScaleLinked: booleanValue("textScaleLinked"),
+			fixedTextLayout: booleanValue("fixedTextLayout"),
 			textStroke: numberValue("textStroke", 0, 100),
 			textShadow: numberValue("textShadow", 0, 100),
 			textShadowDefaultVersion: 1,
@@ -3199,6 +3331,7 @@ var NBOCoverCore = (function(exports) {
 	//#endregion
 	exports.CoverExportError = CoverExportError;
 	exports.DEFAULT_COVER_SETTINGS = DEFAULT_COVER_SETTINGS;
+	exports.FIXED_TEXT_FRAME = FIXED_TEXT_FRAME;
 	exports.LIVE_DEFAULT_TEXT = LIVE_DEFAULT_TEXT;
 	exports.LIVE_LOCKED_VALUES = LIVE_LOCKED_VALUES;
 	exports.LIVE_TEXT_KEYS = LIVE_TEXT_KEYS;
@@ -3219,6 +3352,7 @@ var NBOCoverCore = (function(exports) {
 	exports.getCoverDesktopScale = getCoverDesktopScale;
 	exports.getExportAttemptSizes = getExportAttemptSizes;
 	exports.getExportFileName = getExportFileName;
+	exports.getFixedCoverTextPlan = getFixedCoverTextPlan;
 	exports.getLiveCardPairLayout = getLiveCardPairLayout;
 	exports.getLiveExportFileName = getLiveExportFileName;
 	exports.getLiveMotionState = getLiveMotionState;
@@ -3231,6 +3365,7 @@ var NBOCoverCore = (function(exports) {
 	exports.getSecondaryTools = getSecondaryTools;
 	exports.isMobileToolDisabled = isMobileToolDisabled;
 	exports.mapRetouchPoint = mapRetouchPoint;
+	exports.measureFixedText = measureFixedText;
 	exports.mountPhoneEditor = mountPhoneEditor;
 	exports.normalizeCoverSettings = normalizeCoverSettings;
 	exports.normalizeLiveLine = normalizeLiveLine;
@@ -3242,8 +3377,10 @@ var NBOCoverCore = (function(exports) {
 	exports.revealCoverRules = revealCoverRules;
 	exports.serializeStaticCoverSettings = serializeStaticCoverSettings;
 	exports.setCoverExportRenderRequestObserver = setCoverExportRenderRequestObserver;
+	exports.solveFixedTextLayout = solveFixedTextLayout;
 	exports.updateCoverSetting = updateCoverSetting;
 	exports.updateLiveSettings = updateLiveSettings;
 	exports.updateMobileKeyboardViewport = updateMobileKeyboardViewport;
+	exports.usesFixedTextLayout = usesFixedTextLayout;
 	return exports;
 })({});

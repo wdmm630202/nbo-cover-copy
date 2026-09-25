@@ -21,3 +21,5 @@ export * from "./tool-registry";
 export * from "./live-layout";
 
 export * from "./phone-editor";
+
+export * from "./fixed-text-layout";

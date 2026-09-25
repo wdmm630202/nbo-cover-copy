@@ -1,3 +1,5 @@
+// @ts-expect-error Node direct tests require an explicit TypeScript extension.
+import { solveFixedTextLayout, usesFixedTextLayout, measureFixedText } from "./fixed-text-layout.ts";
 import type { PlatformPreset } from "../cover-config";
 import type { CoverRenderInput } from "./render-core";
 
@@ -27,7 +29,8 @@ export type CoverExportErrorCode =
   | "EXPORT_CANCELLED"
   | "CANVAS_RENDER_FAILED"
   | "CANVAS_EXPORT_FAILED"
-  | "JPEG_SIZE_LIMIT";
+  | "JPEG_SIZE_LIMIT"
+  | "TEXT_LAYOUT_INVALID";
 
 export class CoverExportError extends Error {
   readonly code: CoverExportErrorCode;
@@ -179,6 +182,16 @@ export async function createCoverExportAssetWithRuntime(
     throw new CoverExportError("SOURCE_IMAGE_MISSING", "请先上传一张照片");
   }
 
+  if (!request.photoOnly && !request.render.live && usesFixedTextLayout(request.render.settings)) {
+    const validationCanvas = runtime.createCanvas();
+    try {
+      const context = validationCanvas.getContext("2d");
+      if (!context) throw new CoverExportError("CANVAS_RENDER_FAILED", "无法检查封面文字，请刷新重试");
+      const preset = getPreset(request.render);
+      const plan = solveFixedTextLayout({ ...request.render.settings, width: preset.width, height: preset.height, measure: (text: string, size: number, bold: boolean) => measureFixedText(context, text, size, bold) });
+      if (plan?.error) throw new CoverExportError("TEXT_LAYOUT_INVALID", plan.error);
+    } finally { runtime.releaseCoverCanvas(validationCanvas); }
+  }
   const attempts = getExportAttemptSizes(
     { width: image.naturalWidth, height: image.naturalHeight },
     getPreset(request.render),

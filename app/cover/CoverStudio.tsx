@@ -1,4 +1,5 @@
 "use client";
+import { usesFixedTextLayout } from "./core/fixed-text-layout";
 
 import {
   ChangeEvent,
@@ -239,6 +240,7 @@ export default function CoverStudio() {
       };
     });
   }, []);
+  const fixedLayoutActive = !liveEnabled && usesFixedTextLayout(settings);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fileName, setFileName] = useState("");
   const [beforeImage, setBeforeImage] = useState<HTMLImageElement | null>(null);
@@ -1094,6 +1096,7 @@ export default function CoverStudio() {
 
   const mobileValueFor = (tool: ToolDefinition): unknown => {
     const base = (value: unknown, extra: Partial<MobileToolPresentation> = {}): MobileToolPresentation => ({ value, ...extra });
+    if (fixedLayoutActive && ["textScale", "bottomTextScale", "subtitleScale", "textScaleLinked"].includes(tool.id)) return base(tool.settingKey ? settings[tool.settingKey as keyof CoverSettings] : null, { disabled: true });
     if (liveEnabled && ["comparison", "template", "textScale", "bottomTextScale", "subtitleScale", "textScaleLinked", "alignBefore", "resetBeforeFrame"].includes(tool.id)) return base(tool.settingKey ? settings[tool.settingKey as keyof CoverSettings] : null, { disabled: true });
     if (tool.id === "watermarkEnabled") return base(settings.watermarkEnabled, { choices: [
       { value: true, label: "使用水印" },
@@ -1393,6 +1396,9 @@ export default function CoverStudio() {
             </div>
           ) : null}
 
+            <label className="studio-check studio-divider-toggle"><input type="checkbox" checked={settings.fixedTextLayout !== false} disabled={liveEnabled} onChange={event => updateSetting("fixedTextLayout", event.target.checked)} /><span />统一自动排版（下方左题）</label>
+            <p className="studio-hint">{fixedLayoutActive ? "每行最多5字；顶部、底部固定，三处留白自动等分。副标题建议10字以内。" : "自动排版用于下方左题、关闭前后对比的普通封面。"}</p>
+
           <div className="studio-field">
             <div className="studio-field-heading">
               <span>上行主标题 <b>默认纯白·可取色</b></span>
@@ -1434,7 +1440,7 @@ export default function CoverStudio() {
             </div>
           </div>
           <label className="studio-field">
-            <span>补充小字 <b>可不填</b></span>
+            <span>补充小字 <b>{fixedLayoutActive ? "请填写一行" : "可不填"}</b></span>
             <textarea
               value={settings.subtitle}
               maxLength={liveEnabled ? 6 : 38}
@@ -1444,7 +1450,7 @@ export default function CoverStudio() {
           </label>
           <div className="studio-subtitle-tools">
             <label><span>小字颜色</span><input type="color" value={settings.subtitleColor} onChange={(event) => updateSetting("subtitleColor", event.target.value.toUpperCase())} /></label>
-            <label data-live-lock={liveEnabled ? "" : undefined}><span>小字大小 <b>{settings.subtitleScale}%</b></span><input type="range" min={60} max={160} value={settings.subtitleScale} disabled={liveEnabled} onChange={(event) => updateSetting("subtitleScale", Number(event.target.value))} /></label>
+            <label data-live-lock={liveEnabled ? "" : undefined}><span>小字大小 <b>{settings.subtitleScale}%</b></span><input type="range" min={60} max={160} value={settings.subtitleScale} disabled={liveEnabled || fixedLayoutActive} onChange={(event) => updateSetting("subtitleScale", Number(event.target.value))} /></label>
           </div>
           <div className="studio-watermark-box">
             <input
@@ -1911,8 +1917,8 @@ export default function CoverStudio() {
             />
             <Slider
               label="上行标题大小"
-              disabled={liveEnabled}
-              disableReset={liveEnabled}
+              disabled={liveEnabled || fixedLayoutActive}
+              disableReset={liveEnabled || fixedLayoutActive}
               value={settings.textScale}
               min={0}
               max={200}
@@ -1924,18 +1930,18 @@ export default function CoverStudio() {
               type="button"
               className={`studio-title-scale-link ${settings.textScaleLinked ? "is-linked" : ""}`}
               aria-pressed={settings.textScaleLinked}
-              disabled={liveEnabled}
+              disabled={liveEnabled || fixedLayoutActive}
               data-live-lock={liveEnabled ? "" : undefined}
               onClick={toggleTextScaleLink}
             >{settings.textScaleLinked ? "上下行大小联动" : "下行独立调整"}</button>
             <Slider
               label="下行标题大小"
-              disableReset={liveEnabled}
+              disableReset={liveEnabled || fixedLayoutActive}
               value={settings.bottomTextScale}
               min={0}
               max={200}
               suffix="%"
-              disabled={liveEnabled || settings.textScaleLinked}
+              disabled={liveEnabled || fixedLayoutActive || settings.textScaleLinked}
               onReset={() => settings.textScaleLinked ? updateTopTextScale(100) : updateSetting("bottomTextScale", 100)}
               onChange={(value) => updateSetting("bottomTextScale", value)}
             />

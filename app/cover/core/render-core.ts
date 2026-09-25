@@ -1,3 +1,4 @@
+import { solveFixedTextLayout, usesFixedTextLayout, measureFixedText } from "./fixed-text-layout";
 import {
   DOUYIN_HOME_GRID_SAFE_AREA,
   type CoverTemplate,
@@ -562,6 +563,16 @@ function colorWithAlpha(color: string, alpha: number) {
   return `rgba(${value >> 16},${(value >> 8) & 255},${value & 255},${alpha})`;
 }
 
+export function getFixedCoverTextPlan(context: CanvasRenderingContext2D, settings: CoverSettings, width: number, height: number) {
+  if (!usesFixedTextLayout(settings)) return null;
+  context.save();
+  const plan = solveFixedTextLayout({ ...settings, width, height, measure(text, size, bold) {
+    return measureFixedText(context, text, size, bold);
+  }});
+  context.restore();
+  return plan;
+}
+
 export function drawCoverText(
   context: CanvasRenderingContext2D,
   settings: CoverSettings,
@@ -571,13 +582,19 @@ export function drawCoverText(
   lineProgress?: readonly number[],
   textOrder: "top-down" | "bottom-up" = "top-down",
 ) {
+  const plan = !lineProgress && textOrder === "top-down" ? getFixedCoverTextPlan(context, settings, width, height) : null;
+  if (plan?.error) {
+    context.save(); context.font = `${24 * width / 1080}px sans-serif`; context.fillStyle = "#FFFFFF";
+    context.fillText(plan.error, plan.left, plan.top, width - plan.left * 2); context.restore();
+    return {left:plan.left,right:plan.left+plan.maxWidth,top:plan.top,bottom:plan.bottom};
+  }
   const isRight = settings.templateId.endsWith("-right");
   const isCenter = settings.templateId.endsWith("-center");
   const textAlign: CanvasTextAlign = isRight ? "right" : isCenter ? "center" : "left";
   const geometryScale = width / 1080;
   const horizontalInset = DOUYIN_HOME_GRID_SAFE_AREA.horizontalInset * geometryScale;
   const x = isRight ? width - horizontalInset : isCenter ? width / 2 : horizontalInset;
-  const maxWidth = width - horizontalInset * 2;
+  const maxWidth = plan?.maxWidth ?? width - horizontalInset * 2;
   const topBaseFont = Math.max(1, Math.round(width * 0.074 * 2.1 * (settings.textScale / 100)));
   const bottomBaseFont = Math.max(1, Math.round(width * 0.074 * 2.1 * (settings.bottomTextScale / 100)));
   context.save();
@@ -596,9 +613,9 @@ export function drawCoverText(
   const topFit = fitText(context, settings.topText, topBaseFont, maxWidth);
   const bottomFit = hasBottomText ? fitText(context, settings.bottomText, settings.textScaleLinked ? topBaseFont : bottomBaseFont, maxWidth) : topFit;
   const linkedFontSize = Math.min(topFit, bottomFit);
-  const topFontSize = settings.textScaleLinked ? linkedFontSize : topFit;
-  const bottomFontSize = settings.textScaleLinked ? linkedFontSize : bottomFit;
-  const subtitleFontSize = Math.round(width * 0.061 * (settings.subtitleScale / 100));
+  const topFontSize = plan?.fontSize ?? (settings.textScaleLinked ? linkedFontSize : topFit);
+  const bottomFontSize = plan?.fontSize ?? (settings.textScaleLinked ? linkedFontSize : bottomFit);
+  const subtitleFontSize = plan?.subtitleFontSize ?? Math.round(width * 0.061 * (settings.subtitleScale / 100));
   const activeHeadlineFontSize = hasBottomText ? bottomFontSize : topFontSize;
   context.font = `900 ${topFontSize}px sans-serif`;
   const topHeadlineInk = measureInkBounds(context, settings.topText || "国");
@@ -608,7 +625,7 @@ export function drawCoverText(
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
   const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
-  const dividerThickness = 4;
+  const dividerThickness = plan?.dividerThickness ?? 4;
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
   const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
   const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
@@ -639,11 +656,11 @@ export function drawCoverText(
     : settings.templateId.startsWith("bottom-")
       ? bottomTextLimit - blockBottom
       : (cropTop + cropBottom) / 2 - blockTop;
-  const y = Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
-  const secondBaseline = y + lineGap;
+  const y = plan?.topBaseline ?? Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
+  const secondBaseline = plan?.bottomBaseline ?? y + lineGap;
   const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
-  const dividerY = y + relativeDividerY;
-  const subtitleBaseline = y + relativeSubtitleBaseline;
+  const dividerY = plan?.dividerY ?? y + relativeDividerY;
+  const subtitleBaseline = plan?.subtitleBaseline ?? y + relativeSubtitleBaseline;
   // Reverse row positions inside the measured block, keeping every glyph upright
   // and its original font, color, ink spacing and editable field unchanged.
   const bottomUp = textOrder === "bottom-up";
@@ -670,7 +687,7 @@ export function drawCoverText(
   const firstDrawBaseline = bottomUp ? mirrorY - y + topHeadlineInk.ascent - topHeadlineInk.descent : y;
   const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
   const dividerDrawY = bottomUp ? mirrorY - dividerY - dividerThickness : dividerY;
-  const subtitleDrawBaseline = settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
+  const subtitleDrawBaseline = plan ? plan.subtitleBaseline : settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
   const reversedSubtitleBaseline = mirrorY - subtitleDrawBaseline + subtitleInk.ascent - subtitleInk.descent - Math.max(0, subtitleLines - 1) * subtitleLineHeight;
 
   // Optional per-line reveal for the theme card. Drawing and gradient styling
@@ -726,7 +743,8 @@ export function drawCoverText(
     context.shadowOffsetY = width * 0.006 * textShadow;
     context.fillStyle = settings.subtitleColor;
     context.font = `400 ${subtitleFontSize}px sans-serif`;
-    drawWrappedText(
+    if (plan) context.fillText(settings.subtitle, x, plan.subtitleBaseline);
+    else drawWrappedText(
       context,
       settings.subtitle,
       x,
@@ -750,8 +768,8 @@ export function drawCoverText(
   const bounds = {
     left,
     right: left + contentWidth,
-    top: y + blockTop,
-    bottom: y + blockBottom,
+    top: plan?.top ?? y + blockTop,
+    bottom: plan?.bottom ?? y + blockBottom,
   };
   context.restore();
   return bottomUp ? inkBounds : bounds;

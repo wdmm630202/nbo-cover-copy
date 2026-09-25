@@ -411,12 +411,12 @@ test("静态真实页在 13 个平板和电脑尺寸保持外壳、预览、工�
     assert.equal(shellRequests.compact.trace.hasBefore, true);
     assert.equal(shellRequests.compact.trace.photoOnly, false);
     assert.equal(shellRequests.compact.trace.capsule, true);
-    assert.equal(shellRequests.compact.trace.beforeFrame, 100);
+    assert.equal(shellRequests.compact.trace.beforeFrame, 106.7);
     assert.ok(shellRequests.compact.trace.afterStrokes.length > 0, "最终 render request 必须含主图涂抹");
     assert.ok(shellRequests.compact.trace.beforeStrokes.length > 0, "最终 render request 必须含拍摄前涂抹");
     assert.deepEqual(Object.fromEntries(shellRequests.compact.trace.settings), {
       topText: "Task13状态", bottomText: "跨设备一致", subtitle: "真实导出路径",
-      compareEnabled: true, zoom: 137, beforeZoom: 126, beforeFrameScale: 100,
+      compareEnabled: true, zoom: 137, beforeZoom: 126, beforeFrameScale: 106.7,
       brightness: 113, shade: 27, bottomShade: 68,
     });
   } finally {

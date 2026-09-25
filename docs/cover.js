@@ -24,6 +24,7 @@ const {
   applyMobileSyncedCopy,
   appendRetouchPoint,
   createCoverExportAsset,
+  usesFixedTextLayout,
   drawCover,
   drawCoverText,
   getExportFileName,
@@ -371,6 +372,7 @@ function mobileToolPresentation(tool) {
   if (tool.id === "watermarkEnabled") { value = state.watermarkEnabled; choices = [{ value: true, label: "使用水印" }, { value: false, label: "不使用水印" }]; }
   if (tool.id === "watermarkAlign") { value = state.watermarkAlign; choices = [{ value: "left", label: "左侧" }, { value: "center", label: "居中" }, { value: "right", label: "右侧" }]; }
   if (tool.id.startsWith("memory")) value = document.querySelectorAll("[data-memory-name]")[Number(tool.id.slice(-1)) - 1]?.textContent || tool.label;
+  if (!liveEnabled && usesFixedTextLayout(state) && ["textScale", "bottomTextScale", "subtitleScale", "textScaleLinked"].includes(tool.id)) disabled = true;
   if (liveEnabled && liveLockedTools.includes(tool.id)) disabled = true;
   return { value, choices, min, max, disabled, actionLabel };
 }
@@ -1197,6 +1199,19 @@ function restoreLiveLocks() {
 }
 
 function syncLiveUi() {
+  const auto = !liveEnabled && usesFixedTextLayout(state);
+  $("#fixedTextLayout").checked = state.fixedTextLayout !== false;
+  $("#fixedTextLayout").disabled = liveEnabled;
+  $("#subtitleRequirement").textContent = auto ? "请填写一行" : "可不填";
+  $("#fixedTextHint").textContent = auto
+    ? "自动排版已启用：每行最多5字，字号自动适配；顶部、底部固定，三处留白等分。副标题建议10字以内。"
+    : "自动排版用于下方左题、关闭前后对比的普通封面；其它版式保留手动调整。";
+  for (const id of ["textScale", "bottomTextScale", "subtitleScale"]) {
+    const input = $("#"+id);
+    input.closest("label")?.querySelectorAll("input,button").forEach(control => { control.disabled = auto || liveEnabled || (id === "bottomTextScale" && state.textScaleLinked); });
+  }
+  $("#textScaleLink").disabled = auto || liveEnabled;
+
   coverPage.classList.toggle("is-live-mode", liveEnabled);
   for (const [id, max] of [["topText",18],["bottomText",18],["subtitle",38]]) $("#"+id).maxLength = liveEnabled ? 6 : max;
   if (!liveEnabled) return;
@@ -1308,6 +1323,10 @@ function loadBeforeFile(file) {
   image.src = url;
 }
 
+$("#fixedTextLayout").addEventListener("change", event => {
+  state.fixedTextLayout = event.target.checked;
+  saveSettings(); updateUi(); draw();
+});
 ["topText", "bottomText", "subtitle"].forEach((id) => {
   $(`#${id}`).addEventListener("input", (event) => {
     state[id] = event.target.value;

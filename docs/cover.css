@@ -790,3 +790,9 @@ body.mobile-editor-open {
 .studio-grid[data-cover-layout="compact"].is-mobile-editor-open .mobile-touch-zone.active {
   touch-action: none;
 }
+
+.fixed-text-hint { margin: 5px 0 8px; font-size: 10px; line-height: 1.5; color: #827b74; }
+
+.fixed-text-toggle { position: relative; margin: 8px 0 0; padding: 0; border: 0; font-size: 10px; }
+.fixed-text-toggle input { width: 32px; height: 18px; left: 0; top: 0; margin: 0; padding: 0; }
+.fixed-text-toggle i { flex-shrink: 0; }

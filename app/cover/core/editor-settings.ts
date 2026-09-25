@@ -22,6 +22,7 @@ export type CoverSettings = {
   textScale: number;
   bottomTextScale: number;
   textScaleLinked: boolean;
+  fixedTextLayout?: boolean;
   textStroke: number;
   textShadow: number;
   textShadowDefaultVersion: number;
@@ -75,6 +76,7 @@ export const DEFAULT_COVER_SETTINGS: CoverSettings = {
   textScale: 100,
   bottomTextScale: 100,
   textScaleLinked: true,
+  fixedTextLayout: true,
   textStroke: 0,
   textShadow: 50,
   textShadowDefaultVersion: 1,
@@ -240,6 +242,7 @@ export function normalizeCoverSettings(
     textScale: numberValue("textScale", 0, 200),
     bottomTextScale: numberValue("bottomTextScale", 0, 200),
     textScaleLinked: booleanValue("textScaleLinked"),
+    fixedTextLayout: booleanValue("fixedTextLayout"),
     textStroke: numberValue("textStroke", 0, 100),
     textShadow: numberValue("textShadow", 0, 100),
     textShadowDefaultVersion: 1,

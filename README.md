@@ -58,3 +58,15 @@ GitHub Pages 和 Sites 提供文案工作区与本地封面制作台；核心 AI
 - <https://developer.open-douyin.com/docs/resource/zh-CN/dop/develop/openapi/video-management/douyin/create-video/video-create>
 - <https://developer.open-douyin.com/m/docs/resource/zh-CN/mini-app/develop/api/open-interface/video-capacity/upload-douyin-video>
 - <https://creator.xiaohongshu.com/>
+
+## 2026-09-26 统一封面自动排版
+
+普通封面的「下方左题」且关闭前后对比时，默认启用「统一自动排版」。
+两行主标题各最多5字；最长一行确定共享字号，短行自然左对齐。
+1080宽画布的文字框为 x=54..630、y=1008..1482（3:4画布上下减240），主标题顶部和副标题底部固定。
+三个实际字形间隙等分剩余高度，主字号96..168，副标题54，装饰线厚4；所有坐标随输出宽度缩放。
+副标题保持一行且不得超宽，超限时预览显示中文提示并阻止设计导出，不截断原文。
+关闭开关可恢复手动排版；Live、对比封面和其它八种版式保留原行为。
+
+回退基线：`4b04cf49400eca6af8df89a96b7528aeca513c70`。
+验证：九种字数组合，540/1080/2160宽度及9:16/3:4画布，浏览器PNG/JPG导出、文案超限、刷新恢复、原有设备矩阵与Live回归。

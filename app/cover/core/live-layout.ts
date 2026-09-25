@@ -30,6 +30,7 @@ export function getLiveSettings<T extends CoverSettings>(settings: T, text?: Liv
   return {
     ...settings,
     ...LIVE_LOCKED_VALUES,
+    fixedTextLayout: false,
     topText: normalizeLiveLine(text?.topText ?? settings.topText),
     bottomText: normalizeLiveLine(text?.bottomText ?? settings.bottomText),
     subtitle: normalizeLiveLine(text?.subtitle ?? settings.subtitle),
