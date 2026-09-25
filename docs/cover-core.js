@@ -26,7 +26,7 @@ var NBOCoverCore = (function(exports) {
 		const maxWidth = FIXED_TEXT_FRAME.width * s;
 		const subtitleFontSize = FIXED_TEXT_FRAME.subtitleFont * s;
 		const subtitleInk = measure(subtitle, subtitleFontSize, false);
-		const dividerThickness = input.showDivider === false ? 0 : FIXED_TEXT_FRAME.dividerThickness * s;
+		const dividerThickness = input.showDivider === false ? 0 : FIXED_TEXT_FRAME.dividerThickness;
 		const gapCount = 2;
 		let error = null;
 		const count = (text) => Array.from(new Intl.Segmenter("zh", { granularity: "grapheme" }).segment(text)).length;
@@ -1545,7 +1545,10 @@ var NBOCoverCore = (function(exports) {
 		}
 		beginLine(2);
 		if (settings.showDivider) {
-			const dividerWidth = activeHeadlineFontSize;
+			const legacyWidth = width - horizontalInset * 2;
+			const legacyTop = plan ? fitText(context, settings.topText, topBaseFont, legacyWidth) : topFontSize;
+			const legacyBottom = plan ? fitText(context, settings.bottomText, settings.textScaleLinked ? topBaseFont : bottomBaseFont, legacyWidth) : bottomFontSize;
+			const dividerWidth = plan ? settings.textScaleLinked ? Math.min(legacyTop, legacyBottom) : legacyBottom : activeHeadlineFontSize;
 			const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
 			context.shadowColor = "transparent";
 			context.shadowBlur = 0;

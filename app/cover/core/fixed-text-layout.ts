@@ -19,7 +19,7 @@ export function solveFixedTextLayout(input: Input) {
   const maxWidth = FIXED_TEXT_FRAME.width*s;
   const subtitleFontSize = FIXED_TEXT_FRAME.subtitleFont*s;
   const subtitleInk = measure(subtitle, subtitleFontSize, false);
-  const dividerThickness = input.showDivider === false ? 0 : FIXED_TEXT_FRAME.dividerThickness*s;
+  const dividerThickness = input.showDivider === false ? 0 : FIXED_TEXT_FRAME.dividerThickness;
   // The divider is centered inside the second text gap, not a third row.
   const gapCount = 2;
   let error: string | null = null;

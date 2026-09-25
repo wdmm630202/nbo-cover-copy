@@ -31,3 +31,11 @@ test('装饰线开关不改变文字字号、位置或两段间距',()=>{
  const a=layout.solveFixedTextLayout(args), b=layout.solveFixedTextLayout({...args,showDivider:false});
  for(const key of ['fontSize','topBaseline','bottomBaseline','subtitleBaseline','gap'])assert.equal(a[key],b[key]);
 });
+
+test('自动模式分割线沿用原版4画布像素粗细，仍在第二段空隙正中',()=>{
+ for(const width of [540,1080,2160]){
+ const p=layout.solveFixedTextLayout({topText:'男人的',bottomText:'高级感就',subtitle:'不被定义的自己',width,height:width*16/9,measure});
+ assert.equal(p.dividerThickness,4);
+ assert.ok(Math.abs(p.dividerY+2-(p.bottomBaseline+p.bottomInk.descent+p.gap/2))<.01);
+ }
+});

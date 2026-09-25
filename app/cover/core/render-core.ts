@@ -720,7 +720,12 @@ export function drawCoverText(
 
   beginLine(2);
   if (settings.showDivider) {
-    const dividerWidth = activeHeadlineFontSize;
+    // Keep the pre-auto divider style: one legacy title glyph wide and 4px thick.
+    // Automatic text fitting changes its position, not its original dimensions.
+    const legacyWidth = width - horizontalInset * 2;
+    const legacyTop = plan ? fitText(context, settings.topText, topBaseFont, legacyWidth) : topFontSize;
+    const legacyBottom = plan ? fitText(context, settings.bottomText, settings.textScaleLinked ? topBaseFont : bottomBaseFont, legacyWidth) : bottomFontSize;
+    const dividerWidth = plan ? (settings.textScaleLinked ? Math.min(legacyTop, legacyBottom) : legacyBottom) : activeHeadlineFontSize;
     const dividerX = isRight ? x - dividerWidth : isCenter ? x - dividerWidth / 2 : x;
     context.shadowColor = "transparent";
     context.shadowBlur = 0;
