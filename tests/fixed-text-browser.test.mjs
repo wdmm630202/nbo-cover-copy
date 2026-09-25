@@ -47,7 +47,7 @@ test('真实浏览器：自动排版边界、九种组合、保存恢复、双�
  let invalid='';try{await core.createCoverExportAsset({render:{image,beforeImage:null,watermark:null,settings:{...core.DEFAULT_COVER_SETTINGS,compareEnabled:false,topText:'超过五字的标题'},preset:{width:1080,height:1920}},format:'png',photoOnly:false,mobile:false,fileStem:'invalid'});}catch(e){invalid=e.message;}
  return {rows,exports,invalid,dividers,subtitles};
  });
- for(const p of result.rows){assert.equal(p.error,null);const gaps=[p.bottomBaseline-p.bottomInk.ascent-p.topBaseline-p.topInk.descent,p.subtitleBaseline-p.subtitleInk.ascent-p.bottomBaseline-p.bottomInk.descent];assert.ok(Math.abs(p.dividerY+p.dividerThickness/2-(p.bottomBaseline+p.bottomInk.descent+gaps[1]/2))<.01);assert.ok(Math.max(...gaps)-Math.min(...gaps)<.01);assert.ok(p.topInk.width<=p.maxWidth+.01&&p.bottomInk.width<=p.maxWidth+.01);}
+ for(const p of result.rows){assert.equal(p.error,null);const gaps=[p.bottomBaseline-p.bottomInk.ascent-p.topBaseline-p.topInk.descent,p.dividerY-p.bottomBaseline-p.bottomInk.descent,p.subtitleBaseline-p.subtitleInk.ascent-p.dividerY-p.dividerThickness];assert.ok(Math.max(...gaps)-Math.min(...gaps)<.01);assert.ok(p.topInk.width<=p.maxWidth+.01&&p.bottomInk.width<=p.maxWidth+.01);}
  for(const pair of result.dividers)assert.deepEqual(pair[0],pair[1],"自动开关不能改变分割线长宽");
  for(const draws of result.subtitles){assert.equal(draws.length,4);for(const draw of draws.slice(1))assert.deepEqual(draw,draws[0],"自动小标题应保持原版100%字号，不受字数或旧缩放设置影响");}
  assert.equal(result.exports.length,4);assert.match(result.invalid,/最多5/);
