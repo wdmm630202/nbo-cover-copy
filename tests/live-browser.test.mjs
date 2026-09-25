@@ -22,7 +22,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     await page.goto(`http://127.0.0.1:${server.address().port}/cover.html`);
     assert.equal(await page.getByRole('button',{name:'制作 Live',exact:true}).count(),1,'工作台需要独立 Live 开关');
     await page.waitForFunction(()=>document.querySelector('#coverCanvas').width>0);
-    const before=await page.evaluate(()=>({image:document.querySelector('#coverCanvas').toDataURL(),size:document.querySelector('#textScale').value,small:document.querySelector('#subtitleScale').value,compare:document.querySelector('#compareToggle').checked}));
+    const before=await page.evaluate(()=>({image:document.querySelector('#coverCanvas').toDataURL(),size:document.querySelector('#textScale').value,sizeDisabled:document.querySelector('#textScale').disabled,small:document.querySelector('#subtitleScale').value,compare:document.querySelector('#compareToggle').checked}));
     await page.getByRole('button',{name:'制作 Live',exact:true}).click();
     await page.getByRole('button',{name:'关闭 Live',exact:true}).waitFor();
     await page.waitForFunction(()=>document.querySelector('#textScale').value==='45');
@@ -110,7 +110,7 @@ test('真实工作台 Live 锁定、关闭恢复、照片调整与三行文字�
     assert.deepEqual(await page.locator('#topText, #bottomText, #subtitle').evaluateAll(nodes=>nodes.map(node=>node.value)),['男士素人改造','原来普通男士','也能拍成这样']);
     await page.getByRole('button',{name:'关闭 Live',exact:true}).click();
     await page.waitForFunction(value=>document.querySelector('#textScale').value===value,before.size);
-    assert.equal(await page.locator('#textScale').isDisabled(),false);
+    assert.equal(await page.locator('#textScale').isDisabled(),before.sizeDisabled,'关闭 Live 应恢复普通模式原有的字号锁定状态');
     assert.equal(await page.locator('#subtitleScale').inputValue(),before.small);
     assert.equal(await page.locator('#compareToggle').isChecked(),before.compare);
     assert.equal(await page.locator('#topText').inputValue(),'原来超出六字标题');

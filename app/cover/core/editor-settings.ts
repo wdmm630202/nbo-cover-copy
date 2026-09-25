@@ -84,7 +84,7 @@ export const DEFAULT_COVER_SETTINGS: CoverSettings = {
   shade: 0,
   bottomShade: 100,
   showSafeArea: true,
-  compareEnabled: true,
+  compareEnabled: false,
   beforeZoom: 100,
   beforeOffsetX: 0,
   beforeOffsetY: 0,

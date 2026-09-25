@@ -1752,7 +1752,7 @@ var NBOCoverCore = (function(exports) {
 		shade: 0,
 		bottomShade: 100,
 		showSafeArea: true,
-		compareEnabled: true,
+		compareEnabled: false,
 		beforeZoom: 100,
 		beforeOffsetX: 0,
 		beforeOffsetY: 0,
