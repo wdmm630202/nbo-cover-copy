@@ -6,7 +6,7 @@ var NBOCoverCore = (function(exports) {
 		left: 54,
 		width: 576,
 		top: 1008,
-		bottom: 1482,
+		bottom: 1474,
 		maxFont: 168,
 		minFont: 96,
 		subtitleFont: 66,
@@ -1488,10 +1488,12 @@ var NBOCoverCore = (function(exports) {
 		const bottomTextLimit = Math.min(usableBottom, watermarkTop - fixedVerticalGap);
 		const requestedY = settings.templateId.startsWith("top-") ? usableTop - blockTop : settings.templateId.startsWith("bottom-") ? bottomTextLimit - blockBottom : (cropTop + cropBottom) / 2 - blockTop;
 		const y = plan?.topBaseline ?? Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
-		const secondBaseline = plan?.bottomBaseline ?? y + lineGap;
-		const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
-		const dividerY = plan?.dividerY ?? y + relativeDividerY;
 		const subtitleBaseline = plan?.subtitleBaseline ?? y + relativeSubtitleBaseline;
+		const manualSubtitleLift = !plan && !lineProgress && textOrder === "top-down" && !settings.compareEnabled && settings.templateId === "bottom-left" && hasBottomText && settings.showDivider && settings.subtitle.trim() ? 8 * geometryScale : 0;
+		const balancedGap = (subtitleBaseline - manualSubtitleLift - subtitleInk.ascent - y - topHeadlineInk.descent - activeHeadlineInk.ascent - activeHeadlineInk.descent - dividerThickness) / 3;
+		const secondBaseline = plan?.bottomBaseline ?? (manualSubtitleLift ? y + topHeadlineInk.descent + balancedGap + activeHeadlineInk.ascent : y + lineGap);
+		const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
+		const dividerY = plan?.dividerY ?? (manualSubtitleLift ? secondBaseline + activeHeadlineInk.descent + balancedGap : y + relativeDividerY);
 		const bottomUp = textOrder === "bottom-up";
 		const inkBounds = {
 			left: Infinity,
@@ -1516,8 +1518,7 @@ var NBOCoverCore = (function(exports) {
 		const firstDrawBaseline = bottomUp ? mirrorY - y + topHeadlineInk.ascent - topHeadlineInk.descent : y;
 		const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
 		const dividerDrawY = bottomUp ? mirrorY - dividerY - dividerThickness : dividerY;
-		const subtitleDrawBaseline = plan ? plan.subtitleBaseline : settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
-		const subtitleLift = !lineProgress && !bottomUp && !settings.compareEnabled && settings.templateId === "bottom-left" && settings.subtitle.trim() ? 16 * geometryScale : 0;
+		const subtitleDrawBaseline = plan ? plan.subtitleBaseline : settings.showDivider ? subtitleBaseline - manualSubtitleLift : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
 		const reversedSubtitleBaseline = mirrorY - subtitleDrawBaseline + subtitleInk.ascent - subtitleInk.descent - Math.max(0, subtitleLines - 1) * subtitleLineHeight;
 		const beginLine = (index) => {
 			if (!lineProgress) return;
@@ -1572,8 +1573,8 @@ var NBOCoverCore = (function(exports) {
 			context.shadowOffsetY = width * .006 * textShadow;
 			context.fillStyle = settings.subtitleColor;
 			context.font = `400 ${subtitleFontSize}px sans-serif`;
-			if (plan) context.fillText(settings.subtitle, x, plan.subtitleBaseline - subtitleLift);
-			else drawWrappedText(context, settings.subtitle, x, bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline - subtitleLift, maxWidth, subtitleLineHeight, textAlign, recordInk);
+			if (plan) context.fillText(settings.subtitle, x, plan.subtitleBaseline);
+			else drawWrappedText(context, settings.subtitle, x, bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline, maxWidth, subtitleLineHeight, textAlign, recordInk);
 		}
 		endLine();
 		context.font = `900 ${topFontSize}px sans-serif`;
@@ -1588,7 +1589,7 @@ var NBOCoverCore = (function(exports) {
 			left,
 			right: left + contentWidth,
 			top: plan?.top ?? y + blockTop,
-			bottom: (plan?.bottom ?? y + blockBottom) - subtitleLift
+			bottom: plan?.bottom ?? y + blockBottom - manualSubtitleLift
 		};
 		context.restore();
 		return bottomUp ? inkBounds : bounds;

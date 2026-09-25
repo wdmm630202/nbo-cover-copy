@@ -10,7 +10,7 @@ test('自动封面在所有3到5字组合下固定边界、三个小空隙等距
  const s=width/1080;
  assert.equal(p.error,null);
  assert.ok(Math.abs(p.topBaseline-p.topInk.ascent-(1008-(height/width<1.5?240:0))*s)<.01);
- assert.ok(Math.abs(p.subtitleBaseline+p.subtitleInk.descent-(1482-(height/width<1.5?240:0))*s)<.01);
+ assert.ok(Math.abs(p.subtitleBaseline+p.subtitleInk.descent-(1474-(height/width<1.5?240:0))*s)<.01);
  const gaps=[p.bottomBaseline-p.bottomInk.ascent-p.topBaseline-p.topInk.descent,p.dividerY-p.bottomBaseline-p.bottomInk.descent,p.subtitleBaseline-p.subtitleInk.ascent-p.dividerY-p.dividerThickness];
  assert.ok(Math.max(...gaps)-Math.min(...gaps)<.01);
  assert.ok(p.topInk.width<=p.maxWidth+.01&&p.bottomInk.width<=p.maxWidth+.01);

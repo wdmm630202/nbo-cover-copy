@@ -1397,7 +1397,7 @@ export default function CoverStudio() {
           ) : null}
 
             <label className="studio-check studio-divider-toggle"><input type="checkbox" checked={settings.fixedTextLayout !== false} disabled={liveEnabled} onChange={event => updateSetting("fixedTextLayout", event.target.checked)} /><span />统一自动排版（下方左题）</label>
-            <p className="studio-hint">{fixedLayoutActive ? "每行最多5字；顶部、底部固定，主副标题分组，小标题略微上提。副标题字号固定，建议8字以内。" : "自动排版用于下方左题、关闭前后对比的普通封面。"}</p>
+            <p className="studio-hint">{fixedLayoutActive ? "每行最多5字；顶部、底部固定，三处留白等距，主副标题分组。副标题字号固定，建议8字以内。" : "自动排版用于下方左题、关闭前后对比的普通封面。"}</p>
 
           <div className="studio-field">
             <div className="studio-field-heading">

@@ -657,10 +657,20 @@ export function drawCoverText(
       ? bottomTextLimit - blockBottom
       : (cropTop + cropBottom) / 2 - blockTop;
   const y = plan?.topBaseline ?? Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
-  const secondBaseline = plan?.bottomBaseline ?? y + lineGap;
-  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
-  const dividerY = plan?.dividerY ?? y + relativeDividerY;
   const subtitleBaseline = plan?.subtitleBaseline ?? y + relativeSubtitleBaseline;
+  // Match the fixed layout's 8px bottom adjustment while keeping the first row
+  // anchored. Rebalance all three ink gaps instead of moving the subtitle alone.
+  const manualSubtitleLift = !plan && !lineProgress && textOrder === "top-down"
+    && !settings.compareEnabled && settings.templateId === "bottom-left"
+    && hasBottomText && settings.showDivider && settings.subtitle.trim()
+    ? 8 * geometryScale : 0;
+  const balancedGap = (subtitleBaseline - manualSubtitleLift - subtitleInk.ascent
+    - y - topHeadlineInk.descent - activeHeadlineInk.ascent - activeHeadlineInk.descent - dividerThickness) / 3;
+  const secondBaseline = plan?.bottomBaseline ?? (manualSubtitleLift
+    ? y + topHeadlineInk.descent + balancedGap + activeHeadlineInk.ascent : y + lineGap);
+  const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;
+  const dividerY = plan?.dividerY ?? (manualSubtitleLift
+    ? secondBaseline + activeHeadlineInk.descent + balancedGap : y + relativeDividerY);
   // Reverse row positions inside the measured block, keeping every glyph upright
   // and its original font, color, ink spacing and editable field unchanged.
   const bottomUp = textOrder === "bottom-up";
@@ -687,11 +697,7 @@ export function drawCoverText(
   const firstDrawBaseline = bottomUp ? mirrorY - y + topHeadlineInk.ascent - topHeadlineInk.descent : y;
   const secondDrawBaseline = bottomUp ? mirrorY - secondBaseline + activeHeadlineInk.ascent - activeHeadlineInk.descent : secondBaseline;
   const dividerDrawY = bottomUp ? mirrorY - dividerY - dividerThickness : dividerY;
-  const subtitleDrawBaseline = plan ? plan.subtitleBaseline : settings.showDivider ? subtitleBaseline : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
-  // Small optical lift above the play-count area; keep title and divider geometry.
-  const subtitleLift = !lineProgress && !bottomUp && !settings.compareEnabled
-    && settings.templateId === "bottom-left" && settings.subtitle.trim()
-    ? 16 * geometryScale : 0;
+  const subtitleDrawBaseline = plan ? plan.subtitleBaseline : settings.showDivider ? subtitleBaseline - manualSubtitleLift : activeHeadlineBaseline + activeHeadlineInk.descent + fixedVerticalGap + subtitleInk.ascent;
   const reversedSubtitleBaseline = mirrorY - subtitleDrawBaseline + subtitleInk.ascent - subtitleInk.descent - Math.max(0, subtitleLines - 1) * subtitleLineHeight;
 
   // Optional per-line reveal for the theme card. Drawing and gradient styling
@@ -752,12 +758,12 @@ export function drawCoverText(
     context.shadowOffsetY = width * 0.006 * textShadow;
     context.fillStyle = settings.subtitleColor;
     context.font = `400 ${subtitleFontSize}px sans-serif`;
-    if (plan) context.fillText(settings.subtitle, x, plan.subtitleBaseline - subtitleLift);
+    if (plan) context.fillText(settings.subtitle, x, plan.subtitleBaseline);
     else drawWrappedText(
       context,
       settings.subtitle,
       x,
-      bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline - subtitleLift,
+      bottomUp ? reversedSubtitleBaseline : subtitleDrawBaseline,
       maxWidth,
       subtitleLineHeight,
       textAlign,
@@ -778,7 +784,7 @@ export function drawCoverText(
     left,
     right: left + contentWidth,
     top: plan?.top ?? y + blockTop,
-    bottom: (plan?.bottom ?? y + blockBottom) - subtitleLift,
+    bottom: plan?.bottom ?? y + blockBottom - manualSubtitleLift,
   };
   context.restore();
   return bottomUp ? inkBounds : bounds;
