@@ -1204,7 +1204,7 @@ function syncLiveUi() {
   $("#fixedTextLayout").disabled = liveEnabled;
   $("#subtitleRequirement").textContent = auto ? "请填写一行" : "可不填";
   $("#fixedTextHint").textContent = auto
-    ? "自动排版已启用：每行最多5字，字号自动适配；顶部、底部固定，两段文字等距，装饰线居中。副标题建议10字以内。"
+    ? "自动排版已启用：每行最多5字，字号自动适配；顶部、底部固定，两段文字等距，装饰线居中。副标题字号固定，建议8字以内。"
     : "自动排版用于下方左题、关闭前后对比的普通封面；其它版式保留手动调整。";
   for (const id of ["textScale", "bottomTextScale", "subtitleScale"]) {
     const input = $("#"+id);

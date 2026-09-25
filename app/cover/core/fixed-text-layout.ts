@@ -1,7 +1,7 @@
 /** Normal portrait cover typography. Coordinates are in a 1080px-wide canvas. */
 export const FIXED_TEXT_FRAME = {
   left: 54, width: 576, top: 1008, bottom: 1482,
-  maxFont: 168, minFont: 96, subtitleFont: 54, dividerThickness: 4,
+  maxFont: 168, minFont: 96, subtitleFont: 66, dividerThickness: 4,
   minGap: 16, maxGap: 120,
 } as const;
 type Ink = { width: number; ascent: number; descent: number };
@@ -26,7 +26,7 @@ export function solveFixedTextLayout(input: Input) {
   const count = (text: string) => Array.from(new Intl.Segmenter('zh', {granularity:'grapheme'}).segment(text)).length;
   if (!topText.trim() || !bottomText.trim()) error = '请填写两行主标题，每行最多5个字';
   else if ([topText,bottomText].some(t=>count(t)>5 || /[\r\n]/.test(t))) error = '主标题每行最多5个字，请精简后导出';
-  else if (!subtitle.trim() || /[\r\n]/.test(subtitle) || subtitleInk.width>maxWidth) error = '副标题请保持一行并缩短文字（建议10字以内）';
+  else if (!subtitle.trim() || /[\r\n]/.test(subtitle) || subtitleInk.width>maxWidth) error = '副标题字号固定，请保持一行并缩短文字（建议8字以内）';
   let fontSize = FIXED_TEXT_FRAME.maxFont*s;
   let topInk = measure(topText,fontSize,true);
   let bottomInk = measure(bottomText,fontSize,true);

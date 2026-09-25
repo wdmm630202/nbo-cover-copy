@@ -29,6 +29,15 @@ test('真实浏览器：自动排版边界、九种组合、保存恢复、双�
  core.drawCoverText(ctx,{...settings,fixedTextLayout:true},width,width*16/9,null);
  ctx.fillRect=original;dividers.push(rects.map(r=>[r[2],r[3]]));
  }
+ const subtitles=[];
+ for(const width of [540,1080,2160])for(const subtitle of ['笑意','不被定义的自己','把笑意留在灯火里']){
+ const settings={...core.DEFAULT_COVER_SETTINGS,compareEnabled:false,topText:'男人的',bottomText:'高级感',subtitle};
+ const original=ctx.fillText.bind(ctx),draws=[];
+ ctx.fillText=(...args)=>{if(args[0]===subtitle)draws.push({font:ctx.font,width:ctx.measureText(subtitle).width});original(...args);};
+ core.drawCoverText(ctx,{...settings,fixedTextLayout:false,subtitleScale:100},width,width*16/9,null);
+ for(const subtitleScale of [60,100,160])core.drawCoverText(ctx,{...settings,fixedTextLayout:true,subtitleScale},width,width*16/9,null);
+ ctx.fillText=original;subtitles.push(draws);
+ }
  const exports=[];
  for(const platformId of ['douyin','xiaohongshu'])for(const format of ['png','jpeg']){
  const settings={...core.DEFAULT_COVER_SETTINGS,platformId,compareEnabled:false,topText:'第一次',bottomText:'给自己拍照'};
@@ -36,10 +45,11 @@ test('真实浏览器：自动排版边界、九种组合、保存恢复、双�
  const bitmap=await createImageBitmap(asset.blob);exports.push({width:bitmap.width,height:bitmap.height,type:asset.blob.type});bitmap.close();
  }
  let invalid='';try{await core.createCoverExportAsset({render:{image,beforeImage:null,watermark:null,settings:{...core.DEFAULT_COVER_SETTINGS,compareEnabled:false,topText:'超过五字的标题'},preset:{width:1080,height:1920}},format:'png',photoOnly:false,mobile:false,fileStem:'invalid'});}catch(e){invalid=e.message;}
- return {rows,exports,invalid,dividers};
+ return {rows,exports,invalid,dividers,subtitles};
  });
  for(const p of result.rows){assert.equal(p.error,null);const gaps=[p.bottomBaseline-p.bottomInk.ascent-p.topBaseline-p.topInk.descent,p.subtitleBaseline-p.subtitleInk.ascent-p.bottomBaseline-p.bottomInk.descent];assert.ok(Math.abs(p.dividerY+p.dividerThickness/2-(p.bottomBaseline+p.bottomInk.descent+gaps[1]/2))<.01);assert.ok(Math.max(...gaps)-Math.min(...gaps)<.01);assert.ok(p.topInk.width<=p.maxWidth+.01&&p.bottomInk.width<=p.maxWidth+.01);}
  for(const pair of result.dividers)assert.deepEqual(pair[0],pair[1],"自动开关不能改变分割线长宽");
+ for(const draws of result.subtitles){assert.equal(draws.length,4);for(const draw of draws.slice(1))assert.deepEqual(draw,draws[0],"自动小标题应保持原版100%字号，不受字数或旧缩放设置影响");}
  assert.equal(result.exports.length,4);assert.match(result.invalid,/最多5/);
  await page.locator('label:has(#fixedTextLayout)').click();assert.equal(await page.locator('#textScale').isDisabled(),false);
  await page.locator('label:has(#fixedTextLayout)').click();await page.locator('#topText').fill('第一次');await page.locator('#bottomText').fill('给自己拍照');
