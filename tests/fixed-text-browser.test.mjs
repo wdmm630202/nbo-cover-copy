@@ -30,7 +30,7 @@ test('真实浏览器：自动排版边界、九种组合、保存恢复、双�
  let invalid='';try{await core.createCoverExportAsset({render:{image,beforeImage:null,watermark:null,settings:{...core.DEFAULT_COVER_SETTINGS,compareEnabled:false,topText:'超过五字的标题'},preset:{width:1080,height:1920}},format:'png',photoOnly:false,mobile:false,fileStem:'invalid'});}catch(e){invalid=e.message;}
  return {rows,exports,invalid};
  });
- for(const p of result.rows){assert.equal(p.error,null);const gaps=[p.bottomBaseline-p.bottomInk.ascent-p.topBaseline-p.topInk.descent,p.dividerY-p.bottomBaseline-p.bottomInk.descent,p.subtitleBaseline-p.subtitleInk.ascent-p.dividerY-p.dividerThickness];assert.ok(Math.max(...gaps)-Math.min(...gaps)<.01);assert.ok(p.topInk.width<=p.maxWidth+.01&&p.bottomInk.width<=p.maxWidth+.01);}
+ for(const p of result.rows){assert.equal(p.error,null);const gaps=[p.bottomBaseline-p.bottomInk.ascent-p.topBaseline-p.topInk.descent,p.subtitleBaseline-p.subtitleInk.ascent-p.bottomBaseline-p.bottomInk.descent];assert.ok(Math.abs(p.dividerY+p.dividerThickness/2-(p.bottomBaseline+p.bottomInk.descent+gaps[1]/2))<.01);assert.ok(Math.max(...gaps)-Math.min(...gaps)<.01);assert.ok(p.topInk.width<=p.maxWidth+.01&&p.bottomInk.width<=p.maxWidth+.01);}
  assert.equal(result.exports.length,4);assert.match(result.invalid,/最多5/);
  await page.locator('label:has(#fixedTextLayout)').click();assert.equal(await page.locator('#textScale').isDisabled(),false);
  await page.locator('label:has(#fixedTextLayout)').click();await page.locator('#topText').fill('第一次');await page.locator('#bottomText').fill('给自己拍照');

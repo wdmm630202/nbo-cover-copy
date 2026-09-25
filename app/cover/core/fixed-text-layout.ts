@@ -20,7 +20,8 @@ export function solveFixedTextLayout(input: Input) {
   const subtitleFontSize = FIXED_TEXT_FRAME.subtitleFont*s;
   const subtitleInk = measure(subtitle, subtitleFontSize, false);
   const dividerThickness = input.showDivider === false ? 0 : FIXED_TEXT_FRAME.dividerThickness*s;
-  const gapCount = input.showDivider === false ? 2 : 3;
+  // The divider is centered inside the second text gap, not a third row.
+  const gapCount = 2;
   let error: string | null = null;
   const count = (text: string) => Array.from(new Intl.Segmenter('zh', {granularity:'grapheme'}).segment(text)).length;
   if (!topText.trim() || !bottomText.trim()) error = '请填写两行主标题，每行最多5个字';
@@ -32,14 +33,14 @@ export function solveFixedTextLayout(input: Input) {
   const available = bottom-top;
   for (; fontSize >= FIXED_TEXT_FRAME.minFont*s; fontSize -= .25*s) {
     topInk = measure(topText,fontSize,true); bottomInk = measure(bottomText,fontSize,true);
-    const occupied = topInk.ascent+topInk.descent+bottomInk.ascent+bottomInk.descent+subtitleInk.ascent+subtitleInk.descent+dividerThickness;
+    const occupied = topInk.ascent+topInk.descent+bottomInk.ascent+bottomInk.descent+subtitleInk.ascent+subtitleInk.descent;
     if (Math.max(topInk.width,bottomInk.width)<=maxWidth && available-occupied>=gapCount*FIXED_TEXT_FRAME.minGap*s) break;
   }
-  const gap = (available-topInk.ascent-topInk.descent-bottomInk.ascent-bottomInk.descent-subtitleInk.ascent-subtitleInk.descent-dividerThickness)/gapCount;
+  const gap = (available-topInk.ascent-topInk.descent-bottomInk.ascent-bottomInk.descent-subtitleInk.ascent-subtitleInk.descent)/gapCount;
   if (!error && (fontSize<FIXED_TEXT_FRAME.minFont*s || gap>FIXED_TEXT_FRAME.maxGap*s || gap<FIXED_TEXT_FRAME.minGap*s)) error='文案不适合当前文字区域，请精简或更换表达';
   const topBaseline=top+topInk.ascent;
   const bottomBaseline=topBaseline+topInk.descent+gap+bottomInk.ascent;
-  const dividerY=bottomBaseline+bottomInk.descent+gap;
+  const dividerY=bottomBaseline+bottomInk.descent+(gap-dividerThickness)/2;
   const subtitleBaseline=bottom-subtitleInk.descent;
   return {error,top,bottom,left:FIXED_TEXT_FRAME.left*s,maxWidth,fontSize,subtitleFontSize,topInk,bottomInk,subtitleInk,gap,topBaseline,bottomBaseline,dividerY,dividerThickness,subtitleBaseline};
 }
