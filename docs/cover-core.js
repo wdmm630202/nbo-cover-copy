@@ -6,11 +6,11 @@ var NBOCoverCore = (function(exports) {
 		left: 54,
 		width: 576,
 		top: 1008,
-		bottom: 1474,
+		bottom: 1472,
 		maxFont: 168,
 		minFont: 96,
 		subtitleFont: 66,
-		dividerThickness: 4,
+		dividerThickness: 6,
 		minGap: 16,
 		maxGap: 120
 	};
@@ -26,7 +26,7 @@ var NBOCoverCore = (function(exports) {
 		const maxWidth = FIXED_TEXT_FRAME.width * s;
 		const subtitleFontSize = FIXED_TEXT_FRAME.subtitleFont * s;
 		const subtitleInk = measure(subtitle, subtitleFontSize, false);
-		const dividerSlot = FIXED_TEXT_FRAME.dividerThickness;
+		const dividerSlot = FIXED_TEXT_FRAME.dividerThickness * s;
 		const dividerThickness = input.showDivider === false ? 0 : dividerSlot;
 		const gapCount = 3;
 		let error = null;
@@ -1466,10 +1466,12 @@ var NBOCoverCore = (function(exports) {
 		const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
 		const fixedVerticalGap = getWatermarkVisibleHeight(width);
 		const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
-		const dividerThickness = plan?.dividerThickness ?? 4;
+		const normalBottomLeft = !lineProgress && textOrder === "top-down" && !settings.compareEnabled && settings.templateId === "bottom-left";
+		const dividerThickness = plan?.dividerThickness ?? (normalBottomLeft ? 6 * geometryScale : 4);
+		const dividerAnchorThickness = plan?.dividerThickness ?? 4;
 		const relativeActiveBaseline = hasBottomText ? lineGap : 0;
 		const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
-		const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
+		const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerAnchorThickness + fixedVerticalGap + subtitleInk.ascent);
 		const subtitleLineHeight = Math.round(subtitleFontSize * 1.45);
 		const subtitleLines = countWrappedLines(settings.subtitle);
 		const blockTop = -topHeadlineInk.ascent;
@@ -1489,7 +1491,7 @@ var NBOCoverCore = (function(exports) {
 		const requestedY = settings.templateId.startsWith("top-") ? usableTop - blockTop : settings.templateId.startsWith("bottom-") ? bottomTextLimit - blockBottom : (cropTop + cropBottom) / 2 - blockTop;
 		const y = plan?.topBaseline ?? Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
 		const subtitleBaseline = plan?.subtitleBaseline ?? y + relativeSubtitleBaseline;
-		const manualSubtitleLift = !plan && !lineProgress && textOrder === "top-down" && !settings.compareEnabled && settings.templateId === "bottom-left" && hasBottomText && settings.showDivider && settings.subtitle.trim() ? 8 * geometryScale : 0;
+		const manualSubtitleLift = !plan && !lineProgress && textOrder === "top-down" && !settings.compareEnabled && settings.templateId === "bottom-left" && hasBottomText && settings.showDivider && settings.subtitle.trim() ? 10 * geometryScale : 0;
 		const balancedGap = (subtitleBaseline - manualSubtitleLift - subtitleInk.ascent - y - topHeadlineInk.descent - activeHeadlineInk.ascent - activeHeadlineInk.descent - dividerThickness) / 3;
 		const secondBaseline = plan?.bottomBaseline ?? (manualSubtitleLift ? y + topHeadlineInk.descent + balancedGap + activeHeadlineInk.ascent : y + lineGap);
 		const activeHeadlineBaseline = hasBottomText ? secondBaseline : y;

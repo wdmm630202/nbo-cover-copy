@@ -1,7 +1,7 @@
 /** Normal portrait cover typography. Coordinates are in a 1080px-wide canvas. */
 export const FIXED_TEXT_FRAME = {
-  left: 54, width: 576, top: 1008, bottom: 1474,
-  maxFont: 168, minFont: 96, subtitleFont: 66, dividerThickness: 4,
+  left: 54, width: 576, top: 1008, bottom: 1472,
+  maxFont: 168, minFont: 96, subtitleFont: 66, dividerThickness: 6,
   minGap: 16, maxGap: 120,
 } as const;
 type Ink = { width: number; ascent: number; descent: number };
@@ -19,9 +19,9 @@ export function solveFixedTextLayout(input: Input) {
   const maxWidth = FIXED_TEXT_FRAME.width*s;
   const subtitleFontSize = FIXED_TEXT_FRAME.subtitleFont*s;
   const subtitleInk = measure(subtitle, subtitleFontSize, false);
-  // Reserve the original divider thickness even when hidden, so toggling it
+  // Reserve the divider thickness even when hidden, so toggling it
   // does not move any text. The three surrounding ink gaps share one size.
-  const dividerSlot = FIXED_TEXT_FRAME.dividerThickness;
+  const dividerSlot = FIXED_TEXT_FRAME.dividerThickness*s;
   const dividerThickness = input.showDivider === false ? 0 : dividerSlot;
   const gapCount = 3;
   let error: string | null = null;

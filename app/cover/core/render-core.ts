@@ -625,10 +625,15 @@ export function drawCoverText(
   const subtitleInk = measureInkBounds(context, settings.subtitle || "国");
   const fixedVerticalGap = getWatermarkVisibleHeight(width);
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
-  const dividerThickness = plan?.dividerThickness ?? 4;
+  const normalBottomLeft = !lineProgress && textOrder === "top-down"
+    && !settings.compareEnabled && settings.templateId === "bottom-left";
+  const dividerThickness = plan?.dividerThickness ?? (normalBottomLeft ? 6 * geometryScale : 4);
+  // Preserve the original manual text anchors; allocate the extra divider thickness
+  // inside the three balanced gaps rather than moving the whole text block.
+  const dividerAnchorThickness = plan?.dividerThickness ?? 4;
   const relativeActiveBaseline = hasBottomText ? lineGap : 0;
   const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);
-  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerThickness + fixedVerticalGap + subtitleInk.ascent);
+  const relativeSubtitleBaseline = Math.round(relativeDividerY + dividerAnchorThickness + fixedVerticalGap + subtitleInk.ascent);
   const subtitleLineHeight = Math.round(subtitleFontSize * 1.45);
   const subtitleLines = countWrappedLines(settings.subtitle);
   const blockTop = -topHeadlineInk.ascent;
@@ -658,12 +663,12 @@ export function drawCoverText(
       : (cropTop + cropBottom) / 2 - blockTop;
   const y = plan?.topBaseline ?? Math.round(Math.max(usableTop - blockTop, Math.min(requestedY, bottomTextLimit - blockBottom)));
   const subtitleBaseline = plan?.subtitleBaseline ?? y + relativeSubtitleBaseline;
-  // Match the fixed layout's 8px bottom adjustment while keeping the first row
+  // Match the fixed layout's 10px bottom adjustment while keeping the first row
   // anchored. Rebalance all three ink gaps instead of moving the subtitle alone.
   const manualSubtitleLift = !plan && !lineProgress && textOrder === "top-down"
     && !settings.compareEnabled && settings.templateId === "bottom-left"
     && hasBottomText && settings.showDivider && settings.subtitle.trim()
-    ? 8 * geometryScale : 0;
+    ? 10 * geometryScale : 0;
   const balancedGap = (subtitleBaseline - manualSubtitleLift - subtitleInk.ascent
     - y - topHeadlineInk.descent - activeHeadlineInk.ascent - activeHeadlineInk.descent - dividerThickness) / 3;
   const secondBaseline = plan?.bottomBaseline ?? (manualSubtitleLift
@@ -730,8 +735,9 @@ export function drawCoverText(
 
   beginLine(2);
   if (settings.showDivider) {
-    // Keep the pre-auto divider style: one legacy title glyph wide and 4px thick.
-    // Automatic text fitting changes its position, not its original dimensions.
+    // Keep the original gold gradient and one-title-glyph length; normal covers
+    // use a slightly thicker 6px stroke at 1080px canvas width for clearer exports.
+    // Automatic text fitting changes its position without stretching its length.
     const legacyWidth = width - horizontalInset * 2;
     const legacyTop = plan ? fitText(context, settings.topText, topBaseFont, legacyWidth) : topFontSize;
     const legacyBottom = plan ? fitText(context, settings.bottomText, settings.textScaleLinked ? topBaseFont : bottomBaseFont, legacyWidth) : bottomFontSize;

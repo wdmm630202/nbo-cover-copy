@@ -10,7 +10,7 @@ test('自动封面在所有3到5字组合下固定边界、三个小空隙等距
  const s=width/1080;
  assert.equal(p.error,null);
  assert.ok(Math.abs(p.topBaseline-p.topInk.ascent-(1008-(height/width<1.5?240:0))*s)<.01);
- assert.ok(Math.abs(p.subtitleBaseline+p.subtitleInk.descent-(1474-(height/width<1.5?240:0))*s)<.01);
+ assert.ok(Math.abs(p.subtitleBaseline+p.subtitleInk.descent-(1472-(height/width<1.5?240:0))*s)<.01);
  const gaps=[p.bottomBaseline-p.bottomInk.ascent-p.topBaseline-p.topInk.descent,p.dividerY-p.bottomBaseline-p.bottomInk.descent,p.subtitleBaseline-p.subtitleInk.ascent-p.dividerY-p.dividerThickness];
  assert.ok(Math.max(...gaps)-Math.min(...gaps)<.01);
  assert.ok(p.topInk.width<=p.maxWidth+.01&&p.bottomInk.width<=p.maxWidth+.01);
@@ -32,10 +32,10 @@ test('装饰线开关不改变文字字号、位置或留白间距',()=>{
  for(const key of ['fontSize','topBaseline','bottomBaseline','subtitleBaseline','gap'])assert.equal(a[key],b[key]);
 });
 
-test('自动模式分割线沿用原版4画布像素粗细，仍在第二段空隙正中',()=>{
+test('自动模式分割线以1080宽6px等比导出，保持上下留白等距',()=>{
  for(const width of [540,1080,2160]){
  const p=layout.solveFixedTextLayout({topText:'男人的',bottomText:'高级感就',subtitle:'不被定义的自己',width,height:width*16/9,measure});
- assert.equal(p.dividerThickness,4);
- assert.ok(Math.abs(p.dividerY+2-(p.bottomBaseline+p.bottomInk.descent+p.gap+2))<.01);
+ assert.equal(p.dividerThickness,6*width/1080);
+ assert.ok(Math.abs((p.dividerY-p.bottomBaseline-p.bottomInk.descent)-(p.subtitleBaseline-p.subtitleInk.ascent-p.dividerY-p.dividerThickness))<.01);
  }
 });
