@@ -10,7 +10,7 @@ var NBOCoverCore = (function(exports) {
 		maxFont: 168,
 		minFont: 96,
 		subtitleFont: 66,
-		dividerThickness: 6,
+		dividerThickness: 5,
 		minGap: 16,
 		maxGap: 120
 	};
@@ -1467,7 +1467,7 @@ var NBOCoverCore = (function(exports) {
 		const fixedVerticalGap = getWatermarkVisibleHeight(width);
 		const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
 		const normalBottomLeft = !lineProgress && textOrder === "top-down" && !settings.compareEnabled && settings.templateId === "bottom-left";
-		const dividerThickness = plan?.dividerThickness ?? (normalBottomLeft ? 6 * geometryScale : 4);
+		const dividerThickness = plan?.dividerThickness ?? (normalBottomLeft ? 5 * geometryScale : 4);
 		const dividerAnchorThickness = plan?.dividerThickness ?? 4;
 		const relativeActiveBaseline = hasBottomText ? lineGap : 0;
 		const relativeDividerY = Math.round(relativeActiveBaseline + activeHeadlineInk.descent + fixedVerticalGap);

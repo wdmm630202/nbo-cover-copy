@@ -32,10 +32,10 @@ test('装饰线开关不改变文字字号、位置或留白间距',()=>{
  for(const key of ['fontSize','topBaseline','bottomBaseline','subtitleBaseline','gap'])assert.equal(a[key],b[key]);
 });
 
-test('自动模式分割线以1080宽6px等比导出，保持上下留白等距',()=>{
+test('自动模式分割线以1080宽5px等比导出，保持上下留白等距',()=>{
  for(const width of [540,1080,2160]){
  const p=layout.solveFixedTextLayout({topText:'男人的',bottomText:'高级感就',subtitle:'不被定义的自己',width,height:width*16/9,measure});
- assert.equal(p.dividerThickness,6*width/1080);
+ assert.equal(p.dividerThickness,5*width/1080);
  assert.ok(Math.abs((p.dividerY-p.bottomBaseline-p.bottomInk.descent)-(p.subtitleBaseline-p.subtitleInk.ascent-p.dividerY-p.dividerThickness))<.01);
  }
 });

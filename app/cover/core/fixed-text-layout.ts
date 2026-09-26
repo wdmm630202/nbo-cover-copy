@@ -1,7 +1,7 @@
 /** Normal portrait cover typography. Coordinates are in a 1080px-wide canvas. */
 export const FIXED_TEXT_FRAME = {
   left: 54, width: 576, top: 1008, bottom: 1472,
-  maxFont: 168, minFont: 96, subtitleFont: 66, dividerThickness: 6,
+  maxFont: 168, minFont: 96, subtitleFont: 66, dividerThickness: 5,
   minGap: 16, maxGap: 120,
 } as const;
 type Ink = { width: number; ascent: number; descent: number };

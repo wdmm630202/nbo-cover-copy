@@ -627,7 +627,7 @@ export function drawCoverText(
   const lineGap = Math.round(topHeadlineInk.descent + fixedVerticalGap + activeHeadlineInk.ascent);
   const normalBottomLeft = !lineProgress && textOrder === "top-down"
     && !settings.compareEnabled && settings.templateId === "bottom-left";
-  const dividerThickness = plan?.dividerThickness ?? (normalBottomLeft ? 6 * geometryScale : 4);
+  const dividerThickness = plan?.dividerThickness ?? (normalBottomLeft ? 5 * geometryScale : 4);
   // Preserve the original manual text anchors; allocate the extra divider thickness
   // inside the three balanced gaps rather than moving the whole text block.
   const dividerAnchorThickness = plan?.dividerThickness ?? 4;
@@ -736,7 +736,7 @@ export function drawCoverText(
   beginLine(2);
   if (settings.showDivider) {
     // Keep the original gold gradient and one-title-glyph length; normal covers
-    // use a slightly thicker 6px stroke at 1080px canvas width for clearer exports.
+    // use a slightly thicker 5px stroke at 1080px canvas width for clearer exports.
     // Automatic text fitting changes its position without stretching its length.
     const legacyWidth = width - horizontalInset * 2;
     const legacyTop = plan ? fitText(context, settings.topText, topBaseFont, legacyWidth) : topFontSize;
