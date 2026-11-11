@@ -1,4 +1,4 @@
-import { POSTER, PHOTO_AREA, clampSplit, getPanes, coverImage } from './geometry.mjs?v=20261112-integrated';
+import { POSTER, PHOTO_AREA, clampSplit, getPanes, coverImage } from './geometry.mjs?v=20261112-responsive';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -237,7 +237,7 @@ async function loadTemplate() {
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const image = await decodeImage(`./assets/template-overlay.png?v=20261112-integrated${request > 1 ? `&retry=${request}` : ''}`);
+    const image = await decodeImage(`./assets/template-overlay.png?v=20261112-responsive${request > 1 ? `&retry=${request}` : ''}`);
     if (request !== templateRequest) return;
     if (image.naturalWidth !== POSTER.width || image.naturalHeight !== POSTER.height) throw new Error('模板尺寸不符');
     template = image;
