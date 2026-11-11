@@ -8,21 +8,34 @@ web = root / 'Web'
 if web.exists(): shutil.rmtree(web)
 web.mkdir(exist_ok=True)
 asset_types = {'.js','.mjs','.css','.png','.jpg','.jpeg','.webp','.gif','.svg','.woff','.woff2','.ttf','.json','.m4a','.wav'}
+makeover_page = 'makeover/index.html'
 for source in (repo/'docs').rglob('*'):
     relative = source.relative_to(repo/'docs')
     if relative.parts[0] in {'live','superpowers'}: continue
     if source.is_symlink(): raise ValueError('Native assets cannot be symlinks')
-    if source.is_file() and (source.suffix.lower() in asset_types or relative.as_posix() == 'cover.html'):
+    if source.is_file() and (source.suffix.lower() in asset_types or relative.as_posix() in {'cover.html', makeover_page}):
         target=web/relative; target.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(source,target)
 for source in (repo/'public/live').rglob('*'):
     if source.is_symlink(): raise ValueError('Native assets cannot be symlinks')
     if source.is_file() and source.suffix.lower() in asset_types:
         target=web/'live'/source.relative_to(repo/'public/live');target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,target)
-html = (web/'cover.html').read_text()
-html = html.replace('<head>', '''<head><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; frame-src 'none'">''')
+def with_native_policy(html, frame_source):
+    policy = (
+        "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; "
+        f"font-src 'self' data:; object-src 'none'; frame-src {frame_source}"
+    )
+    if '<head>' not in html:
+        raise ValueError('Native page is missing its policy insertion point')
+    return html.replace('<head>', f'<head><meta http-equiv="Content-Security-Policy" content="{policy}">', 1)
+
+child = web / makeover_page
+child.write_text(with_native_policy(child.read_text(), "'none'"))
+html = with_native_policy((web/'cover.html').read_text(), f'nbo://studio/{makeover_page}')
 html = html.replace('照片只在当前浏览器处理','照片只在本机处理，成品直接保存相册')
 html = html.replace('<button id="copyWorkspaceSwitch"','<button hidden id="copyWorkspaceSwitch"')
 # The offline app ships to the owner; website access gate is unchanged in docs/.
+html = html.replace('<main class="cover-page is-hidden" id="coverPage">', '<main class="cover-page" id="coverPage">', 1)
 html = html.replace('</head>', '<style>#accessGate,.copy-sync{display:none!important}#coverPage{display:block!important}</style></head>')
 (web/'cover.html').write_text(html)
 js=(web/'cover.js').read_text()

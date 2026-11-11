@@ -1,6 +1,8 @@
 import CoverStudio from "./CoverStudio";
 import CopyWorkspaceSwitch from "./CopyWorkspaceSwitch";
+import CoverModeShell from "./CoverModeShell";
 import "../../public/live/live.css";
+import "../../docs/creation-modes.css";
 
 export default function CoverPage() {
   return (
@@ -18,7 +20,7 @@ export default function CoverPage() {
           <CopyWorkspaceSwitch />
         </div>
       </header>
-      <CoverStudio />
+      <CoverModeShell><CoverStudio /></CoverModeShell>
     </main>
   );
 }

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="./cover.css?v=20260926-divider5" />
     <link rel="stylesheet" href="./phone.css?v=20260908-card-pair" />
     <link rel="stylesheet" href="./live/live.css?v=20260908-card-pair" />
+    <link rel="stylesheet" href="./creation-modes.css?v=20261112-integrated" />
   </head>
   <body>
     <section class="access-gate" id="accessGate">
@@ -34,7 +35,11 @@
         </div>
       </header>
 
-      <section class="studio">
+      <div class="creation-mode-bar" role="tablist" aria-label="选择制作模式">
+        <button type="button" id="creation-tab-cover" role="tab" aria-selected="true" aria-controls="coverPanel" data-creation-mode="cover">封面制作</button>
+        <button type="button" id="creation-tab-makeover" role="tab" aria-selected="false" aria-controls="makeoverPanel" tabindex="-1" data-creation-mode="makeover">素人改造</button>
+      </div>
+      <section class="studio" id="coverPanel" role="tabpanel" aria-labelledby="creation-tab-cover">
         <div class="studio-grid" data-cover-layout="desktop">
           <aside class="panel controls">
             <div class="panel-heading"><b>01</b><span><strong>照片与文字</strong><small>先放原片，再放两行主文案</small></span></div>
@@ -242,6 +247,7 @@
           <p>平台规则会变化，尺寸预设独立维护；封面制作不依赖免费 AI 服务，即使智能文案暂时不可用，也能继续制作和导出。</p>
         </section>
       </section>
+      <section class="creation-makeover-panel" id="makeoverPanel" role="tabpanel" aria-labelledby="creation-tab-makeover" hidden></section>
     </main>
     <div class="save-preview" id="savePreview" hidden>
       <div class="save-preview-card">
@@ -251,6 +257,7 @@
         <div><button type="button" id="openPreviewImage">打开手机分享</button><button type="button" id="closeSavePreview">关闭</button></div>
       </div>
     </div>
+    <script type="module" src="./creation-modes.js?v=20261112-integrated"></script>
     <script src="./compare-layout.js?v=20260908-card-pair"></script>
     <script src="./drop-upload.js?v=20260830-finder-drag-upload"></script>
     <script src="./cover-core.js?v=20260926-divider5"></script>
