@@ -1,4 +1,4 @@
-import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-photo-ops';
+import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
@@ -71,7 +71,7 @@ new ResizeObserver(([entry]) => {
 }).observe($('.poster-wrap'));
 const names = ['素颜照片', '精修照片'];
 const PHOTO_DEFAULTS = { zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, brightness: 100, shade: 0, bottomShade: 0 };
-const LIMITS = { zoom: [0, 400], offsetX: [-200, 200], offsetY: [-200, 200], rotation: [-180, 180], brightness: [0, 200], shade: [0, 100], bottomShade: [0, 100] };
+const LIMITS = { zoom: [100, 400], offsetX: [-200, 200], offsetY: [-200, 200], rotation: [-180, 180], brightness: [0, 200], shade: [0, 100], bottomShade: [0, 100] };
 const photos = names.map(() => ({ image: null, ...PHOTO_DEFAULTS, strokes: [], request: 0, loading: false }));
 const brush = { active: false, size: 120, feather: 70, strength: 100, compareBefore: false };
 const touches = new Map();
@@ -103,14 +103,23 @@ function ready() {
 }
 
 function updateButtons() {
+  // Keep the controls and gesture baselines at the actual covered placement.
+  getPanes(split).forEach((pane, side) => {
+    const photo = photos[side];
+    if (!photo.image) return;
+    photo.zoom = clamp(photo.zoom, 100, 400);
+    const transform = getPhotoTransform(pane, photo.image.naturalWidth, photo.image.naturalHeight, photo);
+    photo.offsetX = pane.width > 0 ? (transform.centerX - pane.x - pane.width / 2) / pane.width * 100 : 0;
+    photo.offsetY = pane.height > 0 ? (transform.centerY - pane.y - pane.height / 2) / pane.height * 100 : 0;
+  });
   const photo = photos[activeSide];
   const unavailable = !photo.image || photo.loading;
   $('#export-png').disabled = $('#export-jpg').disabled = exporting || !ready();
   for (const key of Object.keys(PHOTO_DEFAULTS)) {
     const range = $('#adjust-' + key), number = $('#adjust-' + key + '-value');
     range.disabled = number.disabled = unavailable;
-    range.value = photo[key];
-    if (document.activeElement !== number) number.value = photo[key];
+    range.value = Math.round(photo[key] * 10) / 10;
+    if (document.activeElement !== number) number.value = Math.round(photo[key] * 10) / 10;
     $('[data-reset-setting="' + key + '"]').disabled = unavailable;
   }
   document.querySelectorAll('[data-photo-target]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.photoTarget) === activeSide)));
@@ -166,9 +175,9 @@ function setParameter(key, raw, snap = false, owner = { side: activeSide, reques
     showHint(value + '°', result.guide);
   }
   photo[key] = value;
-  $('#adjust-' + key + '-value').value = photos[activeSide][key];
   brush.compareBefore = false;
   updateButtons();
+  $('#adjust-' + key + '-value').value = Math.round(photos[activeSide][key] * 10) / 10;
   edited();
 }
 
@@ -315,6 +324,7 @@ function setSplit(value, fromPointer = false) {
   $('#split').value = percentage;
   $('#split-value').textContent = `${percentage}%`;
   $('#split-handle').setAttribute('aria-valuenow', String(percentage));
+  updateButtons();
   $('#split-handle').setAttribute('aria-valuetext', `素颜照片占 ${percentage}%，精修照片占 ${Math.round((100 - percentage) * 10) / 10}%`);
   edited();
 }
@@ -480,7 +490,7 @@ function movePointer(event) {
     if (touches.size >= 2 && pinch) {
       const [a, b] = [...touches.values()];
       const distance = Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y);
-      photo.zoom = Math.round(clamp(pinch.zoom * distance / pinch.distance, 0, 400) * 10) / 10;
+      photo.zoom = Math.round(clamp(pinch.zoom * distance / pinch.distance, 100, 400) * 10) / 10;
       photo.offsetX = Math.round(clamp(pinch.offsetX + ((a.position.x + b.position.x) / 2 - pinch.x) / pointer.pane.width * 100, -200, 200) * 10) / 10;
       photo.offsetY = Math.round(clamp(pinch.offsetY + ((a.position.y + b.position.y) / 2 - pinch.y) / pointer.pane.height * 100, -200, 200) * 10) / 10;
       showHint(photo.zoom + '%');
@@ -536,7 +546,7 @@ preview.addEventListener('wheel', event => {
   if (!photo.image || photo.loading) return;
   event.preventDefault();
   selectSide(side);
-  photo.zoom = Math.round(clamp(photo.zoom + clamp(-event.deltaY * .02, -2, 2), 0, 400) * 10) / 10;
+  photo.zoom = Math.round(clamp(photo.zoom + clamp(-event.deltaY * .02, -2, 2), 100, 400) * 10) / 10;
   showHint(photo.zoom + '%'); updateButtons(); edited();
 }, { passive: false });
 preview.addEventListener('dblclick', event => {
@@ -636,9 +646,9 @@ for (const key of Object.keys(PHOTO_DEFAULTS)) {
   number.addEventListener('change', () => {
     const owner = numericOwners.get(number) ?? { side: activeSide, request: photos[activeSide].request };
     setParameter(key, number.value === '' ? photos[owner.side][key] : number.value, false, owner);
-    number.value = photos[activeSide][key];
+    number.value = Math.round(photos[activeSide][key] * 10) / 10;
   });
-  number.addEventListener('blur', () => { numericOwners.delete(number); number.value = photos[activeSide][key]; });
+  number.addEventListener('blur', () => { numericOwners.delete(number); number.value = Math.round(photos[activeSide][key] * 10) / 10; });
   number.addEventListener('keydown', event => { if (event.key === 'Enter') number.blur(); });
   $('[data-reset-setting="' + key + '"]').addEventListener('click', () => setParameter(key, PHOTO_DEFAULTS[key]));
 }

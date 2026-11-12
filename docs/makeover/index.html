@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f4f1">
   <title>南铂素人改造对比图</title>
-  <link rel="stylesheet" href="./style.css?v=20261112-preview-labels">
+  <link rel="stylesheet" href="./style.css?v=20261112-cover-minimum">
 </head>
 <body>
   <header class="page-header">
@@ -74,8 +74,8 @@
         <optgroup label="画面"><option value="brightness">亮度</option><option value="shade">压暗强度</option><option value="bottomShade">底部加深</option></optgroup>
       </select></label>
       <div class="setting-row compose-setting is-selected" data-setting="zoom">
-        <div class="setting-meta"><label for="adjust-zoom">照片缩放</label><span class="number-unit"><input id="adjust-zoom-value" type="number" min="0" max="400" step="0.1" value="100" inputmode="decimal" aria-label="照片缩放精确数值"><i>%</i></span><button type="button" data-reset-setting="zoom">复位</button></div>
-        <input id="adjust-zoom" type="range" min="0" max="400" step="0.1" value="100" aria-label="照片缩放">
+        <div class="setting-meta"><label for="adjust-zoom">照片缩放</label><span class="number-unit"><input id="adjust-zoom-value" type="number" min="100" max="400" step="0.1" value="100" inputmode="decimal" aria-label="照片缩放精确数值"><i>%</i></span><button type="button" data-reset-setting="zoom">复位</button></div>
+        <input id="adjust-zoom" type="range" min="100" max="400" step="0.1" value="100" aria-label="照片缩放">
       </div>
       <div class="setting-row compose-setting" data-setting="offsetX">
         <div class="setting-meta"><label for="adjust-offsetX">左右位置</label><span class="number-unit"><input id="adjust-offsetX-value" type="number" min="-200" max="200" step="1" value="0" inputmode="decimal" aria-label="左右位置精确数值"></span><button type="button" data-reset-setting="offsetX">复位</button></div>
@@ -120,6 +120,6 @@
       <button type="button" data-tool="photos" aria-pressed="true">照片</button><button type="button" data-tool="compose" aria-pressed="false">构图</button><button type="button" data-tool="tone" aria-pressed="false">画面</button><button type="button" data-tool="brush" aria-pressed="false">涂抹</button>
     </nav>
   </main>
-  <script type="module" src="./app.js?v=20261112-preview-labels"></script>
+  <script type="module" src="./app.js?v=20261112-cover-minimum"></script>
 </body>
 </html>

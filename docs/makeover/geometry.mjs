@@ -39,9 +39,8 @@ export function coverImage(pane, sourceWidth, sourceHeight, zoom = 1, panX = 0, 
   };
 }
 
-/** Match the proven cover renderer: cover the rotated source bounding box, then
- * translate in pane percentages. At zoom 100 and rotation 0 this is the existing
- * centered cover fit; intentional zoom-out/translation may reveal the pane fill.
+/** Fit all pane corners inside the rotated photo. Zoom 100 is the minimum cover
+ * fit for the current angle; pan is constrained in the photo's own axes.
  * Callers clip to the pane, then translate, rotate and draw centered at (0, 0).
  * @param {{x:number,y:number,width:number,height:number}} pane
  * @param {number} sourceWidth
@@ -54,14 +53,28 @@ export function getPhotoTransform(pane, sourceWidth, sourceHeight, settings = {}
   const paneW = Math.max(0, Number.isFinite(pane.width) ? pane.width : 0);
   const paneH = Math.max(0, Number.isFinite(pane.height) ? pane.height : 0);
   const rotationRadians = clamp(settings.rotation, -180, 180, 0) * Math.PI / 180;
-  const cosine = Math.abs(Math.cos(rotationRadians));
-  const sine = Math.abs(Math.sin(rotationRadians));
-  const rotatedW = sourceW * cosine + sourceH * sine;
-  const rotatedH = sourceW * sine + sourceH * cosine;
-  const scale = Math.max(paneW / rotatedW, paneH / rotatedH) * clamp(settings.zoom, 0, 400, 100) / 100;
+  const cosine = Math.cos(rotationRadians);
+  const sine = Math.sin(rotationRadians);
+  // Project the frame onto the image axes, rather than fitting the image's
+  // bounding box (which would leave empty triangles after rotation).
+  const requiredW = paneW * Math.abs(cosine) + paneH * Math.abs(sine);
+  const requiredH = paneW * Math.abs(sine) + paneH * Math.abs(cosine);
+  const scale = Math.max(requiredW / sourceW, requiredH / sourceH) * clamp(settings.zoom, 100, 400, 100) / 100;
+  const marginX = Math.max(0, (sourceW * scale - requiredW) / 2);
+  const marginY = Math.max(0, (sourceH * scale - requiredH) / 2);
+  const offsetX = clamp(settings.offsetX, -200, 200, 0) / 100 * paneW;
+  const offsetY = clamp(settings.offsetY, -200, 200, 0) / 100 * paneH;
+  const localX = clamp(offsetX * cosine + offsetY * sine, -marginX, marginX, 0);
+  const localY = clamp(-offsetX * sine + offsetY * cosine, -marginY, marginY, 0);
+  const coveredX = localX * cosine - localY * sine;
+  const coveredY = localX * sine + localY * cosine;
+  // Projection onto a rotated crop can enlarge one world-axis offset. Scale
+  // toward the safe center so both percentage controls remain within bounds.
+  const panScale = Math.min(1, coveredX ? paneW * 2 / Math.abs(coveredX) : 1,
+    coveredY ? paneH * 2 / Math.abs(coveredY) : 1);
   return {
-    centerX: (Number.isFinite(pane.x) ? pane.x : 0) + paneW / 2 + clamp(settings.offsetX, -200, 200, 0) / 100 * paneW,
-    centerY: (Number.isFinite(pane.y) ? pane.y : 0) + paneH / 2 + clamp(settings.offsetY, -200, 200, 0) / 100 * paneH,
+    centerX: (Number.isFinite(pane.x) ? pane.x : 0) + paneW / 2 + coveredX * panScale,
+    centerY: (Number.isFinite(pane.y) ? pane.y : 0) + paneH / 2 + coveredY * panScale,
     width: sourceW * scale,
     height: sourceH * scale,
     rotationRadians,

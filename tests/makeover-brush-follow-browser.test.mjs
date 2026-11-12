@@ -14,7 +14,7 @@ const MARKER = [220, 180, 80, 255];
 function markerPosition({ zoom = 100, offsetX = 0, offsetY = 0, rotation = 0 } = {}) {
   const radians = rotation * Math.PI / 180;
   const cosine = Math.cos(radians), sine = Math.sin(radians);
-  const edge = 7755 * zoom / 100 / (Math.abs(cosine) + Math.abs(sine));
+  const edge = Math.max(2987 * Math.abs(cosine) + 7755 * Math.abs(sine), 2987 * Math.abs(sine) + 7755 * Math.abs(cosine)) * zoom / 100;
   const x = (.58 - .5) * edge, y = (.30 - .5) * edge;
   return [1506.5 + offsetX / 100 * 2987 + x * cosine - y * sine,
     4109.5 + offsetY / 100 * 7755 + x * sine + y * cosine];
@@ -128,9 +128,9 @@ test('真实涂抹随原片标记移动、缩放、旋转，6K成图与预览一
 
     const previousLocations = [initial];
     const stages = [
-      { label: '移动', settings: { offsetX: -25, offsetY: -5 } },
-      { label: '缩放', settings: { offsetX: -25, offsetY: -5, zoom: 150 } },
-      { label: '旋转', settings: { offsetX: -25, offsetY: -5, zoom: 150, rotation: -20 } },
+      { label: '移动', settings: { offsetX: -40, offsetY: 0 } },
+      { label: '缩放', settings: { zoom: 150, offsetX: -25, offsetY: -5 } },
+      { label: '旋转', settings: { zoom: 150, rotation: -20, offsetX: -25, offsetY: -5 } },
     ];
     for (const { label, settings } of stages) {
       for (const [key, value] of Object.entries(settings)) await setNumber(frame, key, value);

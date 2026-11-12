@@ -65,8 +65,8 @@ async function settle(frame) {
 async function uploadPair(page, frame) {
   for (const [side, color] of [[0, '#a85462'], [1, '#3472b4']]) {
     const data = await page.evaluate(color => {
-      const canvas = document.createElement('canvas'); canvas.width = 400; canvas.height = 800;
-      const context = canvas.getContext('2d'); context.fillStyle = color; context.fillRect(0, 0, 400, 800);
+      const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 800;
+      const context = canvas.getContext('2d'); context.fillStyle = color; context.fillRect(0, 0, 800, 800);
       context.fillStyle = '#d6b879'; context.fillRect(80, 100, 90, 500);
       return canvas.toDataURL().split(',')[1];
     }, color);
@@ -88,10 +88,41 @@ async function setNumber(frame, key, value) {
   assert.equal(Number(await field(frame, key).inputValue()), value, `${key}精确数值不得被吸附改写`);
 }
 
+test('导入即填满，数值、滑块、滚轮和键盘均不能缩小到露出黑边', { timeout: 30000 }, async t => {
+  await withEditor(t, false, async ({ page, frame }) => {
+    await uploadPair(page, frame);
+    await target(frame, 0);
+    assert.equal(Number(await field(frame, 'zoom').inputValue()), 100);
+    await field(frame, 'zoom').fill('25');
+    await field(frame, 'zoom').press('Enter');
+    assert.equal(Number(await field(frame, 'zoom').inputValue()), 100, '低于铺满大小的数值必须回到最小缩放');
+    await frame.locator('#adjust-zoom').evaluate(range => { range.value = '0'; range.dispatchEvent(new Event('input', { bubbles: true })); });
+    assert.equal(Number(await field(frame, 'zoom').inputValue()), 100);
+    const rect = await frame.locator('#preview').boundingBox();
+    await page.mouse.move(rect.x + rect.width * .25, rect.y + rect.height * .4);
+    await page.mouse.wheel(0, 1000);
+    await frame.locator('#preview').focus();
+    await frame.locator('#preview').press('-');
+    await settle(frame);
+    assert.equal(Number(await field(frame, 'zoom').inputValue()), 100);
+    for (const [key, value] of [['offsetX', 200], ['offsetY', -200], ['rotation', 45]]) {
+      await field(frame, key).fill(String(value)); await field(frame, key).press('Enter');
+    }
+    await settle(frame);
+    const colors = await samplePixels(frame, [[.01,.08],[.49,.08],[.01,.3],[.49,.3]]);
+    assert.ok(colors.every(color => Math.max(...color.slice(0, 3)) > 40), `框内应始终显示照片，不能露出黑底：${JSON.stringify(colors)}`);
+    await frame.locator('#reset-photo').click();
+    assert.equal(Number(await field(frame, 'zoom').inputValue()), 100);
+    assert.equal(Number(await field(frame, 'offsetX').inputValue()), 0);
+    assert.equal(Number(await field(frame, 'offsetY').inputValue()), 0);
+  });
+});
+
 test('素人改造照片操作保留精确数值，拖动锁定当前图，轻滚轮与旋转复位互不串图', { timeout: 60000 }, async t => {
   await withEditor(t, false, async ({ page, frame }) => {
     await uploadPair(page, frame);
     await target(frame, 0);
+    await setNumber(frame, 'zoom', 200);
     await setNumber(frame, 'rotation', 88);
     await setNumber(frame, 'offsetX', 13);
     await frame.locator('[data-reset-setting="offsetX"]').click();
@@ -109,7 +140,7 @@ test('素人改造照片操作保留精确数值，拖动锁定当前图，轻�
     await page.mouse.up();
     await settle(frame);
     assert.notEqual(Number(await field(frame, 'offsetX').inputValue()), 0, '照片可沿水平方向移动');
-    assert.notEqual(Number(await field(frame, 'offsetY').inputValue()), 0, '没有纵向裁切余量也可独立上下移动');
+    assert.notEqual(Number(await field(frame, 'offsetY').inputValue()), 0, '放大后可在裁切余量内上下移动');
     await target(frame, 1);
     assert.equal(Number(await field(frame, 'offsetX').inputValue()), 17, '跨越分界拖动不得改写另一张照片');
     assert.equal(Number(await field(frame, 'offsetY').inputValue()), 0);
@@ -162,6 +193,11 @@ test('双指缩放只调整手势起点照片并保留另一侧构图', { timeou
     await settle(frame);
     const zoom = Number(await field(frame, 'zoom').inputValue());
     assert.ok(zoom > 110 && zoom <= 400, `双指张开应缩放当前图，实际${zoom}`);
+    await touch('touchStart', [[0, x - 24, y], [1, x + 24, y]]);
+    await touch('touchMove', [[0, x - 3, y], [1, x + 3, y]]);
+    await touch('touchEnd', []);
+    await settle(frame);
+    assert.equal(Number(await field(frame, 'zoom').inputValue()), 100, '双指收拢也不能小于填满框的最小缩放');
     await target(frame, 1);
     assert.equal(Number(await field(frame, 'zoom').inputValue()), 100, '另一侧照片不继承双指缩放');
     await cdp.detach();
@@ -333,6 +369,7 @@ test('回归：预览图像效果抛错后提示中文，下次调整恢复完�
     page.on('pageerror', error => uncaught.push(error.message));
     await uploadPair(page, frame);
     await target(frame, 0);
+    await setNumber(frame, 'zoom', 150);
     await setNumber(frame, 'rotation', 17);
     await setNumber(frame, 'brightness', 72);
     await setNumber(frame, 'shade', 45);
