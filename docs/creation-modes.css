@@ -28,3 +28,9 @@ body.creation-makeover-active .save-preview{display:none!important}
   /* Preserve the existing one-screen desktop footer after adding the 44px bar + 12px gap. */
   body.creation-modes-ready:not(.creation-makeover-active) #coverPanel :is(.studio-grid,.cover-studio-grid)[data-cover-layout="desktop"]{height:calc(var(--cover-desktop-height,100vh) - 226px)}
 }
+
+/* Start the desktop editor beside the mode buttons. */
+@media(min-width:1181px) and (pointer:fine){
+ body.creation-makeover-active .creation-mode-bar{width:260px;align-self:flex-start;margin-left:max(20px,calc((100% - 1480px)/2));margin-bottom:12px}
+ body.creation-makeover-active .creation-makeover-panel{margin-top:-66px}
+}

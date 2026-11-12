@@ -209,3 +209,7 @@ html.is-embedded .workspace{max-width:none}
  .workspace[data-tool=brush] #brush-hint{grid-column:1/-1;grid-row:3;font-size:10px;line-height:13px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+@media(min-width:1181px) and (pointer:fine){
+ html.is-embedded .controls{padding-top:67px}
+}

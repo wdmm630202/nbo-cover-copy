@@ -1,4 +1,4 @@
-import { bindMakeoverFrame, notifyMakeoverFrame, resolveCreationMode, creationModeURL } from './makeover-host.mjs?v=20261112-photo-ops';
+import { bindMakeoverFrame, notifyMakeoverFrame, resolveCreationMode, creationModeURL } from './makeover-host.mjs?v=20261112-top-align';
 
 const tabs = [...document.querySelectorAll('[data-creation-mode]')];
 const coverPanel = document.getElementById('coverPanel');
@@ -26,7 +26,7 @@ function showMode(mode, updateURL = false) {
     iframe.className = 'creation-makeover-frame';
     iframe.style.height = '1200px';
     cleanup = bindMakeoverFrame(iframe, (height) => { iframe.style.height = `${height}px`; });
-    iframe.src = './makeover/index.html?embed=1&v=20261112-photo-ops';
+    iframe.src = './makeover/index.html?embed=1&v=20261112-top-align';
     makeoverPanel.append(iframe);
   }
   if (makeover && iframe) requestAnimationFrame(() => notifyMakeoverFrame(iframe));
