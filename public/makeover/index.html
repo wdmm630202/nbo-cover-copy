@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f4f1">
   <title>南铂素人改造对比图</title>
-  <link rel="stylesheet" href="./style.css?v=20261112-cover-minimum">
+  <link rel="stylesheet" href="./style.css?v=20261112-reset-button">
 </head>
 <body>
   <header class="page-header">
@@ -67,7 +67,7 @@
           <button type="button" data-photo-target="0" aria-pressed="true">素颜照片</button>
           <button type="button" data-photo-target="1" aria-pressed="false">精修照片</button>
         </div>
-        <button id="reset-photo" type="button" class="quiet">恢复当前照片默认</button>
+        <button id="reset-photo" type="button" title="恢复当前照片的默认设置，保留照片">恢复默认</button>
       </div>
       <label class="parameter-picker" for="parameter-select"><span>调整项目</span><select id="parameter-select" aria-label="选择照片调整项目">
         <optgroup label="构图"><option value="zoom">照片缩放</option><option value="offsetX">左右位置</option><option value="offsetY">上下位置</option><option value="rotation">自由旋转</option></optgroup>
@@ -120,6 +120,6 @@
       <button type="button" data-tool="photos" aria-pressed="true">照片</button><button type="button" data-tool="compose" aria-pressed="false">构图</button><button type="button" data-tool="tone" aria-pressed="false">画面</button><button type="button" data-tool="brush" aria-pressed="false">涂抹</button>
     </nav>
   </main>
-  <script type="module" src="./app.js?v=20261112-cover-minimum"></script>
+  <script type="module" src="./app.js?v=20261112-reset-button"></script>
 </body>
 </html>

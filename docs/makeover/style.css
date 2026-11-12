@@ -88,11 +88,13 @@ canvas:active{cursor:grabbing}
 .brush-cursor.visible{opacity:1}
 .settings-panel{grid-column:3;grid-row:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:10px}
 .settings-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-bottom:6px;align-items:center}
-.settings-header h2{font-size:13px}
-.photo-targets{grid-column:1/-1;grid-row:2;display:flex;gap:5px;min-width:0}
+.settings-header h2{grid-column:1/-1;font-size:13px}
+.photo-targets{grid-column:1/-1;grid-row:3;display:flex;gap:5px;min-width:0}
 .photo-targets button{flex:1;min-width:0;min-height:29px;padding:5px;border:1px solid var(--border);border-radius:7px;background:#f8f8f5;color:var(--muted);font-size:11px;white-space:nowrap}
 .photo-targets button[aria-pressed=true]{border-color:var(--accent);background:#fff1f3;color:var(--accent);font-weight:650}
-#reset-photo{grid-column:2;grid-row:1;white-space:nowrap;min-height:24px;font-size:10px}
+#reset-photo{grid-column:1/-1;grid-row:2;width:100%;min-height:34px;padding:8px 14px;border:1px solid #202020;border-radius:8px;background:#202020;color:#fff;font-size:12px;font-weight:650;line-height:1.2;white-space:nowrap;transition:background .15s,border-color .15s}
+#reset-photo:hover:not(:disabled){background:#383838;border-color:#383838}
+#reset-photo:active:not(:disabled){background:#111;border-color:#111}
 .parameter-picker{display:none}
 .setting-row{min-width:0;margin:3px 0 5px}
 .setting-meta{display:grid;grid-template-columns:minmax(0,1fr) 67px 34px;gap:5px;align-items:center;min-height:24px;font-size:11px;color:var(--muted)}
@@ -161,7 +163,7 @@ html.is-embedded .workspace{max-width:none}
  .settings-header h2{display:none}
  .photo-targets{flex:1;gap:4px}
  .photo-targets button{min-height:27px;padding:4px;font-size:11px}
- #reset-photo{font-size:10px;min-height:27px}
+ #reset-photo{flex:none;width:auto;padding:4px 10px;font-size:10px;min-height:27px}
  .parameter-picker{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:11px;color:var(--muted)}
  .parameter-picker span{flex:none}
  .parameter-picker select{flex:1;min-width:0;height:27px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:#fff;color:#242a27;font-size:11px}
