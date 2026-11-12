@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f4f1">
   <title>南铂素人改造对比图</title>
-  <link rel="stylesheet" href="./style.css?v=20261112-top-align">
+  <link rel="stylesheet" href="./style.css?v=20261112-split-default">
 </head>
 <body>
   <header class="page-header">
@@ -36,7 +36,7 @@
         <div class="split-label"><label for="split">素颜照片占比</label><output id="split-value" for="split">50%</output></div>
         <input id="split" type="range" min="0" max="100" step="0.1" value="50" aria-describedby="split-note">
         <p class="muted small" id="split-note">也可拖动预览中的竖线。模板上的文字与设计始终固定。</p>
-        <button id="equal-split" class="quiet">恢复左右各半</button>
+        <button id="equal-split" type="button" title="恢复左右各半">默认</button>
       </section>
       <section class="panel export-panel" aria-labelledby="export-heading">
         <div class="section-title"><span class="step">03</span><h2 id="export-heading">导出对比图</h2></div>
@@ -120,6 +120,6 @@
       <button type="button" data-tool="photos" aria-pressed="true">照片</button><button type="button" data-tool="compose" aria-pressed="false">构图</button><button type="button" data-tool="tone" aria-pressed="false">画面</button><button type="button" data-tool="brush" aria-pressed="false">涂抹</button>
     </nav>
   </main>
-  <script type="module" src="./app.js?v=20261112-top-align"></script>
+  <script type="module" src="./app.js?v=20261112-split-default"></script>
 </body>
 </html>

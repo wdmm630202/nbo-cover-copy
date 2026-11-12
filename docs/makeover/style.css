@@ -48,7 +48,9 @@ h2{font-size:13px;margin:0;font-weight:650}
 output{font-variant-numeric:tabular-nums}
 input[type=range]{display:block;width:100%;height:24px;min-width:0;margin:0;accent-color:var(--accent);cursor:pointer;touch-action:none}
 #split{grid-column:1}
-#equal-split{grid-column:2;grid-row:2/4;min-height:40px;align-self:center;font-size:11px;line-height:1.4}
+#equal-split{grid-column:2;grid-row:2/4;justify-self:end;align-self:center;min-width:52px;min-height:32px;padding:6px 13px;border:1px solid var(--border);border-radius:8px;background:#f7f6f2;color:var(--muted);font-size:11px;font-weight:600;line-height:1.4;transition:background .15s,border-color .15s,color .15s}
+#equal-split:hover{background:#fff1f3;border-color:var(--accent);color:var(--accent)}
+#equal-split:active{background:#ffe5ea}
 .quiet{border:0;padding:4px 0;background:transparent;font-size:11px;color:var(--muted)}
 .quiet:hover:not(:disabled){color:#1c3d2a;text-decoration:underline}
 .export-panel>.muted{font-size:11px;line-height:16px;margin:4px 0 7px}
