@@ -166,6 +166,8 @@ test('真实涂抹随原片标记移动、缩放、旋转，6K成图与预览一
     // Comparison is a preview aid; exporting while it is selected must still
     // contain the completed, source-anchored brush effect.
     await frame.locator('#brush-before').click(); await settle(frame);
+    // Exercise the download fallback without opening an OS save dialog.
+    await frame.evaluate(() => { window.showSaveFilePicker = undefined; });
     await frame.locator('#export-png').click();
     await frame.locator('#download-result').waitFor({ state: 'visible' });
     const exported = await frame.locator('#download-link').evaluate(async (link, points) => {

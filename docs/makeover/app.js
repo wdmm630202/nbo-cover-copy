@@ -1,6 +1,6 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { createMakeoverExportAsset, getMakeoverExportFileName } from './export.mjs?v=20261112-export-limit';
+import { createMakeoverExportAsset, getMakeoverExportFileName } from './export.mjs?v=20261113-desktop-save';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -744,7 +744,19 @@ async function exportPoster(format) {
   clearDownload();
   updateButtons();
   status(`正在生成 ${format.toUpperCase()}，文件不超过19.9MB…`);
+  let writable;
   try {
+    const fileName = getMakeoverExportFileName(format);
+    const usePicker = !nativeSave && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && window.showSaveFilePicker;
+    // Open during the click gesture, before asynchronous image encoding.
+    const handle = usePicker ? await window.showSaveFilePicker({
+      startIn: 'desktop',
+      suggestedName: fileName,
+      types: [{ description: format === 'png' ? 'PNG 图片' : 'JPG 图片', accept: {
+        [format === 'png' ? 'image/png' : 'image/jpeg']: [`.${format}`],
+      } }],
+    }) : null;
+    if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
     const asset = await createMakeoverExportAsset({
       format,
       isCancelled: () => snapshot !== revision || photos.some(photo => photo.loading),
@@ -766,16 +778,28 @@ async function exportPoster(format) {
       status(`${details}，成图已保存到相册。`);
       return;
     }
+    if (handle) {
+      writable = await handle.createWritable();
+      if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
+      await writable.write(blob);
+      if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
+      await writable.close();
+      writable = null;
+      status(`${details}，已保存。`);
+      return;
+    }
     downloadURL = URL.createObjectURL(blob);
     const link = $('#download-link');
     link.href = downloadURL;
-    link.download = getMakeoverExportFileName(format);
+    link.download = fileName;
     $('#open-image').href = downloadURL;
     $('#download-result').hidden = false;
     status(`${details}${asset.resized ? '（已等比缩小）' : ''}，已生成。`);
     link.click();
   } catch (error) {
-    if (snapshot !== revision || photos.some(photo => photo.loading)) status('照片或构图已更改，请重新导出。');
+    try { await writable?.abort(); } catch { /* Preserve the original save error. */ }
+    if (error?.name === 'AbortError') status('已取消保存，可再次点击导出。');
+    else if (snapshot !== revision || photos.some(photo => photo.loading)) status('照片或构图已更改，请重新导出。');
     else status(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : '导出失败，可能是图片过大或浏览器内存不足。请重新尝试，或更换浏览器。', true);
   } finally {
     exporting = false;

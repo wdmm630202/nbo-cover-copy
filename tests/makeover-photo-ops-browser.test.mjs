@@ -29,6 +29,8 @@ async function withEditor(t, touch, run, { injectEffectsFailure = false } = {}) 
     browser = await chromium.launch({ executablePath, headless: true });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 1 });
     page.setDefaultTimeout(6000);
+    // Most tests exercise the unsupported-browser download fallback.
+    await page.addInitScript(() => { window.showSaveFilePicker = undefined; });
     // A captured pre-fix module can prove regressions without rewriting shared source.
     if (process.env.NBO_PHOTO_OPS_APP_OVERRIDE) {
       await page.route('**/makeover/app.js?*', route => route.fulfill({ path: resolve(process.env.NBO_PHOTO_OPS_APP_OVERRIDE), contentType: 'text/javascript' }));
@@ -505,7 +507,7 @@ test('成品按南铂素人改造加北京时间命名，连续导出不重复�
       const result = await frame.locator('#download-link').evaluate(async link => ({
         name: link.download, size: (await (await fetch(link.href)).blob()).size,
       }));
-      assert.match(result.name, /^南铂素人改造_\d{8}_\d{6}_\d{3}_[a-z0-9_-]+\.jpg$/);
+      assert.match(result.name, /^南铂素人改造_\d{8}_\d{6}_\d{3}\.jpg$/);
       assert.ok(result.size > 0 && result.size <= 19_900_000);
       names.push(result.name);
     }
@@ -618,5 +620,47 @@ test('涂抹局部提亮跟随照片移动且不越界，预览导出共享图�
     assert.deepEqual(png.colors, overlay, '图像变换/亮度/压暗不得改写原模板固定RGB');
     const jpg = await inspectExport(frame, 'jpg', fixed);
     assert.deepEqual([jpg.width, jpg.height], [6000, 8000]);
+  });
+});
+
+
+test('桌面导出先打开默认桌面的保存窗口，取消不下载，保存写入受限成品', { timeout: 60000 }, async t => {
+  await withEditor(t, false, async ({ page, frame }) => {
+    await uploadPair(page, frame);
+    await frame.evaluate(() => {
+      window.saveCalls = [];
+      window.showSaveFilePicker = async options => {
+        window.saveCalls.push({ options, active: navigator.userActivation.isActive });
+        if (window.saveCalls.length === 1) throw new DOMException('cancel', 'AbortError');
+        return { createWritable: async () => ({
+          write: async blob => { window.savedBytes = blob.size; },
+          close: async () => { window.savedClosed = true; },
+          abort: async () => { window.savedAborted = true; },
+        }) };
+      };
+    });
+    await frame.locator('#export-jpg').click();
+    await frame.waitForFunction(() => document.querySelector('[role="status"]').textContent.includes('取消'));
+    assert.equal(await frame.locator('#download-result').isVisible(), false);
+    await frame.locator('#export-jpg').click();
+    await frame.waitForFunction(() => window.savedClosed === true, { timeout: 20000 });
+    const result = await frame.evaluate(() => ({ calls: window.saveCalls, bytes: window.savedBytes }));
+    assert.ok(result.bytes <= 19_900_000);
+    await frame.evaluate(() => {
+      window.showSaveFilePicker = async () => ({ createWritable: async () => ({
+        write: async () => { throw new Error('保存失败，请重新导出。'); },
+        close: async () => { throw new Error('must not close'); },
+        abort: async () => { window.failedSaveAborted = true; },
+      }) });
+    });
+    await frame.locator('#export-jpg').click();
+    await frame.waitForFunction(() => window.failedSaveAborted === true);
+    assert.equal(await frame.locator('#download-result').isVisible(), false);
+    assert.match(await frame.locator('#status').textContent(), /保存失败/);
+    for (const call of result.calls) {
+      assert.equal(call.options.startIn, 'desktop');
+      assert.equal(call.active, true);
+      assert.match(call.options.suggestedName, /^南铂素人改造_\d{8}_\d{6}_\d{3}\.jpg$/);
+    }
   });
 });

@@ -3,15 +3,15 @@ import test from 'node:test';
 import { createMakeoverExportAsset, getMakeoverExportFileName } from '../public/makeover/export.mjs';
 
 test('export names use Beijing time across midnight with milliseconds and the requested prefix', () => {
-  const name = getMakeoverExportFileName('png', new Date('2026-12-31T16:00:00.007Z'));
-  assert.match(name, /^南铂素人改造_20270101_000000_007_\d+_[a-f0-9]{32}\.png$/);
+  const name = getMakeoverExportFileName('png', new Date('2026-01-01T16:00:00.007Z'));
+  assert.match(name, /^南铂素人改造_20260102_000000_007\.png$/);
 });
 
 test('a burst of exports with the same clock value has distinct safe filenames', () => {
   const date = new Date('2026-11-12T00:05:06.123Z');
   const names = Array.from({ length: 1000 }, () => getMakeoverExportFileName('jpg', date));
   assert.equal(new Set(names).size, 1000);
-  assert.ok(names.every(name => /^南铂素人改造_20261112_080506_123_\d+_[a-f0-9]{32}\.jpg$/.test(name)));
+  assert.ok(names.every(name => /^南铂素人改造_\d{8}_\d{6}_\d{3}\.jpg$/.test(name)));
 });
 
 async function withCanvas(canvas, run) {

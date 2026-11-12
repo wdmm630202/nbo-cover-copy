@@ -3,19 +3,19 @@ import { POSTER } from './geometry.mjs?v=20261112-cover-minimum';
 // Decimal MB also stays below a 19.9 MiB upload limit.
 export const MAX_EXPORT_BYTES = 19_900_000;
 const JPEG_QUALITIES = [.98, .91, .84, .77, .7, .63, .56];
-let sequence = 0;
+let lastExportTime = -Infinity;
 
 export function getMakeoverExportFileName(format, date = new Date()) {
   if (!['png', 'jpg'].includes(format) || !Number.isFinite(date.getTime())) throw new Error('导出格式或时间无效。');
+  // Keep rapid exports distinct using only the date and time, including milliseconds.
+  date = new Date(Math.max(date.getTime(), lastExportTime + 1));
+  lastExportTime = date.getTime();
   const stamp = new Intl.DateTimeFormat('sv-SE', {
     timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
   }).format(date).replace(/\D/g, '');
   const milliseconds = String(date.getUTCMilliseconds()).padStart(3, '0');
-  // The counter separates same-millisecond exports; random bits separate tabs
-  // and page reloads, including when the device clock moves backwards.
-  const unique = [...crypto.getRandomValues(new Uint32Array(4))].map(value => value.toString(16).padStart(8, '0')).join('');
-  return `南铂素人改造_${stamp.slice(0, 8)}_${stamp.slice(8)}_${milliseconds}_${++sequence}_${unique}.${format}`;
+  return `南铂素人改造_${stamp.slice(0, 8)}_${stamp.slice(8)}_${milliseconds}.${format}`;
 }
 
 function encode(canvas, type, quality) {
