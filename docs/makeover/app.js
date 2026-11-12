@@ -1,5 +1,6 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
+import { createMakeoverExportAsset, getMakeoverExportFileName } from './export.mjs?v=20261112-export-limit';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -703,18 +704,19 @@ async function exportPoster(format) {
   const snapshot = revision;
   clearDownload();
   updateButtons();
-  status(`正在生成 ${format.toUpperCase()} 原图…`);
-  let canvas;
+  status(`正在生成 ${format.toUpperCase()}，文件不超过19.9MB…`);
   try {
-    canvas = document.createElement('canvas');
-    canvas.width = POSTER.width;
-    canvas.height = POSTER.height;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('无法创建画布');
-    paint(context, canvas.width, canvas.height, true);
-    const blob = await new Promise((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('无法生成图片')), format === 'jpg' ? 'image/jpeg' : 'image/png', .95));
-    canvas.width = canvas.height = 0;
-    canvas = null;
+    const asset = await createMakeoverExportAsset({
+      format,
+      isCancelled: () => snapshot !== revision || photos.some(photo => photo.loading),
+      render: canvas => {
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('无法创建画布，请关闭其他页面后重试。');
+        paint(context, canvas.width, canvas.height, true);
+      },
+    });
+    const { blob } = asset;
+    const details = `${asset.width} × ${asset.height} 像素 · ${(blob.size / 1_000_000).toFixed(2)}MB`;
     if (snapshot !== revision || photos.some((photo) => photo.loading)) {
       status('照片或构图已更改，请重新导出。');
       return;
@@ -722,22 +724,21 @@ async function exportPoster(format) {
     if (nativeSave) {
       status('正在保存到相册…');
       await saveInApp(blob);
-      status('成图已保存到相册。');
+      status(`${details}，成图已保存到相册。`);
       return;
     }
     downloadURL = URL.createObjectURL(blob);
     const link = $('#download-link');
     link.href = downloadURL;
-    const timestamp = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(/\D/g, '');
-    link.download = `南铂素人改造对比图-${timestamp.slice(0, 8)}-${timestamp.slice(8)}.${format}`;
+    link.download = getMakeoverExportFileName(format);
     $('#open-image').href = downloadURL;
     $('#download-result').hidden = false;
-    status('原图已生成。若未自动下载，请点击下方链接保存。');
+    status(`${details}${asset.resized ? '（已等比缩小）' : ''}，已生成。`);
     link.click();
   } catch (error) {
-    status(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : '导出失败，可能是图片过大或浏览器内存不足。请重新尝试，或更换浏览器。', true);
+    if (snapshot !== revision || photos.some(photo => photo.loading)) status('照片或构图已更改，请重新导出。');
+    else status(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : '导出失败，可能是图片过大或浏览器内存不足。请重新尝试，或更换浏览器。', true);
   } finally {
-    if (canvas) canvas.width = canvas.height = 0;
     exporting = false;
     updateButtons();
   }

@@ -426,6 +426,61 @@ async function inspectExport(frame, format, fixedPoints) {
   }, fixedPoints);
 }
 
+test('成品按南铂素人改造加北京时间命名，连续导出不重复且不超过19.9MB', { timeout: 60000 }, async t => {
+  await withEditor(t, false, async ({ page, frame }) => {
+    await uploadPair(page, frame);
+    const names = [];
+    for (let i = 0; i < 2; i++) {
+      await frame.locator('#export-jpg').click();
+      await frame.locator('#download-result').waitFor({ state: 'visible' });
+      const result = await frame.locator('#download-link').evaluate(async link => ({
+        name: link.download, size: (await (await fetch(link.href)).blob()).size,
+      }));
+      assert.match(result.name, /^南铂素人改造_\d{8}_\d{6}_\d{3}_[a-z0-9_-]+\.jpg$/);
+      assert.ok(result.size > 0 && result.size <= 19_900_000);
+      names.push(result.name);
+    }
+    assert.notEqual(names[0], names[1]);
+  });
+});
+
+test('超限导出不交付大文件：JPG先降质量保留6K，PNG等比缩小并显示实际尺寸', { timeout: 60000 }, async t => {
+  await withEditor(t, false, async ({ page, frame }) => {
+    await uploadPair(page, frame);
+    // Model a native-size encode exceeding the cap once per format. All retries
+    // use the real browser encoder and must produce decodable image files.
+    await frame.evaluate(() => {
+      const original = HTMLCanvasElement.prototype.toBlob;
+      const oversized = new Set();
+      HTMLCanvasElement.prototype.toBlob = function(callback, type, quality) {
+        if (this.width === 6000 && this.height === 8000 && !oversized.has(type)) {
+          oversized.add(type);
+          callback(new Blob([new Uint8Array(20_000_000)], { type }));
+          return;
+        }
+        return original.call(this, callback, type, quality);
+      };
+    });
+    for (const format of ['jpg', 'png']) {
+      await frame.locator(`#export-${format}`).click();
+      await frame.locator('#download-result').waitFor({ state: 'visible' });
+      const result = await frame.locator('#download-link').evaluate(async link => {
+        const blob = await (await fetch(link.href)).blob();
+        if (blob.size > 19_900_000) return { size: blob.size, type: blob.type, width: 0, height: 0 };
+        const bitmap = await createImageBitmap(blob);
+        const result = { size: blob.size, type: blob.type, width: bitmap.width, height: bitmap.height };
+        bitmap.close(); return result;
+      });
+      assert.ok(result.size <= 19_900_000, `不能交付超限${format}：${result.size}`);
+      assert.equal(result.type, format === 'jpg' ? 'image/jpeg' : 'image/png');
+      assert.equal(result.width / result.height, .75);
+      if (format === 'jpg') assert.deepEqual([result.width, result.height], [6000, 8000]);
+      else assert.ok(result.width < 6000 && result.height < 8000);
+      assert.ok((await frame.locator('#status').textContent()).includes(`${result.width} × ${result.height}`), '成功提示应显示真实导出尺寸');
+    }
+  });
+});
+
 test('涂抹局部提亮跟随照片移动且不越界，预览导出共享图像操作并保留固定模板', { timeout: 90000 }, async t => {
   await withEditor(t, false, async ({ page, frame }) => {
     await uploadPair(page, frame);
