@@ -63,6 +63,13 @@ input[type=range]{display:block;width:100%;height:24px;min-width:0;margin:0;acce
 .download-result{border-top:1px solid var(--border);margin-top:6px;padding-top:4px;font-size:11px}
 .download-result a{display:inline-block;min-height:28px;margin-right:10px;padding:4px 0;line-height:20px;text-decoration:underline}
 .download-result p{font-size:11px;line-height:15px;margin:2px 0 0}
+.mobile-save-preview{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;gap:8px;padding:12px max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:#f3f4f1;overflow:hidden}
+.mobile-save-preview>header{display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px}
+.mobile-save-preview h2{font-size:17px}
+.mobile-save-preview button{flex:none;min-height:42px;padding:8px 16px;border-radius:9px;font-weight:650}
+#mobile-save-note{flex:none;margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+.mobile-save-picture{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:auto;-webkit-overflow-scrolling:touch}
+#mobile-save-image{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;-webkit-touch-callout:default;touch-action:auto;user-select:auto;-webkit-user-select:auto}
 .preview-section{grid-column:2;grid-row:1;position:relative;min-width:0;min-height:0;padding:0;display:flex;flex-direction:column;overflow:hidden}
 .preview-heading{flex:none;display:flex;justify-content:space-between;align-items:center;gap:6px;width:100%;min-height:24px;margin:0 0 4px;padding:0 5px}
 .preview-heading h2{font-size:12px;color:#5a675d}
@@ -152,7 +159,7 @@ html.is-embedded .workspace{max-width:none}
  .split-label{grid-row:1;margin:0;line-height:14px}
  #split{grid-row:2;height:22px}
  #equal-split{grid-row:1/3;min-height:34px}
- .export-panel>.muted{display:none}
+ .export-panel>#export-note{display:block;font-size:10px;line-height:14px;margin:2px 0 4px}
  .export-buttons button{min-height:36px;padding:6px;font-size:11px}
  .status{margin-top:4px;line-height:14px}
  .download-result{margin-top:3px;padding-top:2px}
