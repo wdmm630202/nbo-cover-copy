@@ -12,8 +12,7 @@ const MATRIX = [
 ];
 const CRITICAL_CONTROLS = [
   ['素颜上传', 'label[for="photo-0"]'], ['精修上传', 'label[for="photo-1"]'],
-  ['素颜缩放', '#zoom-0'], ['精修缩放', '#zoom-1'],
-  ['素颜重置', '[data-reset="0"]'], ['精修重置', '[data-reset="1"]'],
+  ['素颜调整入口', '[data-edit-photo="0"]'], ['精修调整入口', '[data-edit-photo="1"]'],
   ['素颜选择', '.photo-card[data-side="0"] .side-choice'],
   ['精修选择', '.photo-card[data-side="1"] .side-choice'],
   ['照片占比', '#split'], ['恢复各半', '#equal-split'],
@@ -236,8 +235,10 @@ test('连续缩放和切换制作模式保留两边照片、取景与文案状�
     const { page, frame } = await openMakeover(browser, url, 1280, 720);
     try {
       await uploadPair(page, frame);
-      await setRange(frame, '#zoom-0', 1.6);
-      await setRange(frame, '#zoom-1', 1.8);
+      await frame.locator('[data-photo-target="0"]').click();
+      await setRange(frame, '#adjust-zoom', 160);
+      await frame.locator('[data-photo-target="1"]').click();
+      await setRange(frame, '#adjust-zoom', 180);
       await assertDivider(frame, 37.4, '切换前');
       await page.getByRole('tab', { name: '封面制作', exact: true }).click();
       await page.locator('#fileInput').setInputFiles(await syntheticPhoto(page, 'cover-retained.png', '#358b58'));
@@ -254,8 +255,13 @@ test('连续缩放和切换制作模式保留两边照片、取景与文案状�
         await settle(page, frame);
         const label = `连续缩放${width}×${height}`;
         assertFullPreview(await snapshot(page, frame), label);
-        assert.equal(await frame.locator('#zoom-0').inputValue(), '1.6', `${label}: 素颜缩放应保留`);
-        assert.equal(await frame.locator('#zoom-1').inputValue(), '1.8', `${label}: 精修缩放应保留`);
+        await frame.locator('button[data-tool="compose"]').evaluate(button => button.click());
+        await frame.locator('[data-photo-target="0"]').click();
+        assert.equal(await frame.locator('#adjust-zoom').inputValue(), '160', `${label}: 素颜缩放应保留`);
+        await frame.locator('[data-photo-target="1"]').click();
+        assert.equal(await frame.locator('#adjust-zoom').inputValue(), '180', `${label}: 精修缩放应保留`);
+        await frame.locator('button[data-tool="photos"]').evaluate(button => button.click());
+        await settle(page, frame);
         assert.equal(await frame.locator('#split').inputValue(), '37.4', `${label}: 分界占比应保留`);
         assert.equal(await frame.locator('#file-name-0').textContent(), 'viewport-before.png');
         assert.equal(await frame.locator('#file-name-1').textContent(), 'viewport-after.png');
@@ -272,8 +278,11 @@ test('连续缩放和切换制作模式保留两边照片、取景与文案状�
       await page.getByRole('tab', { name: '素人改造', exact: true }).click();
       await settle(page, frame);
       assertFullPreview(await snapshot(page, frame), '返回素人改造');
-      assert.equal(await frame.locator('#zoom-0').inputValue(), '1.6');
-      assert.equal(await frame.locator('#zoom-1').inputValue(), '1.8');
+      await frame.locator('button[data-tool="compose"]').evaluate(button => button.click());
+      await frame.locator('[data-photo-target="0"]').click();
+      assert.equal(await frame.locator('#adjust-zoom').inputValue(), '160');
+      await frame.locator('[data-photo-target="1"]').click();
+      assert.equal(await frame.locator('#adjust-zoom').inputValue(), '180');
       assert.equal(await frame.locator('#split').inputValue(), '37.4');
     } finally { await page.close(); }
   });

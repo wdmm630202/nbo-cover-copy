@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f4f1">
   <title>南铂素人改造对比图</title>
-  <link rel="stylesheet" href="./style.css?v=20261112-responsive">
+  <link rel="stylesheet" href="./style.css?v=20261112-photo-ops">
 </head>
 <body>
   <header class="page-header">
@@ -13,7 +13,7 @@
     <div class="heading"><span class="eyebrow">NANBO · PHOTO TOOLS</span><h1>南铂素人改造对比图</h1><p>放入两张照片，调整位置，导出原版设计。</p></div>
     <span class="privacy">仅在本机处理 · 照片不上传</span>
   </header>
-  <main class="workspace">
+  <main class="workspace" data-tool="photos">
     <div class="controls">
       <section class="panel photo-panel" aria-labelledby="photos-heading">
         <div class="section-title"><span class="step">01</span><h2 id="photos-heading">放入照片</h2></div>
@@ -22,17 +22,13 @@
           <div class="card-heading"><label class="side-choice"><input type="radio" name="active-side" value="0" checked><span>素颜照片</span></label><span class="side-tag">左侧</span></div>
           <label class="upload" for="photo-0"><span class="upload-icon" aria-hidden="true">＋</span><span id="file-name-0">选择素颜照片</span><span class="upload-caption">点击或拖入</span></label>
           <input class="file-input" type="file" id="photo-0" accept="image/jpeg,image/png,image/webp">
-          <div class="zoom-label"><label for="zoom-0">照片缩放</label><output id="zoom-value-0" for="zoom-0">1.00×</output></div>
-          <input id="zoom-0" type="range" min="1" max="4" step="0.01" value="1" disabled>
-          <button class="reset quiet" data-reset="0" disabled>重置位置与缩放</button>
+          <button class="edit-photo" data-edit-photo="0" type="button">调整照片</button>
         </section>
         <section class="photo-card" data-side="1" aria-label="精修照片设置">
           <div class="card-heading"><label class="side-choice"><input type="radio" name="active-side" value="1"><span>精修照片</span></label><span class="side-tag">右侧</span></div>
           <label class="upload" for="photo-1"><span class="upload-icon" aria-hidden="true">＋</span><span id="file-name-1">选择精修照片</span><span class="upload-caption">点击或拖入</span></label>
           <input class="file-input" type="file" id="photo-1" accept="image/jpeg,image/png,image/webp">
-          <div class="zoom-label"><label for="zoom-1">照片缩放</label><output id="zoom-value-1" for="zoom-1">1.00×</output></div>
-          <input id="zoom-1" type="range" min="1" max="4" step="0.01" value="1" disabled>
-          <button class="reset quiet" data-reset="1" disabled>重置位置与缩放</button>
+          <button class="edit-photo" data-edit-photo="1" type="button">调整照片</button>
         </section>
       </section>
       <section class="panel split-panel" aria-labelledby="split-heading">
@@ -57,10 +53,73 @@
         <canvas id="preview" width="900" height="1200" tabindex="0" role="img" aria-label="对比图预览。点击选择照片，拖动调整位置；方向键微调，减号和加号缩放。"></canvas>
         <div id="selection" class="selection" aria-hidden="true"></div>
         <div id="divider" class="divider"><button id="split-handle" type="button" role="slider" aria-label="拖动调整左右照片占比" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-valuetext="素颜照片占 50%" aria-orientation="horizontal"><span aria-hidden="true">↔</span></button></div>
+        <span id="transform-hud" class="transform-hud" role="status" aria-live="polite"></span>
+        <span id="snap-horizontal" class="snap-guide horizontal" aria-hidden="true"></span>
+        <span id="snap-vertical" class="snap-guide vertical" aria-hidden="true"></span>
+        <span id="brush-cursor" class="brush-cursor" aria-hidden="true"></span>
       </div></div>
       <p class="preview-tip">拖动照片调整构图 · 拖动竖线改变占比<br><span>选中预览后，可用方向键微调照片，＋ / − 缩放。</span></p>
     </section>
+    <section class="panel settings-panel" aria-labelledby="settings-heading">
+      <div class="settings-header">
+        <h2 id="settings-heading">照片调整</h2>
+        <div class="photo-targets" role="group" aria-label="选择调整的照片">
+          <button type="button" data-photo-target="0" aria-pressed="true">素颜照片</button>
+          <button type="button" data-photo-target="1" aria-pressed="false">精修照片</button>
+        </div>
+        <button id="reset-photo" type="button" class="quiet">恢复当前照片默认</button>
+      </div>
+      <label class="parameter-picker" for="parameter-select"><span>调整项目</span><select id="parameter-select" aria-label="选择照片调整项目">
+        <optgroup label="构图"><option value="zoom">照片缩放</option><option value="offsetX">左右位置</option><option value="offsetY">上下位置</option><option value="rotation">自由旋转</option></optgroup>
+        <optgroup label="画面"><option value="brightness">亮度</option><option value="shade">压暗强度</option><option value="bottomShade">底部加深</option></optgroup>
+      </select></label>
+      <div class="setting-row compose-setting is-selected" data-setting="zoom">
+        <div class="setting-meta"><label for="adjust-zoom">照片缩放</label><span class="number-unit"><input id="adjust-zoom-value" type="number" min="0" max="400" step="0.1" value="100" inputmode="decimal" aria-label="照片缩放精确数值"><i>%</i></span><button type="button" data-reset-setting="zoom">复位</button></div>
+        <input id="adjust-zoom" type="range" min="0" max="400" step="0.1" value="100" aria-label="照片缩放">
+      </div>
+      <div class="setting-row compose-setting" data-setting="offsetX">
+        <div class="setting-meta"><label for="adjust-offsetX">左右位置</label><span class="number-unit"><input id="adjust-offsetX-value" type="number" min="-200" max="200" step="1" value="0" inputmode="decimal" aria-label="左右位置精确数值"></span><button type="button" data-reset-setting="offsetX">复位</button></div>
+        <input id="adjust-offsetX" type="range" min="-200" max="200" step="1" value="0" aria-label="左右位置">
+      </div>
+      <div class="setting-row compose-setting" data-setting="offsetY">
+        <div class="setting-meta"><label for="adjust-offsetY">上下位置</label><span class="number-unit"><input id="adjust-offsetY-value" type="number" min="-200" max="200" step="1" value="0" inputmode="decimal" aria-label="上下位置精确数值"></span><button type="button" data-reset-setting="offsetY">复位</button></div>
+        <input id="adjust-offsetY" type="range" min="-200" max="200" step="1" value="0" aria-label="上下位置">
+      </div>
+      <div class="setting-row compose-setting" data-setting="rotation">
+        <div class="setting-meta"><label for="adjust-rotation">自由旋转</label><span class="number-unit"><input id="adjust-rotation-value" type="number" min="-180" max="180" step="1" value="0" inputmode="decimal" aria-label="自由旋转精确数值"><i>°</i></span><button type="button" data-reset-setting="rotation">复位</button></div>
+        <input id="adjust-rotation" type="range" min="-180" max="180" step="1" value="0" aria-label="自由旋转">
+      </div>
+      <div class="setting-row tone-setting" data-setting="brightness">
+        <div class="setting-meta"><label for="adjust-brightness">亮度</label><span class="number-unit"><input id="adjust-brightness-value" type="number" min="0" max="200" step="1" value="100" inputmode="decimal" aria-label="亮度精确数值"><i>%</i></span><button type="button" data-reset-setting="brightness">复位</button></div>
+        <input id="adjust-brightness" type="range" min="0" max="200" step="1" value="100" aria-label="亮度">
+      </div>
+      <div class="setting-row tone-setting" data-setting="shade">
+        <div class="setting-meta"><label for="adjust-shade">压暗强度</label><span class="number-unit"><input id="adjust-shade-value" type="number" min="0" max="100" step="1" value="0" inputmode="decimal" aria-label="压暗强度精确数值"><i>%</i></span><button type="button" data-reset-setting="shade">复位</button></div>
+        <input id="adjust-shade" type="range" min="0" max="100" step="1" value="0" aria-label="压暗强度">
+      </div>
+      <div class="setting-row tone-setting" data-setting="bottomShade">
+        <div class="setting-meta"><label for="adjust-bottomShade">底部加深</label><span class="number-unit"><input id="adjust-bottomShade-value" type="number" min="0" max="100" step="1" value="0" inputmode="decimal" aria-label="底部加深精确数值"><i>%</i></span><button type="button" data-reset-setting="bottomShade">复位</button></div>
+        <input id="adjust-bottomShade" type="range" min="0" max="100" step="1" value="0" aria-label="底部加深">
+      </div>
+      <div class="rotation-tools"><button id="rotation-mode" type="button" aria-pressed="false">进入旋转</button><p id="interaction-help">拖动移动 · 滚轮缩放 · 双击旋转</p></div>
+      <details class="brush-settings">
+        <summary>局部涂抹提亮</summary>
+        <div class="brush-body">
+          <button id="brush-toggle" type="button" aria-pressed="false">开启涂抹</button>
+          <div class="brush-fields">
+            <div class="brush-row"><div class="setting-meta"><label for="brush-size">大小</label><span class="number-unit"><input id="brush-size-value" type="number" min="20" max="400" step="1" value="120" inputmode="decimal" aria-label="画笔大小精确数值"></span><button type="button" data-reset-brush="size">复位</button></div><input id="brush-size" type="range" min="20" max="400" step="1" value="120" aria-label="画笔大小"></div>
+            <div class="brush-row"><div class="setting-meta"><label for="brush-feather">羽化</label><span class="number-unit"><input id="brush-feather-value" type="number" min="0" max="100" step="1" value="70" inputmode="decimal" aria-label="羽化精确数值"><i>%</i></span><button type="button" data-reset-brush="feather">复位</button></div><input id="brush-feather" type="range" min="0" max="100" step="1" value="70" aria-label="画笔羽化"></div>
+            <div class="brush-row"><div class="setting-meta"><label for="brush-strength">强度</label><span class="number-unit"><input id="brush-strength-value" type="number" min="0" max="100" step="1" value="100" inputmode="decimal" aria-label="涂抹强度精确数值"><i>%</i></span><button type="button" data-reset-brush="strength">复位</button></div><input id="brush-strength" type="range" min="0" max="100" step="1" value="100" aria-label="涂抹强度"></div>
+          </div>
+          <div class="brush-actions" role="group" aria-label="涂抹记录"><button id="brush-before" type="button">涂抹前</button><button id="brush-after" type="button" aria-pressed="true">涂抹后</button><button id="brush-undo" type="button">撤销一步</button><button id="brush-clear" type="button">清除当前图</button></div>
+          <p id="brush-hint" class="muted small">涂抹只擦除额外压暗，模板固定渐变保持不变。</p>
+        </div>
+      </details>
+    </section>
+    <nav class="mobile-tool-nav" aria-label="照片操作工具">
+      <button type="button" data-tool="photos" aria-pressed="true">照片</button><button type="button" data-tool="compose" aria-pressed="false">构图</button><button type="button" data-tool="tone" aria-pressed="false">画面</button><button type="button" data-tool="brush" aria-pressed="false">涂抹</button>
+    </nav>
   </main>
-  <script type="module" src="./app.js?v=20261112-responsive"></script>
+  <script type="module" src="./app.js?v=20261112-photo-ops"></script>
 </body>
 </html>

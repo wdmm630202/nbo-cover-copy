@@ -1,4 +1,5 @@
-import { POSTER, PHOTO_AREA, clampSplit, getPanes, coverImage } from './geometry.mjs?v=20261112-responsive';
+import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-photo-ops';
+import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -65,7 +66,19 @@ const $ = (selector) => document.querySelector(selector);
 const preview = $('#preview');
 const previewContext = preview.getContext('2d');
 const names = ['素颜照片', '精修照片'];
-const photos = names.map(() => ({ image: null, zoom: 1, panX: 0, panY: 0, request: 0, loading: false }));
+const PHOTO_DEFAULTS = { zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, brightness: 100, shade: 0, bottomShade: 0 };
+const LIMITS = { zoom: [0, 400], offsetX: [-200, 200], offsetY: [-200, 200], rotation: [-180, 180], brightness: [0, 200], shade: [0, 100], bottomShade: [0, 100] };
+const photos = names.map(() => ({ image: null, ...PHOTO_DEFAULTS, strokes: [], request: 0, loading: false }));
+const brush = { active: false, size: 120, feather: 70, strength: 100, compareBefore: false };
+const touches = new Map();
+let pinch = null;
+let rotationMode = false;
+let currentTool = 'photos';
+let selectedParameter = 'zoom';
+let hintTimer = 0;
+let previewFailed = false;
+const numericOwners = new WeakMap();
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let template = null;
 let templateRequest = 0;
 let split = .5;
@@ -86,13 +99,108 @@ function ready() {
 }
 
 function updateButtons() {
+  const photo = photos[activeSide];
+  const unavailable = !photo.image || photo.loading;
   $('#export-png').disabled = $('#export-jpg').disabled = exporting || !ready();
-  photos.forEach((photo, side) => {
-    $(`#zoom-${side}`).disabled = !photo.image || photo.loading;
-    $(`[data-reset="${side}"]`).disabled = !photo.image || photo.loading;
-    $(`#zoom-${side}`).value = photo.zoom;
-    $(`#zoom-value-${side}`).textContent = `${photo.zoom.toFixed(2)}×`;
-  });
+  for (const key of Object.keys(PHOTO_DEFAULTS)) {
+    const range = $('#adjust-' + key), number = $('#adjust-' + key + '-value');
+    range.disabled = number.disabled = unavailable;
+    range.value = photo[key];
+    if (document.activeElement !== number) number.value = photo[key];
+    $('[data-reset-setting="' + key + '"]').disabled = unavailable;
+  }
+  document.querySelectorAll('[data-photo-target]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.photoTarget) === activeSide)));
+  document.querySelectorAll('button[data-tool]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tool === currentTool)));
+  document.querySelectorAll('.setting-row').forEach(row => row.classList.toggle('is-selected', row.dataset.setting === selectedParameter));
+  $('#parameter-select').value = selectedParameter;
+  $('#reset-photo').disabled = unavailable;
+  $('#rotation-mode').disabled = unavailable;
+  $('#rotation-mode').setAttribute('aria-pressed', String(rotationMode));
+  $('#rotation-mode').textContent = rotationMode ? '退出旋转' : '进入旋转';
+  $('#interaction-help').textContent = brush.active ? '正在涂抹 · Esc退出' : rotationMode ? '左右拖动旋转 · 双击退出' : '拖动移动 · 滚轮缩放 · 双击旋转';
+  $('.poster-wrap').classList.toggle('is-rotating', rotationMode);
+  $('.poster-wrap').classList.toggle('is-brushing', brush.active);
+  $('#brush-toggle').disabled = unavailable;
+  $('#brush-toggle').setAttribute('aria-pressed', String(brush.active));
+  $('#brush-toggle').textContent = brush.active ? '退出涂抹' : '开启涂抹';
+  for (const key of ['size', 'feather', 'strength']) {
+    const range = $('#brush-' + key), number = $('#brush-' + key + '-value');
+    range.disabled = number.disabled = unavailable;
+    range.value = brush[key];
+    if (document.activeElement !== number) number.value = brush[key];
+    $('[data-reset-brush="' + key + '"]').disabled = unavailable;
+  }
+  for (const id of ['brush-before', 'brush-after', 'brush-undo', 'brush-clear']) $('#' + id).disabled = unavailable || photo.strokes.length === 0;
+  $('#brush-before').setAttribute('aria-pressed', String(brush.compareBefore));
+  $('#brush-after').setAttribute('aria-pressed', String(!brush.compareBefore));
+  $('#brush-hint').textContent = photo.shade === 0 && photo.bottomShade === 0
+    ? '当前未叠加额外压暗。先在“画面”调高压暗，再涂抹提亮；模板固定渐变保持不变。'
+    : '涂抹只擦除当前照片的额外压暗，笔迹跟随照片移动；模板固定渐变保持不变。';
+}
+
+function setTool(tool) {
+  currentTool = tool;
+  $('.workspace').dataset.tool = tool;
+  if (tool === 'compose' && ['brightness', 'shade', 'bottomShade'].includes(selectedParameter)) selectedParameter = 'zoom';
+  if (tool === 'tone' && !['brightness', 'shade', 'bottomShade'].includes(selectedParameter)) selectedParameter = 'brightness';
+  if (tool === 'brush') $('.brush-settings').open = true;
+  else { brush.active = false; brush.compareBefore = false; $('#brush-cursor').classList.remove('visible'); }
+  updateButtons();
+  renderSoon();
+}
+
+function setParameter(key, raw, snap = false, owner = { side: activeSide, request: photos[activeSide].request }) {
+  const photo = photos[owner.side];
+  if (!photo.image || photo.loading || photo.request !== owner.request) return;
+  stopGesture();
+  let value = Number(raw);
+  if (!Number.isFinite(value)) value = photo[key];
+  value = Math.round(clamp(value, ...LIMITS[key]) * 10) / 10;
+  if (key === 'rotation' && snap) {
+    const result = snapPhotoRotation(value);
+    value = result.value;
+    showHint(value + '°', result.guide);
+  }
+  photo[key] = value;
+  $('#adjust-' + key + '-value').value = photos[activeSide][key];
+  brush.compareBefore = false;
+  updateButtons();
+  edited();
+}
+
+function showHint(text, guide = '') {
+  $('#transform-hud').textContent = text;
+  $('#transform-hud').classList.add('visible');
+  const pane = getPanes(split, preview.width)[activeSide];
+  $('#snap-horizontal').style.top = (pane.y + pane.height / 2) / POSTER.height * 100 + '%';
+  $('#snap-horizontal').style.left = pane.x / POSTER.width * 100 + '%';
+  $('#snap-horizontal').style.width = pane.width / POSTER.width * 100 + '%';
+  $('#snap-vertical').style.left = (pane.x + pane.width / 2) / POSTER.width * 100 + '%';
+  $('#snap-horizontal').classList.toggle('visible', guide === 'horizontal');
+  $('#snap-vertical').classList.toggle('visible', guide === 'vertical');
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => {
+    for (const id of ['transform-hud', 'snap-horizontal', 'snap-vertical']) $('#' + id).classList.remove('visible');
+  }, 650);
+}
+
+function stopGesture() {
+  const ids = new Set([...touches.keys(), ...(pointer ? [pointer.id] : [])]);
+  pointer = null; pinch = null; touches.clear();
+  for (const id of ids) {
+    for (const target of [preview, $('#divider')]) if (target.hasPointerCapture(id)) target.releasePointerCapture(id);
+  }
+}
+
+function toggleRotation() {
+  stopGesture();
+  brush.active = false;
+  brush.compareBefore = false;
+  $('#brush-cursor').classList.remove('visible');
+  rotationMode = !rotationMode;
+  updateButtons();
+  renderSoon();
+  status(rotationMode ? '已进入旋转：按住照片左右拖动，双击退出。' : '已退出旋转，可按住照片移动。');
 }
 
 function readyStatus() {
@@ -125,41 +233,57 @@ function edited() {
   renderSoon();
 }
 
-function paint(context, width, height) {
+function paint(context, width, height, forExport = false) {
   context.save();
-  context.clearRect(0, 0, width, height);
-  context.scale(width / POSTER.width, height / POSTER.height);
-  // The source PSD's rounded outer corners keep a white underfill in both formats.
-  context.fillStyle = '#fff';
-  context.fillRect(0, 0, POSTER.width, POSTER.height);
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = 'high';
-  getPanes(split, width).forEach((pane, side) => {
-    if (pane.width <= 0) return;
-    context.save();
-    context.beginPath();
-    context.rect(pane.x, pane.y, pane.width, pane.height);
-    context.clip();
-    const photo = photos[side];
-    if (photo.image) {
-      const placement = coverImage(pane, photo.image.naturalWidth, photo.image.naturalHeight, photo.zoom, photo.panX, photo.panY);
-      context.drawImage(photo.image, placement.x, placement.y, placement.width, placement.height);
-    } else {
-      context.fillStyle = side === 0 ? '#e5e8e3' : '#d6ddd5';
-      context.fillRect(pane.x, pane.y, pane.width, pane.height);
-    }
-    context.restore();
-  });
-  // All design, lettering, fades, borders and logos come only from the original overlay.
-  if (template) context.drawImage(template, 0, 0, POSTER.width, POSTER.height);
-  context.restore();
+  try {
+    context.clearRect(0, 0, width, height);
+    context.scale(width / POSTER.width, height / POSTER.height);
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, POSTER.width, POSTER.height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    getPanes(split, width).forEach((pane, side) => {
+      if (pane.width <= 0) return;
+      context.save();
+      try {
+        context.beginPath();
+        context.rect(pane.x, pane.y, pane.width, pane.height);
+        context.clip();
+        const photo = photos[side];
+        if (photo.image) {
+          context.fillStyle = '#000';
+          context.fillRect(pane.x, pane.y, pane.width, pane.height);
+          const transform = getPhotoTransform(pane, photo.image.naturalWidth, photo.image.naturalHeight, photo);
+          context.save();
+          try {
+            context.filter = 'brightness(' + photo.brightness + '%)';
+            context.translate(transform.centerX, transform.centerY);
+            context.rotate(transform.rotationRadians);
+            if (transform.width > 0 && transform.height > 0) context.drawImage(photo.image, -transform.width / 2, -transform.height / 2, transform.width, transform.height);
+          } finally { context.restore(); }
+          drawPhotoEffects(context, pane, transform, photo, { compareBefore: !forExport && side === activeSide && brush.compareBefore, renderWidth: width });
+        } else {
+          context.fillStyle = side === 0 ? '#e5e8e3' : '#d6ddd5';
+          context.fillRect(pane.x, pane.y, pane.width, pane.height);
+        }
+      } finally { context.restore(); }
+    });
+    // Fixed lettering, fades, borders and logos are always the final unfiltered layer.
+    if (template) context.drawImage(template, 0, 0, POSTER.width, POSTER.height);
+  } finally { context.restore(); }
 }
 
 function renderSoon() {
   if (frame) return;
   frame = requestAnimationFrame(() => {
     frame = 0;
-    paint(previewContext, preview.width, preview.height);
+    try {
+      paint(previewContext, preview.width, preview.height);
+      if (previewFailed) { previewFailed = false; readyStatus(); }
+    } catch (error) {
+      previewFailed = true;
+      status(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : '预览绘制失败，请调整参数或更换照片后重试。', true);
+    }
     const panes = getPanes(split, preview.width);
     const pane = panes[activeSide];
     $('#selection').style.left = `${pane.x / POSTER.width * 100}%`;
@@ -169,14 +293,19 @@ function renderSoon() {
 }
 
 function selectSide(side) {
+  const focused = document.activeElement;
+  if (focused?.matches('.setting-row input[type="number"]')) focused.blur();
+  if (activeSide !== side) brush.compareBefore = false;
   activeSide = side;
   document.querySelectorAll('.photo-card').forEach((card, index) => card.classList.toggle('selected', index === side));
   $(`input[name="active-side"][value="${side}"]`).checked = true;
   $('#active-label').textContent = `正在调整：${names[side]}`;
+  updateButtons();
   renderSoon();
 }
 
-function setSplit(value) {
+function setSplit(value, fromPointer = false) {
+  if (!fromPointer) stopGesture();
   split = clampSplit(value);
   const percentage = Math.round(split * 1000) / 10;
   $('#split').value = percentage;
@@ -206,6 +335,7 @@ async function loadPhoto(file, side) {
     updateButtons();
     return;
   }
+  stopGesture();
   photo.loading = true;
   updateButtons();
   status(`正在读取${names[side]}…`);
@@ -214,7 +344,8 @@ async function loadPhoto(file, side) {
     url = URL.createObjectURL(file);
     const image = await decodeImage(url);
     if (request !== photo.request) return;
-    Object.assign(photo, { image, zoom: 1, panX: 0, panY: 0 });
+    Object.assign(photo, PHOTO_DEFAULTS, { image, strokes: [] });
+    brush.compareBefore = false;
     $(`#file-name-${side}`).textContent = file.name;
     $(`#file-name-${side}`).title = file.name;
     selectSide(side);
@@ -237,7 +368,7 @@ async function loadTemplate() {
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const image = await decodeImage(`./assets/template-overlay.png?v=20261112-responsive${request > 1 ? `&retry=${request}` : ''}`);
+    const image = await decodeImage(`./assets/template-overlay.png?v=20261112-photo-ops${request > 1 ? `&retry=${request}` : ''}`);
     if (request !== templateRequest) return;
     if (image.naturalWidth !== POSTER.width || image.naturalHeight !== POSTER.height) throw new Error('模板尺寸不符');
     template = image;
@@ -257,49 +388,162 @@ function point(event) {
   return { x: (event.clientX - bounds.left) * POSTER.width / bounds.width, y: (event.clientY - bounds.top) * POSTER.height / bounds.height };
 }
 
-preview.addEventListener('pointerdown', (event) => {
-  if (pointer || (event.pointerType === 'mouse' && event.button !== 0)) return;
-  const position = point(event);
-  const panes = getPanes(split, preview.width);
-  const side = position.x < panes[1].x ? 0 : 1;
+function sideAt(position) {
+  return position.x < getPanes(split, preview.width)[1].x ? 0 : 1;
+}
+function inPane(position, pane) {
+  return position.x >= pane.x && position.x <= pane.x + pane.width && position.y >= pane.y && position.y <= pane.y + pane.height;
+}
+function photoTransform(side, pane = getPanes(split, preview.width)[side]) {
+  const photo = photos[side];
+  return getPhotoTransform(pane, photo.image.naturalWidth, photo.image.naturalHeight, photo);
+}
+function brushCursor(position) {
+  const cursor = $('#brush-cursor');
+  cursor.style.left = position.x / POSTER.width * 100 + '%';
+  cursor.style.top = position.y / POSTER.height * 100 + '%';
+  cursor.style.width = brush.size / 1080 * 100 + '%';
+  cursor.style.aspectRatio = '1';
+  cursor.classList.add('visible');
+}
+function rebaseTouch() {
+  if (!pointer || pointer.type !== 'photo') return;
+  const values = [...touches.values()];
+  const photo = photos[pointer.side];
+  if (values.length >= 2) {
+    const [a, b] = values;
+    pinch = { distance: Math.max(1, Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y)), x: (a.position.x + b.position.x) / 2, y: (a.position.y + b.position.y) / 2, zoom: photo.zoom, offsetX: photo.offsetX, offsetY: photo.offsetY };
+  } else if (values.length) {
+    const a = values[0];
+    pointer = { ...pointer, id: a.id, start: a.position, clientX: a.clientX, clientY: a.clientY, offsetX: photo.offsetX, offsetY: photo.offsetY, rotation: photo.rotation, moved: false };
+    pinch = null;
+  }
+}
+preview.addEventListener('pointerdown', event => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  const position = point(event), side = sideAt(position), photo = photos[side];
+  if (event.pointerType === 'touch' && pointer?.touch && pointer.type === 'photo' && pointer.side === side && touches.size === 1) {
+    touches.set(event.pointerId, { id: event.pointerId, position, clientX: event.clientX, clientY: event.clientY });
+    preview.setPointerCapture(event.pointerId);
+    rebaseTouch();
+    event.preventDefault();
+    return;
+  }
+  if (pointer) return;
   selectSide(side);
   preview.focus({ preventScroll: true });
-  const photo = photos[side];
   if (!photo.image || photo.loading) return;
-  const placement = coverImage(panes[side], photo.image.naturalWidth, photo.image.naturalHeight, photo.zoom, photo.panX, photo.panY);
-  pointer = { id: event.pointerId, type: 'photo', side, startX: position.x, startY: position.y, panX: photo.panX, panY: photo.panY, marginX: placement.marginX, marginY: placement.marginY };
+  const pane = getPanes(split, preview.width)[side];
+  if (pane.width <= 0) return;
+  pointer = { id: event.pointerId, side, request: photo.request, pane, start: position, clientX: event.clientX, clientY: event.clientY, offsetX: photo.offsetX, offsetY: photo.offsetY, rotation: photo.rotation, mode: rotationMode ? 'rotate' : 'move', type: 'photo', touch: event.pointerType === 'touch', moved: false };
+  if (brush.active) {
+    const transform = photoTransform(side, pane);
+    const source = inversePhotoPoint(transform, position);
+    if (!source || !inPane(position, pane)) { pointer = null; return; }
+    brush.compareBefore = false;
+    photo.strokes.push({ points: [source], radius: brush.size * POSTER.width / 2160 / transform.width, feather: brush.feather, strength: brush.strength });
+    pointer.type = 'brush';
+    pointer.stroke = photo.strokes.length - 1;
+    pointer.transform = transform;
+    brushCursor(position);
+    edited();
+    updateButtons();
+  } else if (pointer.touch) {
+    touches.set(event.pointerId, { id: event.pointerId, position, clientX: event.clientX, clientY: event.clientY });
+  }
   preview.setPointerCapture(event.pointerId);
   event.preventDefault();
 });
-
-$('#divider').addEventListener('pointerdown', (event) => {
+$('#divider').addEventListener('pointerdown', event => {
   if (pointer || (event.pointerType === 'mouse' && event.button !== 0)) return;
   pointer = { id: event.pointerId, type: 'split', offset: point(event).x - (PHOTO_AREA.x + PHOTO_AREA.width * split) };
   event.currentTarget.setPointerCapture(event.pointerId);
   $('#split-handle').focus({ preventScroll: true });
   event.preventDefault();
 });
-
 function movePointer(event) {
-  if (!pointer || pointer.id !== event.pointerId) return;
   const position = point(event);
-  if (pointer.type === 'split') setSplit((position.x - pointer.offset - PHOTO_AREA.x) / PHOTO_AREA.width);
-  else {
-    const photo = photos[pointer.side];
-    photo.panX = pointer.marginX ? Math.max(-1, Math.min(1, pointer.panX + (position.x - pointer.startX) / pointer.marginX)) : 0;
-    photo.panY = pointer.marginY ? Math.max(-1, Math.min(1, pointer.panY + (position.y - pointer.startY) / pointer.marginY)) : 0;
-    edited();
+  if (brush.active && event.currentTarget === preview) brushCursor(position);
+  if (!pointer) return;
+  if (pointer.type === 'split') {
+    if (pointer.id === event.pointerId) setSplit((position.x - pointer.offset - PHOTO_AREA.x) / PHOTO_AREA.width, true);
+    return;
   }
+  const photo = photos[pointer.side];
+  if (photo.loading || photo.request !== pointer.request) { stopGesture(); return; }
+  if (pointer.touch && touches.has(event.pointerId)) {
+    touches.set(event.pointerId, { id: event.pointerId, position, clientX: event.clientX, clientY: event.clientY });
+    if (touches.size >= 2 && pinch) {
+      const [a, b] = [...touches.values()];
+      const distance = Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y);
+      photo.zoom = Math.round(clamp(pinch.zoom * distance / pinch.distance, 0, 400) * 10) / 10;
+      photo.offsetX = Math.round(clamp(pinch.offsetX + ((a.position.x + b.position.x) / 2 - pinch.x) / pointer.pane.width * 100, -200, 200) * 10) / 10;
+      photo.offsetY = Math.round(clamp(pinch.offsetY + ((a.position.y + b.position.y) / 2 - pinch.y) / pointer.pane.height * 100, -200, 200) * 10) / 10;
+      showHint(photo.zoom + '%');
+      updateButtons(); edited(); event.preventDefault(); return;
+    }
+  }
+  if (pointer.id !== event.pointerId) return;
+  if (pointer.type === 'brush') {
+    if (!inPane(position, pointer.pane)) { stopGesture(); $('#brush-cursor').classList.remove('visible'); return; }
+    const source = inversePhotoPoint(pointer.transform, position);
+    if (source) {
+      const stroke = photo.strokes[pointer.stroke];
+      if (!stroke) return;
+      photo.strokes[pointer.stroke] = { ...stroke, points: [...stroke.points, source] };
+      edited();
+    }
+    event.preventDefault();
+    return;
+  }
+  if (pointer.touch && !pointer.moved && Math.hypot(event.clientX - pointer.clientX, event.clientY - pointer.clientY) < 7) return;
+  pointer.moved = true;
+  if (pointer.mode === 'rotate') {
+    const result = rotationFromDrag(pointer.rotation, position.x - pointer.start.x, pointer.pane.width);
+    photo.rotation = result.value;
+    showHint(photo.rotation + '°', result.guide);
+  } else {
+    photo.offsetX = Math.round(clamp(pointer.offsetX + (position.x - pointer.start.x) / pointer.pane.width * 100, -200, 200) * 10) / 10;
+    photo.offsetY = Math.round(clamp(pointer.offsetY + (position.y - pointer.start.y) / pointer.pane.height * 100, -200, 200) * 10) / 10;
+    showHint(photo.offsetX + ', ' + photo.offsetY);
+  }
+  updateButtons(); edited(); event.preventDefault();
 }
-
+function endPointer(event) {
+  if (event.type !== 'pointerup') {
+    if (pointer?.id === event.pointerId || touches.has(event.pointerId)) stopGesture();
+    return;
+  }
+  if (touches.has(event.pointerId)) {
+    touches.delete(event.pointerId);
+    if (touches.size) rebaseTouch();
+    else { pointer = null; pinch = null; }
+    if (preview.hasPointerCapture(event.pointerId)) preview.releasePointerCapture(event.pointerId);
+  } else if (pointer?.id === event.pointerId) stopGesture();
+}
 for (const target of [preview, $('#divider')]) {
   target.addEventListener('pointermove', movePointer);
-  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) target.addEventListener(type, (event) => {
-    if (pointer?.id === event.pointerId) pointer = null;
-  });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) target.addEventListener(type, endPointer);
 }
-
-$('#split-handle').addEventListener('keydown', (event) => {
+preview.addEventListener('pointerleave', () => $('#brush-cursor').classList.remove('visible'));
+preview.addEventListener('wheel', event => {
+  if (brush.active || pointer) return;
+  const side = sideAt(point(event)), photo = photos[side];
+  if (!photo.image || photo.loading) return;
+  event.preventDefault();
+  selectSide(side);
+  photo.zoom = Math.round(clamp(photo.zoom + clamp(-event.deltaY * .02, -2, 2), 0, 400) * 10) / 10;
+  showHint(photo.zoom + '%'); updateButtons(); edited();
+}, { passive: false });
+preview.addEventListener('dblclick', event => {
+  if (brush.active) return;
+  const side = sideAt(point(event));
+  if (!photos[side].image || photos[side].loading) return;
+  event.preventDefault();
+  selectSide(side);
+  toggleRotation();
+});
+$('#split-handle').addEventListener('keydown', event => {
   const changes = { ArrowLeft: -.01, ArrowDown: -.01, ArrowRight: .01, ArrowUp: .01, PageDown: -.1, PageUp: .1 };
   if (event.key in changes) setSplit(split + changes[event.key]);
   else if (event.key === 'Home') setSplit(0);
@@ -307,23 +551,29 @@ $('#split-handle').addEventListener('keydown', (event) => {
   else return;
   event.preventDefault();
 });
-
-preview.addEventListener('keydown', (event) => {
+preview.addEventListener('keydown', event => {
   const photo = photos[activeSide];
-  if (!photo.image || photo.loading) return;
-  const changes = { ArrowLeft: [-.05, 0], ArrowRight: [.05, 0], ArrowUp: [0, -.05], ArrowDown: [0, .05] };
-  if (event.key in changes) {
-    const [x, y] = changes[event.key];
-    photo.panX = Math.max(-1, Math.min(1, photo.panX + x));
-    photo.panY = Math.max(-1, Math.min(1, photo.panY + y));
-  } else if (['+', '=', '-'].includes(event.key)) {
-    photo.zoom = Math.max(1, Math.min(4, photo.zoom + (event.key === '-' ? -.05 : .05)));
-    updateButtons();
-  } else return;
+  if (!photo.image || photo.loading || brush.active) return;
+  const step = event.shiftKey ? 5 : 1;
+  const changes = { ArrowLeft: ['offsetX', -step], ArrowRight: ['offsetX', step], ArrowUp: ['offsetY', -step], ArrowDown: ['offsetY', step] };
+  if (event.key in changes) { const [key, delta] = changes[event.key]; setParameter(key, photo[key] + delta); }
+  else if (['+', '=', '-'].includes(event.key)) setParameter('zoom', photo.zoom + (event.key === '-' ? -step : step));
+  else return;
   event.preventDefault();
-  edited();
 });
-
+window.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    const hadOperation = pointer || rotationMode || brush.active || brush.compareBefore;
+    stopGesture(); rotationMode = false; brush.active = false; brush.compareBefore = false;
+    $('#brush-cursor').classList.remove('visible'); updateButtons(); renderSoon();
+    if (hadOperation) status('已退出当前操作，可继续移动照片。');
+  }
+  if (!brush.active || !(event.metaKey || event.ctrlKey) || event.target.matches('input,textarea,select')) return;
+  if (['BracketLeft', 'BracketRight'].includes(event.code)) {
+    event.preventDefault(); brush.size = clamp(brush.size + (event.code === 'BracketLeft' ? -10 : 10), 20, 400); updateButtons();
+  }
+});
+window.addEventListener('blur', stopGesture);
 const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
 
 // Keep a file dropped outside its upload box from opening over the editor.
@@ -339,60 +589,96 @@ document.addEventListener('drop', (event) => {
 });
 
 photos.forEach((photo, side) => {
-  const dropZone = $(`label[for="photo-${side}"]`);
+  const dropZone = $('label[for="photo-' + side + '"]');
   let dragDepth = 0;
-  const clearDrag = () => {
-    dragDepth = 0;
-    dropZone.classList.remove('is-dragover');
-  };
-  dropZone.addEventListener('dragenter', (event) => {
+  const clearDrag = () => { dragDepth = 0; dropZone.classList.remove('is-dragover'); };
+  dropZone.addEventListener('dragenter', event => {
     if (!isFileDrag(event)) return;
-    event.preventDefault();
-    dragDepth += 1;
-    dropZone.classList.add('is-dragover');
+    event.preventDefault(); dragDepth += 1; dropZone.classList.add('is-dragover');
   });
-  dropZone.addEventListener('dragover', (event) => {
+  dropZone.addEventListener('dragover', event => {
     if (!isFileDrag(event)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
+    event.preventDefault(); event.dataTransfer.dropEffect = 'copy';
   });
-  dropZone.addEventListener('dragleave', () => {
-    dragDepth = Math.max(0, dragDepth - 1);
-    if (!dragDepth) clearDrag();
-  });
-  dropZone.addEventListener('drop', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    clearDrag();
+  dropZone.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) clearDrag(); });
+  dropZone.addEventListener('drop', event => {
+    event.preventDefault(); event.stopPropagation(); clearDrag();
     const files = event.dataTransfer?.files;
-    if (!files || files.length !== 1) {
-      status(`请一次拖入一张${names[side]}，支持 JPG、PNG 或 WebP。`, true);
-      return;
-    }
+    if (!files || files.length !== 1) { status('请一次拖入一张' + names[side] + '，支持 JPG、PNG 或 WebP。', true); return; }
     loadPhoto(files[0], side);
   });
   dropZone.addEventListener('dragend', clearDrag);
   window.addEventListener('blur', clearDrag);
-
-  $(`#photo-${side}`).addEventListener('change', (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = ''; // The same file can be selected again.
+  $('#photo-' + side).addEventListener('change', event => {
+    const file = event.target.files?.[0]; event.target.value = '';
     if (file) loadPhoto(file, side);
   });
-  $(`input[name="active-side"][value="${side}"]`).addEventListener('change', () => selectSide(side));
-  $(`#zoom-${side}`).addEventListener('input', (event) => {
-    photo.zoom = Number(event.target.value);
-    selectSide(side);
-    updateButtons();
-    edited();
-  });
-  $(`[data-reset="${side}"]`).addEventListener('click', () => {
-    Object.assign(photo, { zoom: 1, panX: 0, panY: 0 });
-    selectSide(side);
-    updateButtons();
-    edited();
-  });
+  $('input[name="active-side"][value="' + side + '"]').addEventListener('change', () => { stopGesture(); selectSide(side); });
+  $('[data-edit-photo="' + side + '"]').addEventListener('click', () => { stopGesture(); selectSide(side); setTool('compose'); });
 });
+document.querySelectorAll('[data-photo-target]').forEach(button => button.addEventListener('click', () => { stopGesture(); selectSide(Number(button.dataset.photoTarget)); }));
+document.querySelectorAll('button[data-tool]').forEach(button => button.addEventListener('click', () => { stopGesture(); setTool(button.dataset.tool); }));
+$('#parameter-select').addEventListener('change', event => {
+  selectedParameter = event.target.value;
+  setTool(['brightness', 'shade', 'bottomShade'].includes(selectedParameter) ? 'tone' : 'compose');
+});
+for (const key of Object.keys(PHOTO_DEFAULTS)) {
+  $('#adjust-' + key).addEventListener('input', event => setParameter(key, event.target.value, key === 'rotation'));
+  const number = $('#adjust-' + key + '-value');
+  number.addEventListener('focus', () => {
+    numericOwners.set(number, { side: activeSide, request: photos[activeSide].request });
+    number.select();
+  });
+  number.addEventListener('change', () => {
+    const owner = numericOwners.get(number) ?? { side: activeSide, request: photos[activeSide].request };
+    setParameter(key, number.value === '' ? photos[owner.side][key] : number.value, false, owner);
+    number.value = photos[activeSide][key];
+  });
+  number.addEventListener('blur', () => { numericOwners.delete(number); number.value = photos[activeSide][key]; });
+  number.addEventListener('keydown', event => { if (event.key === 'Enter') number.blur(); });
+  $('[data-reset-setting="' + key + '"]').addEventListener('click', () => setParameter(key, PHOTO_DEFAULTS[key]));
+}
+$('#reset-photo').addEventListener('click', () => {
+  stopGesture();
+  Object.assign(photos[activeSide], PHOTO_DEFAULTS, { strokes: [] });
+  brush.compareBefore = false; rotationMode = false; brush.active = false;
+  updateButtons(); edited(); status(names[activeSide] + '已恢复默认，照片保留。');
+});
+$('#rotation-mode').addEventListener('click', toggleRotation);
+$('#brush-toggle').addEventListener('click', () => {
+  stopGesture(); rotationMode = false; brush.active = !brush.active; brush.compareBefore = false;
+  if (!brush.active) $('#brush-cursor').classList.remove('visible');
+  updateButtons(); renderSoon();
+  status(brush.active ? $('#brush-hint').textContent : '已退出涂抹，可继续移动照片。');
+});
+$('.brush-settings').addEventListener('toggle', () => {
+  if ($('.brush-settings').open) return;
+  stopGesture(); brush.active = false; brush.compareBefore = false;
+  $('#brush-cursor').classList.remove('visible'); updateButtons(); renderSoon();
+});
+const brushDefaults = { size: 120, feather: 70, strength: 100 };
+for (const key of Object.keys(brushDefaults)) {
+  const range = $('#brush-' + key), number = $('#brush-' + key + '-value');
+  const apply = value => {
+    const parsed = Number(value);
+    brush[key] = Number.isFinite(parsed) ? Math.round(clamp(parsed, Number(range.min), Number(range.max))) : brush[key];
+    number.value = brush[key]; updateButtons();
+  };
+  range.addEventListener('input', event => apply(event.target.value));
+  number.addEventListener('focus', () => number.select());
+  number.addEventListener('change', () => apply(number.value === '' ? brush[key] : number.value));
+  number.addEventListener('keydown', event => { if (event.key === 'Enter') number.blur(); });
+  $('[data-reset-brush="' + key + '"]').addEventListener('click', () => apply(brushDefaults[key]));
+}
+$('#brush-before').addEventListener('click', () => { stopGesture(); brush.compareBefore = true; updateButtons(); renderSoon(); });
+$('#brush-after').addEventListener('click', () => { stopGesture(); brush.compareBefore = false; updateButtons(); renderSoon(); });
+$('#brush-undo').addEventListener('click', () => {
+  stopGesture(); photos[activeSide].strokes.pop(); brush.compareBefore = false; updateButtons(); edited();
+});
+$('#brush-clear').addEventListener('click', () => {
+  stopGesture(); photos[activeSide].strokes = []; brush.compareBefore = false; updateButtons(); edited();
+});
+setTool('photos');
 $('#split').addEventListener('input', (event) => setSplit(Number(event.target.value) / 100));
 $('#equal-split').addEventListener('click', () => setSplit(.5));
 $('#retry-template').addEventListener('click', loadTemplate);
@@ -411,7 +697,7 @@ async function exportPoster(format) {
     canvas.height = POSTER.height;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('无法创建画布');
-    paint(context, canvas.width, canvas.height);
+    paint(context, canvas.width, canvas.height, true);
     const blob = await new Promise((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('无法生成图片')), format === 'jpg' ? 'image/jpeg' : 'image/png', .95));
     canvas.width = canvas.height = 0;
     canvas = null;
@@ -435,7 +721,7 @@ async function exportPoster(format) {
     status('原图已生成。若未自动下载，请点击下方链接保存。');
     link.click();
   } catch (error) {
-    status(nativeSave && error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : '导出失败，可能是图片过大或浏览器内存不足。请重新尝试，或更换浏览器。', true);
+    status(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : '导出失败，可能是图片过大或浏览器内存不足。请重新尝试，或更换浏览器。', true);
   } finally {
     if (canvas) canvas.width = canvas.height = 0;
     exporting = false;

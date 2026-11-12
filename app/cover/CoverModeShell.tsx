@@ -68,7 +68,7 @@ export default function CoverModeShell({ children }: { children: ReactNode }) {
     </div>
     <section id="coverPanel" role="tabpanel" aria-labelledby="creation-tab-cover" hidden={mode !== "cover"}>{children}</section>
     <section id="makeoverPanel" className="creation-makeover-panel" role="tabpanel" aria-labelledby="creation-tab-makeover" hidden={mode !== "makeover"}>
-      {visited && <iframe ref={frame} id="makeoverFrame" className="creation-makeover-frame" title="素人改造对比图编辑器" src="/makeover/index.html?embed=1&v=20261112-responsive" style={{ height }} />}
+      {visited && <iframe ref={frame} id="makeoverFrame" className="creation-makeover-frame" title="素人改造对比图编辑器" src="/makeover/index.html?embed=1&v=20261112-photo-ops" style={{ height }} />}
     </section>
   </>;
 }
