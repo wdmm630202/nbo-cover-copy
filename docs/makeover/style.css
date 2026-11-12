@@ -215,3 +215,7 @@ html.is-embedded .workspace{max-width:none}
 @media(min-width:1181px) and (pointer:fine){
  html.is-embedded .controls{padding-top:67px}
 }
+
+@media(min-width:1100px){
+ .preview-heading{width:var(--poster-width,100%);max-width:100%;align-self:center;padding-inline:0}
+}

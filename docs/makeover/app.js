@@ -65,6 +65,10 @@ async function saveInApp(blob) {
 const $ = (selector) => document.querySelector(selector);
 const preview = $('#preview');
 const previewContext = preview.getContext('2d');
+// Keep desktop labels aligned with the fitted poster at every viewport size.
+new ResizeObserver(([entry]) => {
+  $('.preview-heading').style.setProperty('--poster-width', `${entry.contentRect.width}px`);
+}).observe($('.poster-wrap'));
 const names = ['素颜照片', '精修照片'];
 const PHOTO_DEFAULTS = { zoom: 100, offsetX: 0, offsetY: 0, rotation: 0, brightness: 100, shade: 0, bottomShade: 0 };
 const LIMITS = { zoom: [0, 400], offsetX: [-200, 200], offsetY: [-200, 200], rotation: [-180, 180], brightness: [0, 200], shade: [0, 100], bottomShade: [0, 100] };
