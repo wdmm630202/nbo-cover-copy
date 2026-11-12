@@ -218,6 +218,18 @@ test('模板渐变可独立调整、复位与导出，照片参数和固定标�
     assert.equal(await control.count(), 1, 'PSD渐变应有独立的控制滑块');
     const number = frame.locator('#adjust-templateGradient-value');
     assert.equal(await number.inputValue(), '100', '默认保持PSD原有渐变强度');
+    const presets = frame.locator('[data-template-gradient-preset]');
+    assert.equal(await presets.count(), 5, '渐变滑块下应提供五个快速数值');
+    assert.equal(await frame.locator('[data-template-gradient-preset="100"]').getAttribute('aria-pressed'), 'true');
+    for (const value of [0,25,50,75,100]) {
+      await frame.locator(`[data-template-gradient-preset="${value}"]`).click();
+      assert.equal(await number.inputValue(), String(value));
+      assert.equal(await control.inputValue(), String(value));
+      assert.equal(await frame.locator('[data-template-gradient-preset][aria-pressed="true"]').count(), 1);
+    }
+    await number.fill('37'); await number.press('Enter');
+    assert.equal(await frame.locator('[data-template-gradient-preset][aria-pressed="true"]').count(), 0, '手动数值不能保留错误的预设选中态');
+    await frame.locator('[data-reset-template-gradient]').click(); await settle(frame);
     const points = [[.25,.62],[.75,.62],[.25,.015],[.5,.015],[.75,.015]];
     const original = await samplePixels(frame, points);
     await number.fill('0'); await number.press('Enter'); await settle(frame);

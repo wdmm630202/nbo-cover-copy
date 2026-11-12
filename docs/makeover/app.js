@@ -127,6 +127,10 @@ function updateButtons() {
   }
   $('#adjust-templateGradient').disabled = $('#adjust-templateGradient-value').disabled = !template || !templateGradient;
   $('[data-reset-template-gradient]').disabled = !template || !templateGradient;
+  document.querySelectorAll('[data-template-gradient-preset]').forEach(button => {
+    button.disabled = !template || !templateGradient;
+    button.setAttribute('aria-pressed', String(Number(button.dataset.templateGradientPreset) === templateGradientOpacity));
+  });
   $('#adjust-templateGradient').value = templateGradientOpacity;
   if (document.activeElement !== $('#adjust-templateGradient-value')) $('#adjust-templateGradient-value').value = templateGradientOpacity;
   document.querySelectorAll('[data-photo-target]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.photoTarget) === activeSide)));
@@ -693,6 +697,7 @@ templateGradientNumber.addEventListener('change', () => setTemplateGradient(temp
 templateGradientNumber.addEventListener('keydown', event => { if (event.key === 'Enter') templateGradientNumber.blur(); });
 templateGradientNumber.addEventListener('blur', () => { templateGradientNumber.value = templateGradientOpacity; });
 $('[data-reset-template-gradient]').addEventListener('click', () => setTemplateGradient(100));
+document.querySelectorAll('[data-template-gradient-preset]').forEach(button => button.addEventListener('click', () => setTemplateGradient(button.dataset.templateGradientPreset)));
 $('#rotation-mode').addEventListener('click', toggleRotation);
 $('#brush-toggle').addEventListener('click', () => {
   stopGesture(); rotationMode = false; brush.active = !brush.active; brush.compareBefore = false;

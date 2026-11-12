@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f4f1">
   <title>南铂素人改造对比图</title>
-  <link rel="stylesheet" href="./style.css?v=20261112-template-gradient">
+  <link rel="stylesheet" href="./style.css?v=20261112-gradient-presets">
 </head>
 <body>
   <header class="page-header">
@@ -104,6 +104,7 @@
       <div class="setting-row tone-setting" data-setting="templateGradient">
         <div class="setting-meta"><label for="adjust-templateGradient">模板渐变（整体）</label><span class="number-unit"><input id="adjust-templateGradient-value" type="number" min="0" max="100" step="1" value="100" inputmode="decimal" aria-label="模板渐变精确数值"><i>%</i></span><button type="button" data-reset-template-gradient>复位</button></div>
         <input id="adjust-templateGradient" type="range" min="0" max="100" step="1" value="100" aria-label="模板渐变强度">
+        <div class="template-gradient-presets" role="group" aria-label="模板渐变快捷数值"><button type="button" data-template-gradient-preset="0" aria-pressed="false">0</button><button type="button" data-template-gradient-preset="25" aria-pressed="false">25</button><button type="button" data-template-gradient-preset="50" aria-pressed="false">50</button><button type="button" data-template-gradient-preset="75" aria-pressed="false">75</button><button type="button" data-template-gradient-preset="100" aria-pressed="true">100</button></div>
       </div>
       <div class="rotation-tools"><button id="rotation-mode" type="button" aria-pressed="false">进入旋转</button><p id="interaction-help">拖动移动 · 滚轮缩放 · 双击旋转</p></div>
       <details class="brush-settings">
@@ -124,6 +125,6 @@
       <button type="button" data-tool="photos" aria-pressed="true">照片</button><button type="button" data-tool="compose" aria-pressed="false">构图</button><button type="button" data-tool="tone" aria-pressed="false">画面</button><button type="button" data-tool="brush" aria-pressed="false">涂抹</button>
     </nav>
   </main>
-  <script type="module" src="./app.js?v=20261112-template-gradient"></script>
+  <script type="module" src="./app.js?v=20261112-gradient-presets"></script>
 </body>
 </html>
