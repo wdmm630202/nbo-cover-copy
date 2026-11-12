@@ -497,7 +497,7 @@ async function inspectExport(frame, format, fixedPoints) {
   }, fixedPoints);
 }
 
-test('成品按南铂素人改造加北京时间命名，连续导出不重复且不超过19.9MB', { timeout: 60000 }, async t => {
+test('成品按南铂素人改造加北京时间命名，连续导出不重复', { timeout: 60000 }, async t => {
   await withEditor(t, false, async ({ page, frame }) => {
     await uploadPair(page, frame);
     const names = [];
@@ -508,47 +508,33 @@ test('成品按南铂素人改造加北京时间命名，连续导出不重复�
         name: link.download, size: (await (await fetch(link.href)).blob()).size,
       }));
       assert.match(result.name, /^南铂素人改造_\d{8}_\d{6}_\d{3}\.jpg$/);
-      assert.ok(result.size > 0 && result.size <= 19_900_000);
+      assert.ok(result.size > 0);
       names.push(result.name);
     }
     assert.notEqual(names[0], names[1]);
   });
 });
 
-test('超限导出不交付大文件：JPG先降质量保留6K，PNG等比缩小并显示实际尺寸', { timeout: 60000 }, async t => {
+test('导出超过19.9MB仍保持尺寸，JPG只编码一次且质量为1', { timeout: 60000 }, async t => {
   await withEditor(t, false, async ({ page, frame }) => {
     await uploadPair(page, frame);
-    // Model a native-size encode exceeding the cap once per format. All retries
-    // use the real browser encoder and must produce decodable image files.
     await frame.evaluate(() => {
-      const original = HTMLCanvasElement.prototype.toBlob;
-      const oversized = new Set();
+      window.exportEncodes = [];
       HTMLCanvasElement.prototype.toBlob = function(callback, type, quality) {
-        if (this.width === 6000 && this.height === 8000 && !oversized.has(type)) {
-          oversized.add(type);
-          callback(new Blob([new Uint8Array(20_000_000)], { type }));
-          return;
-        }
-        return original.call(this, callback, type, quality);
+        window.exportEncodes.push({ width: this.width, height: this.height, type, quality });
+        callback(new Blob([new Uint8Array(20_000_000)], { type }));
       };
     });
     for (const format of ['jpg', 'png']) {
       await frame.locator(`#export-${format}`).click();
       await frame.locator('#download-result').waitFor({ state: 'visible' });
-      const result = await frame.locator('#download-link').evaluate(async link => {
-        const blob = await (await fetch(link.href)).blob();
-        if (blob.size > 19_900_000) return { size: blob.size, type: blob.type, width: 0, height: 0 };
-        const bitmap = await createImageBitmap(blob);
-        const result = { size: blob.size, type: blob.type, width: bitmap.width, height: bitmap.height };
-        bitmap.close(); return result;
-      });
-      assert.ok(result.size <= 19_900_000, `不能交付超限${format}：${result.size}`);
-      assert.equal(result.type, format === 'jpg' ? 'image/jpeg' : 'image/png');
-      assert.equal(result.width / result.height, .75);
-      if (format === 'jpg') assert.deepEqual([result.width, result.height], [6000, 8000]);
-      else assert.ok(result.width < 6000 && result.height < 8000);
-      assert.ok((await frame.locator('#status').textContent()).includes(`${result.width} × ${result.height}`), '成功提示应显示真实导出尺寸');
+      const size = await frame.locator('#download-link').evaluate(async link => (await (await fetch(link.href)).blob()).size);
+      assert.equal(size, 20_000_000);
     }
+    const encodes = await frame.evaluate(() => window.exportEncodes);
+    assert.equal(encodes.length, 2);
+    assert.equal(encodes[0].quality, 1);
+    assert.ok(encodes.every(item => item.width === 6000 && item.height === 8000));
   });
 });
 
@@ -645,7 +631,7 @@ test('桌面导出先打开默认桌面的保存窗口，取消不下载，保�
     await frame.locator('#export-jpg').click();
     await frame.waitForFunction(() => window.savedClosed === true, { timeout: 20000 });
     const result = await frame.evaluate(() => ({ calls: window.saveCalls, bytes: window.savedBytes }));
-    assert.ok(result.bytes <= 19_900_000);
+    assert.ok(result.bytes > 0);
     await frame.evaluate(() => {
       window.showSaveFilePicker = async () => ({ createWritable: async () => ({
         write: async () => { throw new Error('保存失败，请重新导出。'); },
@@ -662,5 +648,33 @@ test('桌面导出先打开默认桌面的保存窗口，取消不下载，保�
       assert.equal(call.active, true);
       assert.match(call.options.suggestedName, /^南铂素人改造_\d{8}_\d{6}_\d{3}\.jpg$/);
     }
+  });
+});
+
+
+test('PNG编码解码保留渲染像素逐字节一致', { timeout: 30000 }, async t => {
+  await withEditor(t, false, async ({ frame }) => {
+    const result = await frame.evaluate(async () => {
+      const { createMakeoverExportAsset } = await import('./export.mjs');
+      let original;
+      const asset = await createMakeoverExportAsset({ format: 'png', width: 256, height: 256, render: canvas => {
+        const context = canvas.getContext('2d');
+        const pixels = context.createImageData(256, 256);
+        for (let i = 0; i < pixels.data.length; i += 4) {
+          pixels.data[i] = (i * 17) % 251;
+          pixels.data[i+1] = (i * 29) % 253;
+          pixels.data[i+2] = (i * 37) % 255;
+          pixels.data[i+3] = 255;
+        }
+        context.putImageData(pixels, 0, 0);
+        original = pixels.data;
+      } });
+      const bitmap = await createImageBitmap(asset.blob);
+      const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+      const context = canvas.getContext('2d'); context.drawImage(bitmap, 0, 0); bitmap.close();
+      const decoded = context.getImageData(0, 0, 256, 256).data;
+      return { equal: decoded.every((value, index) => value === original[index]), type: asset.blob.type };
+    });
+    assert.deepEqual(result, { equal: true, type: 'image/png' });
   });
 });

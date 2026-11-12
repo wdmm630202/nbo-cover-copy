@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMakeoverExportAsset, getMakeoverExportFileName } from '../public/makeover/export.mjs';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize } from '../public/makeover/export.mjs';
 
 test('export names use Beijing time across midnight with milliseconds and the requested prefix', () => {
   const name = getMakeoverExportFileName('png', new Date('2026-01-01T16:00:00.007Z'));
@@ -24,14 +24,33 @@ async function withCanvas(canvas, run) {
   }
 }
 
-test('an encoder that stays over the cap never returns an asset and releases its canvas', async () => {
-  const oversized = new Blob([new Uint8Array(20_000_000)], { type: 'image/png' });
-  const canvas = { width: 0, height: 0, toBlob: callback => callback(oversized) };
-  await withCanvas(canvas, async () => {
-    await assert.rejects(createMakeoverExportAsset({ format: 'png', render: () => {} }), /19\.9MB/);
-    assert.equal(canvas.width, 0);
-    assert.equal(canvas.height, 0);
-  });
+test('both formats keep oversized bytes and requested dimensions with a single highest quality encode', async () => {
+  for (const format of ['jpg', 'png']) {
+    let calls = 0;
+    const type = format === 'jpg' ? 'image/jpeg' : 'image/png';
+    const oversized = new Blob([new Uint8Array(20_000_000)], { type });
+    const canvas = { width: 0, height: 0, toBlob: (callback, mime, quality) => {
+      calls++;
+      assert.equal(mime, type);
+      assert.equal(quality, format === 'jpg' ? 1 : undefined);
+      callback(oversized);
+    } };
+    await withCanvas(canvas, async () => {
+      const asset = await createMakeoverExportAsset({ format, width: 9000, height: 12000, render: () => {} });
+      assert.equal(asset.blob.size, 20_000_000);
+      assert.deepEqual([asset.width, asset.height], [9000, 12000]);
+      assert.equal(calls, 1);
+      assert.equal(canvas.width, 0);
+    });
+  }
+});
+
+test('export canvas expands so each placed source pixel is retained', () => {
+  const photos = [{ image: { naturalWidth: 8000, naturalHeight: 12000 } }, { image: { naturalWidth: 4000, naturalHeight: 6000 } }];
+  const size = getMakeoverExportSize(photos);
+  assert.equal(size.width / size.height, .75);
+  assert.ok(size.height * 7755 / 8000 >= 12000);
+  assert.deepEqual(getMakeoverExportSize([{image:{naturalWidth:800,naturalHeight:800}}]), {width:6000,height:8000});
 });
 
 test('a changed composition cancels an export before encoding and releases its canvas', async () => {

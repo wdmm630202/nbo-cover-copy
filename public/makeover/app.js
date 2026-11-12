@@ -1,6 +1,6 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { createMakeoverExportAsset, getMakeoverExportFileName } from './export.mjs?v=20261113-desktop-save';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize } from './export.mjs?v=20261113-original-quality';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -743,7 +743,7 @@ async function exportPoster(format) {
   const snapshot = revision;
   clearDownload();
   updateButtons();
-  status(`正在生成 ${format.toUpperCase()}，文件不超过19.9MB…`);
+  status(`正在生成 ${format.toUpperCase()}，保留原片细节…`);
   let writable;
   try {
     const fileName = getMakeoverExportFileName(format);
@@ -759,6 +759,7 @@ async function exportPoster(format) {
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
     const asset = await createMakeoverExportAsset({
       format,
+      ...getMakeoverExportSize(photos, split),
       isCancelled: () => snapshot !== revision || photos.some(photo => photo.loading),
       render: canvas => {
         const context = canvas.getContext('2d');
