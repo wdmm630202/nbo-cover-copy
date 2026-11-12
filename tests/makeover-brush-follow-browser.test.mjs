@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { available, chromium, executablePath } from './helpers/live-browser-driver.mjs';
+import { clickInFrame, frameBoundingBox } from './helpers/makeover-browser-geometry.mjs';
 
 const POSTER = { width: 6000, height: 8000 };
 const MARKER = [220, 180, 80, 255];
@@ -85,7 +86,7 @@ test('真实涂抹随原片标记移动、缩放、旋转，6K成图与预览一
   try {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     browser = await chromium.launch({ executablePath, headless: true });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, serviceWorkers: 'block' });
     page.setDefaultTimeout(6000);
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/brush-test-host.html`);
@@ -102,19 +103,19 @@ test('真实涂抹随原片标记移动、缩放、旋转，6K成图与预览一
       name: `source-marker-${side}.png`, mimeType: 'image/png', buffer: Buffer.from(source, 'base64'),
     });
     await frame.waitForFunction(() => !document.querySelector('#export-png').disabled);
-    await frame.locator('[data-photo-target="0"]').click();
+    await clickInFrame(frame.page(), frame, '[data-photo-target="0"]');
     await setNumber(frame, 'shade', 80);
     const details = frame.locator('.brush-settings');
-    if (!await details.evaluate(element => element.open)) await details.locator('summary').click();
+    if (!await details.evaluate(element => element.open)) await clickInFrame(frame.page(), frame, details.locator('summary'));
     for (const [key, value] of [['size', 70], ['feather', 35], ['strength', 100]]) {
       const field = frame.locator(`#brush-${key}-value`);
       await field.fill(String(value)); await field.press('Enter');
     }
-    await frame.locator('#brush-toggle').click();
+    await clickInFrame(frame.page(), frame, '#brush-toggle');
     const initial = markerPosition();
     const initialEdge = [initial[0] + 230, initial[1]];
     const [initialBefore, initialEdgeBefore] = await samplePreview(frame, [initial, initialEdge]);
-    const rect = await frame.locator('#preview').boundingBox();
+    const rect = await frameBoundingBox(frame, '#preview');
     assert.ok(rect);
     await page.mouse.click(rect.x + initial[0] / POSTER.width * rect.width, rect.y + initial[1] / POSTER.height * rect.height);
     await settle(frame);
@@ -124,7 +125,7 @@ test('真实涂抹随原片标记移动、缩放、旋转，6K成图与预览一
     const initialEdgeLift = initialEdgeAfter.color[0] - initialEdgeBefore.color[0];
     assert.ok(initialEdgeLift < 10, '230px探针应位于初始笔迹的羽化外侧');
     assert.ok(initialBefore.color[0] < 60, '未涂抹的标记必须已被额外压暗');
-    await frame.locator('#brush-toggle').click();
+    await clickInFrame(frame.page(), frame, '#brush-toggle');
 
     const previousLocations = [initial];
     const stages = [
@@ -136,10 +137,10 @@ test('真实涂抹随原片标记移动、缩放、旋转，6K成图与预览一
       for (const [key, value] of Object.entries(settings)) await setNumber(frame, key, value);
       const current = markerPosition(settings);
       assert.ok(previousLocations.every(point => Math.hypot(point[0] - current[0], point[1] - current[1]) > 500), `${label}必须把标记移出旧笔迹半径`);
-      await frame.locator('#brush-before').click(); await settle(frame);
+      await clickInFrame(frame.page(), frame, '#brush-before'); await settle(frame);
       const growthProbe = [current[0] + 230, current[1]];
       const before = await samplePreview(frame, [current, ...previousLocations, growthProbe]);
-      await frame.locator('#brush-after').click(); await settle(frame);
+      await clickInFrame(frame.page(), frame, '#brush-after'); await settle(frame);
       const after = await samplePreview(frame, [current, ...previousLocations, growthProbe]);
       colorNear(after[0].color, MARKER, 2, `${label}后的真实笔迹必须跟随同一个源图金色标记`);
       assert.ok(after[0].color[0] > before[0].color[0] + 100, `${label}后的真实像素应擦除额外压暗`);
@@ -165,10 +166,10 @@ test('真实涂抹随原片标记移动、缩放、旋转，6K成图与预览一
 
     // Comparison is a preview aid; exporting while it is selected must still
     // contain the completed, source-anchored brush effect.
-    await frame.locator('#brush-before').click(); await settle(frame);
+    await clickInFrame(frame.page(), frame, '#brush-before'); await settle(frame);
     // Exercise the download fallback without opening an OS save dialog.
     await frame.evaluate(() => { window.showSaveFilePicker = undefined; });
-    await frame.locator('#export-png').click();
+    await clickInFrame(frame.page(), frame, '#export-png');
     await frame.locator('#download-result').waitFor({ state: 'visible' });
     const exported = await frame.locator('#download-link').evaluate(async (link, points) => {
       const bitmap = await createImageBitmap(await (await fetch(link.href)).blob());

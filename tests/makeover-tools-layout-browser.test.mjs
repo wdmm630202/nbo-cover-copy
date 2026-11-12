@@ -3,6 +3,7 @@ import test from 'node:test';
 import { resolve } from 'node:path';
 import { createServer } from 'vite';
 import { chromium, executablePath, available } from './helpers/live-browser-driver.mjs';
+import { clickInFrame } from './helpers/makeover-browser-geometry.mjs';
 
 const MATRIX = [[320,480],[320,568],[390,844],[640,480],[768,1024],[844,390],[1024,768],[1280,720],[1920,1080]];
 const SETTINGS = ['zoom','offsetX','offsetY','rotation','brightness','shade','bottomShade','templateGradient'];
@@ -53,7 +54,7 @@ test('九种窗口中照片、构图、画面和涂抹工具均保留完整预�
     await vite.listen();
     browser=await chromium.launch({executablePath,headless:true});
     for(const [width,height] of MATRIX){
-      const page=await browser.newPage({viewport:{width,height},hasTouch:width<1100,isMobile:width<1100,reducedMotion:'reduce'});
+      const page=await browser.newPage({viewport:{width,height},hasTouch:width<1100,isMobile:width<1100,reducedMotion:'reduce',serviceWorkers:'block'});
       const errors=[];page.on('pageerror',error=>errors.push(error.message));
       try {
         await page.addInitScript(()=>localStorage.setItem('nbo_cover_access_until',String(Date.now()+1000000)));
@@ -74,7 +75,7 @@ test('九种窗口中照片、构图、画面和涂抹工具均保留完整预�
         if(width<1100){
           const nav=['photos','compose','tone','brush'].map(tool=>`button[data-tool="${tool}"]`);
           for(const tool of ['photos','compose','tone','brush']){
-            await frame.locator(`button[data-tool="${tool}"]`).click();
+            await clickInFrame(page,frame,`button[data-tool="${tool}"]`);
             if(tool==='compose')await frame.locator('#parameter-select').selectOption('rotation');
             if(tool==='tone')await frame.locator('#parameter-select').selectOption('bottomShade');
             await settle(frame);
@@ -100,7 +101,7 @@ test('九种窗口中照片、构图、画面和涂抹工具均保留完整预�
           assert.equal(await frame.locator('.setting-row:visible').count(),8,`${label}: 桌面同时显示照片参数和独立模板渐变`);
           const controls=SETTINGS.flatMap(key=>[`#adjust-${key}`,`#adjust-${key}-value`,key==='templateGradient'?'[data-reset-template-gradient]':`[data-reset-setting="${key}"]`]);
           const poster=await assertLayout(page,frame,[...exports,...TARGETS,...controls,...GRADIENT_PRESETS,'#rotation-mode','.brush-settings summary'],`${label} 默认调整区`);
-          await frame.locator('.brush-settings summary').click();
+          await clickInFrame(page,frame,'.brush-settings summary');
           for(const selector of BRUSH){
             await frame.locator(selector).scrollIntoViewIfNeeded();
             const current=await assertLayout(page,frame,[selector],`${label} 展开涂抹`);

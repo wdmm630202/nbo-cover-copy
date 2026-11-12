@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium, executablePath, available } from './helpers/live-browser-driver.mjs';
+import { clickInFrame } from './helpers/makeover-browser-geometry.mjs';
 
 async function uploadAndExport(page, frame, localFile = false) {
   const data = await page.evaluate(() => {
@@ -16,7 +17,8 @@ async function uploadAndExport(page, frame, localFile = false) {
   for (let side = 0; side < 2; side++) await frame.locator(`#photo-${side}`).setInputFiles({name:'本机原片.png',mimeType:'image/png',buffer:Buffer.from(data,'base64')});
   await frame.waitForFunction(() => !document.querySelector('#export-png').disabled);
   for (const format of ['png', 'jpg']) {
-    await frame.locator(`#export-${format}`).click();
+    if (localFile) await frame.locator(`#export-${format}`).click();
+    else await clickInFrame(page, frame, `#export-${format}`);
     await frame.locator('#download-result').waitFor({state:'visible'});
     const result = await frame.locator('#download-link').evaluate(async link => {
       const blob = await (await fetch(link.href)).blob(); const image = await createImageBitmap(blob);

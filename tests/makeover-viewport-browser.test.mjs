@@ -3,6 +3,7 @@ import test from 'node:test';
 import { resolve } from 'node:path';
 import { createServer } from 'vite';
 import { chromium, executablePath, available } from './helpers/live-browser-driver.mjs';
+import { clickInFrame } from './helpers/makeover-browser-geometry.mjs';
 
 const MATRIX = [
   [320, 480, true], [640, 480, true],
@@ -49,7 +50,7 @@ async function withBrowser(t, run) {
 async function openMakeover(browser, url, width, height, touch = false) {
   const page = await browser.newPage({
     viewport: { width, height }, hasTouch: touch, isMobile: touch,
-    deviceScaleFactor: 1, reducedMotion: 'reduce',
+    deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block',
   });
   page.setDefaultTimeout(10000);
   await page.addInitScript(() => localStorage.setItem('nbo_cover_access_until', String(Date.now() + 1000000)));
@@ -193,7 +194,7 @@ async function assertExport(page, frame, format, label) {
   await frame.evaluate(() => { window.showSaveFilePicker = undefined; });
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 30000 }),
-    frame.locator(`#export-${format}`).click(),
+    clickInFrame(page, frame, `#export-${format}`),
   ]);
   assert.equal(await download.failure(), null, `${label}: ${format}下载应成功`);
   assert.ok(download.suggestedFilename().endsWith(`.${format}`));
@@ -237,9 +238,9 @@ test('连续缩放和切换制作模式保留两边照片、取景与文案状�
     const { page, frame } = await openMakeover(browser, url, 1280, 720);
     try {
       await uploadPair(page, frame);
-      await frame.locator('[data-photo-target="0"]').click();
+      await clickInFrame(page, frame, '[data-photo-target="0"]');
       await setRange(frame, '#adjust-zoom', 160);
-      await frame.locator('[data-photo-target="1"]').click();
+      await clickInFrame(page, frame, '[data-photo-target="1"]');
       await setRange(frame, '#adjust-zoom', 180);
       await assertDivider(frame, 37.4, '切换前');
       await page.getByRole('tab', { name: '封面制作', exact: true }).click();
@@ -257,12 +258,12 @@ test('连续缩放和切换制作模式保留两边照片、取景与文案状�
         await settle(page, frame);
         const label = `连续缩放${width}×${height}`;
         assertFullPreview(await snapshot(page, frame), label);
-        await frame.locator('button[data-tool="compose"]').evaluate(button => button.click());
-        await frame.locator('[data-photo-target="0"]').click();
+        if (await frame.locator('button[data-tool="compose"]').isVisible()) await clickInFrame(page, frame, 'button[data-tool="compose"]');
+        await clickInFrame(page, frame, '[data-photo-target="0"]');
         assert.equal(await frame.locator('#adjust-zoom').inputValue(), '160', `${label}: 素颜缩放应保留`);
-        await frame.locator('[data-photo-target="1"]').click();
+        await clickInFrame(page, frame, '[data-photo-target="1"]');
         assert.equal(await frame.locator('#adjust-zoom').inputValue(), '180', `${label}: 精修缩放应保留`);
-        await frame.locator('button[data-tool="photos"]').evaluate(button => button.click());
+        if (await frame.locator('button[data-tool="photos"]').isVisible()) await clickInFrame(page, frame, 'button[data-tool="photos"]');
         await settle(page, frame);
         assert.equal(await frame.locator('#split').inputValue(), '37.4', `${label}: 分界占比应保留`);
         assert.equal(await frame.locator('#file-name-0').textContent(), 'viewport-before.png');
@@ -280,10 +281,10 @@ test('连续缩放和切换制作模式保留两边照片、取景与文案状�
       await page.getByRole('tab', { name: '素人改造', exact: true }).click();
       await settle(page, frame);
       assertFullPreview(await snapshot(page, frame), '返回素人改造');
-      await frame.locator('button[data-tool="compose"]').evaluate(button => button.click());
-      await frame.locator('[data-photo-target="0"]').click();
+      if (await frame.locator('button[data-tool="compose"]').isVisible()) await clickInFrame(page, frame, 'button[data-tool="compose"]');
+      await clickInFrame(page, frame, '[data-photo-target="0"]');
       assert.equal(await frame.locator('#adjust-zoom').inputValue(), '160');
-      await frame.locator('[data-photo-target="1"]').click();
+      await clickInFrame(page, frame, '[data-photo-target="1"]');
       assert.equal(await frame.locator('#adjust-zoom').inputValue(), '180');
       assert.equal(await frame.locator('#split').inputValue(), '37.4');
     } finally { await page.close(); }
