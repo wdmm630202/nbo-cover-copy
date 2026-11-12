@@ -53,7 +53,7 @@ async function samplePreview(frame, points) {
 
 async function templateSamples(frame, points) {
   return frame.evaluate(async points => {
-    const bitmap = await createImageBitmap(await (await fetch('./assets/template-overlay.png')).blob());
+    const bitmap = await createImageBitmap(await (await fetch('./assets/template-fixed.png')).blob());
     const canvas = document.createElement('canvas'); canvas.width = points.length; canvas.height = 1;
     const context = canvas.getContext('2d');
     points.forEach(([x, y], index) => context.drawImage(bitmap, Math.floor(x), Math.floor(y), 1, 1, index, 0, 1, 1));

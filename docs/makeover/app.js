@@ -85,6 +85,8 @@ let previewFailed = false;
 const numericOwners = new WeakMap();
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let template = null;
+let templateGradient = null;
+let templateGradientOpacity = 100;
 let templateRequest = 0;
 let split = .5;
 let activeSide = 0;
@@ -100,7 +102,7 @@ function status(message, error = false) {
 }
 
 function ready() {
-  return Boolean(template && photos.every((photo) => photo.image && !photo.loading));
+  return Boolean(template && templateGradient && photos.every((photo) => photo.image && !photo.loading));
 }
 
 function updateButtons() {
@@ -123,6 +125,10 @@ function updateButtons() {
     if (document.activeElement !== number) number.value = Math.round(photo[key] * 10) / 10;
     $('[data-reset-setting="' + key + '"]').disabled = unavailable;
   }
+  $('#adjust-templateGradient').disabled = $('#adjust-templateGradient-value').disabled = !template || !templateGradient;
+  $('[data-reset-template-gradient]').disabled = !template || !templateGradient;
+  $('#adjust-templateGradient').value = templateGradientOpacity;
+  if (document.activeElement !== $('#adjust-templateGradient-value')) $('#adjust-templateGradient-value').value = templateGradientOpacity;
   document.querySelectorAll('[data-photo-target]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.photoTarget) === activeSide)));
   document.querySelectorAll('button[data-tool]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tool === currentTool)));
   document.querySelectorAll('.setting-row').forEach(row => row.classList.toggle('is-selected', row.dataset.setting === selectedParameter));
@@ -148,15 +154,15 @@ function updateButtons() {
   $('#brush-before').setAttribute('aria-pressed', String(brush.compareBefore));
   $('#brush-after').setAttribute('aria-pressed', String(!brush.compareBefore));
   $('#brush-hint').textContent = photo.shade === 0 && photo.bottomShade === 0
-    ? '当前未叠加额外压暗。先在“画面”调高压暗，再涂抹提亮；模板固定渐变保持不变。'
-    : '涂抹只擦除当前照片的额外压暗，笔迹跟随照片移动；模板固定渐变保持不变。';
+    ? '当前未叠加额外压暗。先在“画面”调高压暗，再涂抹提亮；涂抹不影响模板渐变。'
+    : '涂抹只擦除当前照片的额外压暗，笔迹跟随照片移动；涂抹不影响模板渐变。';
 }
 
 function setTool(tool) {
   currentTool = tool;
   $('.workspace').dataset.tool = tool;
-  if (tool === 'compose' && ['brightness', 'shade', 'bottomShade'].includes(selectedParameter)) selectedParameter = 'zoom';
-  if (tool === 'tone' && !['brightness', 'shade', 'bottomShade'].includes(selectedParameter)) selectedParameter = 'brightness';
+  if (tool === 'compose' && ['brightness', 'shade', 'bottomShade', 'templateGradient'].includes(selectedParameter)) selectedParameter = 'zoom';
+  if (tool === 'tone' && !['brightness', 'shade', 'bottomShade', 'templateGradient'].includes(selectedParameter)) selectedParameter = 'brightness';
   if (tool === 'brush') $('.brush-settings').open = true;
   else { brush.active = false; brush.compareBefore = false; $('#brush-cursor').classList.remove('visible'); }
   updateButtons();
@@ -282,7 +288,14 @@ function paint(context, width, height, forExport = false) {
         }
       } finally { context.restore(); }
     });
-    // Fixed lettering, fades, borders and logos are always the final unfiltered layer.
+    // PSD gradient is independently controlled; lettering, borders and logos stay above it.
+    if (templateGradient && templateGradientOpacity > 0) {
+      context.save();
+      try {
+        context.globalAlpha = templateGradientOpacity / 100;
+        context.drawImage(templateGradient, 0, 0, POSTER.width, POSTER.height);
+      } finally { context.restore(); }
+    }
     if (template) context.drawImage(template, 0, 0, POSTER.width, POSTER.height);
   } finally { context.restore(); }
 }
@@ -383,15 +396,21 @@ async function loadTemplate() {
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const image = await decodeImage(`./assets/template-overlay.png?v=20261112-photo-ops${request > 1 ? `&retry=${request}` : ''}`);
+    const suffix = `?v=20261112-template-gradient${request > 1 ? `&retry=${request}` : ''}`;
+    const [image, gradient] = await Promise.all([
+      decodeImage('./assets/template-fixed.png' + suffix),
+      decodeImage('./assets/template-gradient.png' + suffix),
+    ]);
     if (request !== templateRequest) return;
-    if (image.naturalWidth !== POSTER.width || image.naturalHeight !== POSTER.height) throw new Error('模板尺寸不符');
+    if ([image, gradient].some(asset => asset.naturalWidth !== POSTER.width || asset.naturalHeight !== POSTER.height)) throw new Error('模板尺寸不符');
     template = image;
+    templateGradient = gradient;
     renderSoon();
     readyStatus();
   } catch {
     if (request !== templateRequest) return;
     template = null;
+    templateGradient = null;
     $('#retry-template').hidden = false;
     status('原版模板加载失败，请检查网络后重新加载。模板就绪前无法导出。', true);
   }
@@ -635,7 +654,7 @@ document.querySelectorAll('[data-photo-target]').forEach(button => button.addEve
 document.querySelectorAll('button[data-tool]').forEach(button => button.addEventListener('click', () => { stopGesture(); setTool(button.dataset.tool); }));
 $('#parameter-select').addEventListener('change', event => {
   selectedParameter = event.target.value;
-  setTool(['brightness', 'shade', 'bottomShade'].includes(selectedParameter) ? 'tone' : 'compose');
+  setTool(['brightness', 'shade', 'bottomShade', 'templateGradient'].includes(selectedParameter) ? 'tone' : 'compose');
 });
 for (const key of Object.keys(PHOTO_DEFAULTS)) {
   $('#adjust-' + key).addEventListener('input', event => setParameter(key, event.target.value, key === 'rotation'));
@@ -659,6 +678,21 @@ $('#reset-photo').addEventListener('click', () => {
   brush.compareBefore = false; rotationMode = false; brush.active = false;
   updateButtons(); edited(); status(names[activeSide] + '已恢复默认，照片保留。');
 });
+function setTemplateGradient(raw) {
+  stopGesture();
+  const value = Number(raw);
+  if (Number.isFinite(value)) templateGradientOpacity = Math.round(clamp(value, 0, 100));
+  updateButtons();
+  $('#adjust-templateGradient-value').value = templateGradientOpacity;
+  edited();
+}
+$('#adjust-templateGradient').addEventListener('input', event => setTemplateGradient(event.target.value));
+const templateGradientNumber = $('#adjust-templateGradient-value');
+templateGradientNumber.addEventListener('focus', () => templateGradientNumber.select());
+templateGradientNumber.addEventListener('change', () => setTemplateGradient(templateGradientNumber.value === '' ? templateGradientOpacity : templateGradientNumber.value));
+templateGradientNumber.addEventListener('keydown', event => { if (event.key === 'Enter') templateGradientNumber.blur(); });
+templateGradientNumber.addEventListener('blur', () => { templateGradientNumber.value = templateGradientOpacity; });
+$('[data-reset-template-gradient]').addEventListener('click', () => setTemplateGradient(100));
 $('#rotation-mode').addEventListener('click', toggleRotation);
 $('#brush-toggle').addEventListener('click', () => {
   stopGesture(); rotationMode = false; brush.active = !brush.active; brush.compareBefore = false;

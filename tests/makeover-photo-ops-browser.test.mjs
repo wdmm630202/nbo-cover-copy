@@ -210,6 +210,63 @@ async function samplePixels(frame, points) {
     return points.map(([x, y]) => [...context.getImageData(Math.floor(x * canvas.width), Math.floor(y * canvas.height), 1, 1).data]);
   }, points);
 }
+
+test('模板渐变可独立调整、复位与导出，照片参数和固定标题保持不变', { timeout: 60000 }, async t => {
+  await withEditor(t, false, async ({ page, frame }) => {
+    await uploadPair(page, frame);
+    const control = frame.locator('#adjust-templateGradient');
+    assert.equal(await control.count(), 1, 'PSD渐变应有独立的控制滑块');
+    const number = frame.locator('#adjust-templateGradient-value');
+    assert.equal(await number.inputValue(), '100', '默认保持PSD原有渐变强度');
+    const points = [[.25,.62],[.75,.62],[.25,.015],[.5,.015],[.75,.015]];
+    const original = await samplePixels(frame, points);
+    await number.fill('0'); await number.press('Enter'); await settle(frame);
+    const clear = await samplePixels(frame, points);
+    for (const i of [0, 1]) assert.ok(light(clear[i]) > light(original[i]) + 20, '关闭渐变应同时恢复左右照片原有亮度');
+    for (const i of [2, 3, 4]) colorNear(clear[i], original[i], '模板渐变不得改变固定标题和边框');
+    await target(frame, 0);
+    assert.equal(await field(frame, 'shade').inputValue(), '0');
+    assert.equal(await field(frame, 'bottomShade').inputValue(), '0');
+    await target(frame, 1);
+    assert.equal(await number.inputValue(), '0', '整体渐变不能跟随照片切换被复位');
+    await frame.locator('#reset-photo').click();
+    assert.equal(await number.inputValue(), '0', '照片复位不能覆盖独立的模板渐变');
+    await number.fill('50'); await number.press('Enter'); await settle(frame);
+    const middle = await samplePixels(frame, points);
+    for (const i of [0, 1]) assert.ok(light(middle[i]) > light(original[i]) && light(middle[i]) < light(clear[i]));
+    const exported = await inspectExport(frame, 'png', [[1500,4960],[4500,4960]]);
+    for (const i of [0, 1]) colorNear(exported.colors[i], middle[i], '导出应使用当前模板渐变强度');
+    await frame.locator('[data-reset-template-gradient]').click(); await settle(frame);
+    assert.equal(await number.inputValue(), '100');
+    const reset = await samplePixels(frame, points);
+    for (let i = 0; i < points.length; i++) colorNear(reset[i], original[i], '复位应恢复原有模板效果');
+  });
+});
+
+test('渐变图层绘制失败后画布变换仍复原，下次调整可正常恢复', { timeout: 30000 }, async t => {
+  await withEditor(t, false, async ({ page, frame }) => {
+    await uploadPair(page, frame);
+    const points = [[.25,.62],[.75,.62],[.5,.015]];
+    const before = await samplePixels(frame, points);
+    await frame.evaluate(() => {
+      const draw = CanvasRenderingContext2D.prototype.drawImage;
+      let fail = true;
+      CanvasRenderingContext2D.prototype.drawImage = function(image, ...args) {
+        if (fail && image?.src?.includes('template-gradient.png')) { fail = false; throw new Error('GRADIENT_FAILURE'); }
+        return draw.call(this, image, ...args);
+      };
+    });
+    await frame.locator('#adjust-templateGradient').evaluate(range => { range.value = '80'; range.dispatchEvent(new Event('input', { bubbles: true })); });
+    await settle(frame);
+    const transform = await frame.locator('#preview').evaluate(canvas => {
+      const m = canvas.getContext('2d').getTransform(); return [m.a,m.b,m.c,m.d,m.e,m.f];
+    });
+    assert.deepEqual(transform, [1,0,0,1,0,0], '异常不能把预览缩放泄漏到下一帧');
+    await frame.locator('[data-reset-template-gradient]').click(); await settle(frame);
+    const after = await samplePixels(frame, points);
+    for (let i = 0; i < points.length; i++) colorNear(after[i], before[i], '故障恢复后照片与固定模板不得继承错误绘制状态');
+  });
+});
 const light = color => color[0] + color[1] + color[2];
 // GPU canvas compositing can round a restored shade channel by one byte.
 // Keep a two-byte RGB allowance while requiring the exact opacity and strong
@@ -533,7 +590,7 @@ test('涂抹局部提亮跟随照片移动且不越界，预览导出共享图�
     await setNumber(frame, 'brightness', 72);
     const fixed = [[1500, 120], [3000, 120], [4500, 120]];
     const overlay = await frame.evaluate(async points => {
-      const bitmap = await createImageBitmap(await (await fetch('./assets/template-overlay.png')).blob());
+      const bitmap = await createImageBitmap(await (await fetch('./assets/template-fixed.png')).blob());
       const canvas = document.createElement('canvas'); canvas.width = points.length; canvas.height = 1;
       const context = canvas.getContext('2d');
       const colors = points.map(([x, y], index) => {

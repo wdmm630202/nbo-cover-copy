@@ -5,7 +5,7 @@ import { createServer } from 'vite';
 import { chromium, executablePath, available } from './helpers/live-browser-driver.mjs';
 
 const MATRIX = [[320,480],[320,568],[390,844],[640,480],[768,1024],[844,390],[1024,768],[1280,720],[1920,1080]];
-const SETTINGS = ['zoom','offsetX','offsetY','rotation','brightness','shade','bottomShade'];
+const SETTINGS = ['zoom','offsetX','offsetY','rotation','brightness','shade','bottomShade','templateGradient'];
 const TARGETS = ['[data-photo-target="0"]','[data-photo-target="1"]','#reset-photo'];
 const BRUSH = [
   '#brush-toggle', ...['size','feather','strength'].flatMap(key => [`#brush-${key}`,`#brush-${key}-value`,`[data-reset-brush="${key}"]`]),
@@ -87,12 +87,12 @@ test('九种窗口中照片、构图、画面和涂抹工具均保留完整预�
             }
             if(tool==='brush'){
               assert.equal(await frame.locator('.brush-settings').evaluate(details=>details.open),true);
-              assert.match(await frame.locator('#brush-hint').textContent(),/模板固定渐变保持不变/);
+              assert.match(await frame.locator('#brush-hint').textContent(),/涂抹不影响模板渐变/);
             }
           }
         }else{
-          assert.equal(await frame.locator('.setting-row:visible').count(),7,`${label}: 桌面同时显示七项照片参数`);
-          const controls=SETTINGS.flatMap(key=>[`#adjust-${key}`,`#adjust-${key}-value`,`[data-reset-setting="${key}"]`]);
+          assert.equal(await frame.locator('.setting-row:visible').count(),8,`${label}: 桌面同时显示照片参数和独立模板渐变`);
+          const controls=SETTINGS.flatMap(key=>[`#adjust-${key}`,`#adjust-${key}-value`,key==='templateGradient'?'[data-reset-template-gradient]':`[data-reset-setting="${key}"]`]);
           const poster=await assertLayout(page,frame,[...exports,...TARGETS,...controls,'#rotation-mode','.brush-settings summary'],`${label} 默认调整区`);
           await frame.locator('.brush-settings summary').click();
           for(const selector of BRUSH){
