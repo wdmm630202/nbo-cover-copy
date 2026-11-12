@@ -747,7 +747,7 @@ async function exportPoster(format) {
   let writable;
   try {
     const fileName = getMakeoverExportFileName(format);
-    const usePicker = !nativeSave && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && window.showSaveFilePicker;
+    const usePicker = /^https?:$/.test(location.protocol) && !nativeSave && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && window.showSaveFilePicker;
     // Open during the click gesture, before asynchronous image encoding.
     const handle = usePicker ? await window.showSaveFilePicker({
       startIn: 'desktop',

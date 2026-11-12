@@ -189,6 +189,8 @@ async function assertDivider(frame, percentage, label) {
 }
 
 async function assertExport(page, frame, format, label) {
+  // This viewport regression verifies the fallback download, not an OS save dialog.
+  await frame.evaluate(() => { window.showSaveFilePicker = undefined; });
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 30000 }),
     frame.locator(`#export-${format}`).click(),

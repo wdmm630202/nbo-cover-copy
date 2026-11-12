@@ -45,3 +45,8 @@ next-env.d.ts
 /.superpowers/
 
 /native/Web/
+
+# Generated complete offline releases
+/docs/南铂制作台离线版.zip
+/docs/南铂素人改造离线版.html
+/public/南铂素人改造离线版.html

@@ -17,6 +17,7 @@ export default function CoverPage() {
         </div>
         <div className="cover-studio-header-actions">
           <span>照片只在当前浏览器处理</span>
+          <a href="/南铂素人改造离线版.html" download>下载离线版</a>
           <CopyWorkspaceSwitch />
         </div>
       </header>
