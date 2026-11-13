@@ -1,6 +1,6 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize } from './export.mjs?v=20261113-mobile-strips';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261113-mobile-strips';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -64,6 +64,12 @@ async function saveInApp(blob) {
 }
 
 const $ = (selector) => document.querySelector(selector);
+const mobileExport = isMobileMakeoverDevice();
+if (mobileExport) {
+  $('#export-note').textContent = '原片像素分块导出 · PNG 无损 / JPG 最高质量';
+  $('#export-png').textContent = '手机 PNG';
+  $('#export-jpg').textContent = '手机 JPG';
+}
 const preview = $('#preview');
 const previewContext = preview.getContext('2d');
 // Keep desktop labels aligned with the fitted poster at every viewport size.
@@ -95,6 +101,7 @@ let frame = 0;
 let revision = 0;
 let exporting = false;
 let downloadURL = null;
+let mobileSaveAsset = null;
 
 function status(message, error = false) {
   $('#status').textContent = message;
@@ -244,12 +251,59 @@ let shareFile = null;
 function clearDownload() {
   shareFile = null;
   $('#share-image').hidden = true;
+  mobileSaveAsset = null;
+  $('#mobile-save-preview').hidden = true;
+  $('#mobile-save-image').removeAttribute('src');
+  $('.workspace').inert = false;
   if (downloadURL) URL.revokeObjectURL(downloadURL);
   downloadURL = null;
   $('#download-result').hidden = true;
   $('#download-link').removeAttribute('href');
   $('#open-image').removeAttribute('href');
 }
+
+function canShareFile(file) {
+  try {
+    return typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] }));
+  } catch { return false; }
+}
+
+function showMobileSave(asset, fileName) {
+  const file = new File([asset.blob], fileName, { type: asset.blob.type });
+  mobileSaveAsset = { file, revision, width: asset.width, height: asset.height };
+  $('#mobile-save-image').src = downloadURL;
+  $('#mobile-save-note').textContent = `${asset.width} × ${asset.height} 像素${asset.resized ? '（手机兼容尺寸）' : ''}。长按成品图片，选择“存储到照片”，或点击下方按钮。`;
+  $('#mobile-share').hidden = !canShareFile(file);
+  $('#mobile-share').disabled = false;
+  $('#mobile-save-preview').hidden = false;
+  $('.workspace').inert = true;
+  $('#mobile-save-close').focus({ preventScroll: true });
+}
+
+function mobileSaveDetails(asset) {
+  return `${asset.width} × ${asset.height} 像素。`;
+}
+
+$('#mobile-save-close').addEventListener('click', () => {
+  clearDownload();
+  $('#export-jpg').focus({ preventScroll: true });
+});
+$('#mobile-share').addEventListener('click', async () => {
+  const asset = mobileSaveAsset;
+  if (!asset || asset.revision !== revision) return;
+  $('#mobile-share').disabled = true;
+  try {
+    // This second, explicit tap supplies a fresh user gesture after image encoding.
+    await navigator.share({ files: [asset.file], title: '南铂素人改造' });
+    if (mobileSaveAsset === asset) $('#mobile-save-note').textContent = mobileSaveDetails(asset) + '分享流程已结束。也可长按成品图片，选择“存储到照片”。';
+  } catch (error) {
+    if (mobileSaveAsset === asset) $('#mobile-save-note').textContent = error?.name === 'AbortError'
+      ? mobileSaveDetails(asset) + '已取消分享，成品仍在。长按图片可存储到照片。'
+      : mobileSaveDetails(asset) + '当前浏览器未能打开分享。请长按成品图片，选择“存储到照片”。';
+  } finally {
+    if (mobileSaveAsset === asset) $('#mobile-share').disabled = false;
+  }
+});
 
 function edited() {
   revision += 1;
@@ -260,7 +314,8 @@ function edited() {
   renderSoon();
 }
 
-function paint(context, width, height, forExport = false) {
+function paint(context, width, height, forExport = false, layers = null) {
+  const fixed = layers?.[0] ?? template, gradient = layers?.[1] ?? templateGradient;
   context.save();
   try {
     context.clearRect(0, 0, width, height);
@@ -296,14 +351,14 @@ function paint(context, width, height, forExport = false) {
       } finally { context.restore(); }
     });
     // PSD gradient is independently controlled; lettering, borders and logos stay above it.
-    if (templateGradient && templateGradientOpacity > 0) {
+    if (gradient && templateGradientOpacity > 0) {
       context.save();
       try {
         context.globalAlpha = templateGradientOpacity / 100;
-        context.drawImage(templateGradient, 0, 0, POSTER.width, POSTER.height);
+        context.drawImage(gradient, 0, 0, POSTER.width, POSTER.height);
       } finally { context.restore(); }
     }
-    if (template) context.drawImage(template, 0, 0, POSTER.width, POSTER.height);
+    if (fixed) context.drawImage(fixed, 0, 0, POSTER.width, POSTER.height);
   } finally { context.restore(); }
 }
 
@@ -404,12 +459,18 @@ async function loadTemplate() {
   status('正在加载原版模板…');
   try {
     const suffix = `?v=20261112-template-gradient${request > 1 ? `&retry=${request}` : ''}`;
-    const [image, gradient] = await Promise.all([
-      decodeImage('./assets/template-fixed.png' + suffix),
-      decodeImage('./assets/template-gradient.png' + suffix),
-    ]);
+    const [image, gradient] = mobileExport
+      ? await Promise.all([
+        decodeImage('./assets/template-fixed-mobile.png' + suffix),
+        decodeImage('./assets/template-gradient-mobile.png' + suffix),
+      ])
+      : await Promise.all([
+        decodeImage('./assets/template-fixed.png' + suffix),
+        decodeImage('./assets/template-gradient.png' + suffix),
+      ]);
     if (request !== templateRequest) return;
-    if ([image, gradient].some(asset => asset.naturalWidth !== POSTER.width || asset.naturalHeight !== POSTER.height)) throw new Error('模板尺寸不符');
+    const expected = mobileExport ? { width: 2160, height: 2880 } : POSTER;
+    if ([image, gradient].some(asset => asset.naturalWidth !== expected.width || asset.naturalHeight !== expected.height)) throw new Error('模板尺寸不符');
     template = image;
     templateGradient = gradient;
     renderSoon();
@@ -747,10 +808,11 @@ async function exportPoster(format) {
   clearDownload();
   updateButtons();
   status(`正在生成 ${format.toUpperCase()}，保留原片细节…`);
-  let writable;
+  let writable, exportLayers;
+  const releaseLayers = () => { exportLayers?.forEach(image => { image.src = 'data:,'; }); exportLayers = null; };
   try {
     const fileName = getMakeoverExportFileName(format);
-    const usePicker = /^https?:$/.test(location.protocol) && !nativeSave && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && window.showSaveFilePicker;
+    const usePicker = /^https?:$/.test(location.protocol) && !nativeSave && !mobileExport && window.showSaveFilePicker;
     // Open during the click gesture, before asynchronous image encoding.
     const handle = usePicker ? await window.showSaveFilePicker({
       startIn: 'desktop',
@@ -760,6 +822,11 @@ async function exportPoster(format) {
       } }],
     }) : null;
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
+    // Low-memory mobile templates are for preview only; final artwork uses the original PSD rasters.
+    if (mobileExport) exportLayers = await Promise.all([
+      decodeImage('./assets/template-fixed.png' + '?v=20261113-mobile-strips'),
+      decodeImage('./assets/template-gradient.png' + '?v=20261113-mobile-strips'),
+    ]);
     const asset = await createMakeoverExportAsset({
       format,
       ...getMakeoverExportSize(photos, split),
@@ -772,10 +839,11 @@ async function exportPoster(format) {
         context.save();
         try {
           if (region) context.translate(-region.x, -region.y);
-          paint(context, region?.width ?? canvas.width, region?.height ?? canvas.height, true);
+          paint(context, region?.width ?? canvas.width, region?.height ?? canvas.height, true, exportLayers);
         } finally { context.restore(); }
       },
     });
+    releaseLayers();
     const { blob } = asset;
     const details = `${asset.width} × ${asset.height} 像素 · ${(blob.size / 1_000_000).toFixed(2)}MB`;
     if (snapshot !== revision || photos.some((photo) => photo.loading)) {
@@ -807,13 +875,15 @@ async function exportPoster(format) {
     try { $('#share-image').hidden = !navigator.canShare?.({ files: [shareFile] }); } catch { $('#share-image').hidden = true; }
     $('#download-result').hidden = false;
     status(`${details}${asset.resized ? '（已等比缩小）' : ''}，已生成。`);
-    link.click();
+    if (mobileExport) showMobileSave(asset, fileName);
+    else link.click();
   } catch (error) {
     try { await writable?.abort(); } catch { /* Preserve the original save error. */ }
     if (error?.name === 'AbortError') status('已取消保存，可再次点击导出。');
     else if (snapshot !== revision || photos.some(photo => photo.loading)) status('照片或构图已更改，请重新导出。');
     else status(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : '导出失败，可能是图片过大或浏览器内存不足。请重新尝试，或更换浏览器。', true);
   } finally {
+    releaseLayers();
     exporting = false;
     updateButtons();
   }

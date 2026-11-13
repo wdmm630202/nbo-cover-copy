@@ -5,13 +5,13 @@ import { execFileSync } from 'node:child_process';
 
 await copyFile('public/studio-offline.js', 'docs/studio-offline.js');
 // A real standalone file: no server, JavaScript modules, CDN or initial connection required.
-const images = await Promise.all(['fixed', 'gradient'].map(async name => `data:image/png;base64,${(await readFile(`public/makeover/assets/template-${name}.png`)).toString('base64')}`));
+const templateNames = ['fixed', 'gradient', 'fixed-mobile', 'gradient-mobile'];
+const images = await Promise.all(templateNames.map(async name => `data:image/png;base64,${(await readFile(`public/makeover/assets/template-${name}.png`)).toString('base64')}`));
 const result = await build({ configFile: false, logLevel: 'silent', plugins: [{
   name: 'standalone-makeover-assets',
   transform(source, id) {
     if (!id.split('?')[0].endsWith('/public/makeover/app.js')) return;
-    return source.replace("decodeImage('./assets/template-fixed.png' + suffix)", `decodeImage(${JSON.stringify(images[0])})`)
-      .replace("decodeImage('./assets/template-gradient.png' + suffix)", `decodeImage(${JSON.stringify(images[1])})`);
+    return templateNames.reduce((text, name, index) => text.replace(`decodeImage('./assets/template-${name}.png' + suffix)`, `decodeImage(${JSON.stringify(images[index])})`).replace(`decodeImage('./assets/template-${name}.png' + '?v=20261113-mobile-strips')`, `decodeImage(${JSON.stringify(images[index])})`), source);
   },
 }], build: { write: false, minify: false, lib: { entry: 'public/makeover/app.js', name: 'NanboOffline', formats: ['iife'] } } });
 const bundle = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk').code;

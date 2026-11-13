@@ -40,7 +40,7 @@
       </section>
       <section class="panel export-panel" aria-labelledby="export-heading">
         <div class="section-title"><span class="step">03</span><h2 id="export-heading">导出对比图</h2></div>
-        <p class="muted small">原片像素 · 不限大小 · PNG 无损 / JPG 最高质量</p>
+        <p id="export-note" class="muted small">原片像素 · 不限大小 · PNG 无损 / JPG 最高质量</p>
         <div class="export-buttons"><button id="export-png" class="secondary" disabled>成品 PNG</button><button id="export-jpg" class="primary" disabled>高清 JPG</button></div>
         <p id="status" class="status" role="status" aria-live="polite">正在加载原版模板…</p>
         <button id="retry-template" class="quiet" hidden>重新加载模板</button>
@@ -125,6 +125,12 @@
       <button type="button" data-tool="photos" aria-pressed="true">照片</button><button type="button" data-tool="compose" aria-pressed="false">构图</button><button type="button" data-tool="tone" aria-pressed="false">画面</button><button type="button" data-tool="brush" aria-pressed="false">涂抹</button>
     </nav>
   </main>
+  <section id="mobile-save-preview" class="mobile-save-preview" role="dialog" aria-modal="true" aria-labelledby="mobile-save-title" hidden>
+    <header><h2 id="mobile-save-title">保存成品</h2><button id="mobile-save-close" type="button" class="secondary">返回编辑</button></header>
+    <p id="mobile-save-note" role="status">长按成品图片，选择“存储到照片”。</p>
+    <div class="mobile-save-picture"><img id="mobile-save-image" alt="已生成的素人改造成品，长按可保存到照片" /></div>
+    <button id="mobile-share" type="button" class="primary">存储到照片 / 分享</button>
+  </section>
   <script type="module" src="./app.js?v=20261113-mobile-strips"></script>
 </body>
 </html>

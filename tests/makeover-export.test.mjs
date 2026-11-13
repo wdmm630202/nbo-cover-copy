@@ -1,3 +1,4 @@
+import * as makeoverExport from '../public/makeover/export.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize } from '../public/makeover/export.mjs';
@@ -76,4 +77,20 @@ test('mobile cancellation releases its small canvas without allocating a full po
     }),/构图已更改/);
     assert.ok(largest<300000);assert.equal(canvas.width,0);assert.equal(canvas.height,0);
   });
+});
+
+test('mobile detection includes Android, iPhone, iPad and desktop-mode iPadOS only', () => {
+  const detect = makeoverExport.isMobileMakeoverDevice;
+  assert.equal(typeof detect, 'function');
+  for (const navigator of [
+    { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' },
+    { userAgent: 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)' },
+    { userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9)' },
+    { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15', maxTouchPoints: 5 },
+  ]) assert.equal(detect({ navigator }), true);
+  for (const environment of [
+    {},
+    { navigator: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7)', maxTouchPoints: 0 } },
+    { navigator: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', maxTouchPoints: 10 } },
+  ]) assert.equal(detect(environment), false);
 });

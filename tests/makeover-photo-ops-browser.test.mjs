@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { chromium, executablePath, available } from './helpers/live-browser-driver.mjs';
+import { clickInFrame, frameBoundingBox } from './helpers/makeover-browser-geometry.mjs';
 
 async function withEditor(t, touch, run, { injectEffectsFailure = false } = {}) {
   if (!available) { t.skip('需本机 Chrome 和 Playwright'); return; }
@@ -27,7 +28,7 @@ async function withEditor(t, touch, run, { injectEffectsFailure = false } = {}) 
   try {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     browser = await chromium.launch({ executablePath, headless: true });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 1 });
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 1, serviceWorkers: 'block' });
     page.setDefaultTimeout(6000);
     // Most tests exercise the unsupported-browser download fallback.
     await page.addInitScript(() => { window.showSaveFilePicker = undefined; });
@@ -79,7 +80,7 @@ async function uploadPair(page, frame) {
 }
 
 async function target(frame, side) {
-  await frame.locator(`[data-photo-target="${side}"]`).click();
+  await clickInFrame(frame.page(), frame, `[data-photo-target="${side}"]`);
   await settle(frame);
 }
 const field = (frame, key) => frame.locator(`#adjust-${key}-value`);
@@ -100,7 +101,7 @@ test('导入即填满，数值、滑块、滚轮和键盘均不能缩小到露�
     assert.equal(Number(await field(frame, 'zoom').inputValue()), 100, '低于铺满大小的数值必须回到最小缩放');
     await frame.locator('#adjust-zoom').evaluate(range => { range.value = '0'; range.dispatchEvent(new Event('input', { bubbles: true })); });
     assert.equal(Number(await field(frame, 'zoom').inputValue()), 100);
-    const rect = await frame.locator('#preview').boundingBox();
+    const rect = await frameBoundingBox(frame, '#preview');
     await page.mouse.move(rect.x + rect.width * .25, rect.y + rect.height * .4);
     await page.mouse.wheel(0, 1000);
     await frame.locator('#preview').focus();
@@ -113,7 +114,7 @@ test('导入即填满，数值、滑块、滚轮和键盘均不能缩小到露�
     await settle(frame);
     const colors = await samplePixels(frame, [[.01,.08],[.49,.08],[.01,.3],[.49,.3]]);
     assert.ok(colors.every(color => Math.max(...color.slice(0, 3)) > 40), `框内应始终显示照片，不能露出黑底：${JSON.stringify(colors)}`);
-    await frame.locator('#reset-photo').click();
+    await clickInFrame(frame.page(), frame, '#reset-photo');
     assert.equal(Number(await field(frame, 'zoom').inputValue()), 100);
     assert.equal(Number(await field(frame, 'offsetX').inputValue()), 0);
     assert.equal(Number(await field(frame, 'offsetY').inputValue()), 0);
@@ -127,7 +128,7 @@ test('素人改造照片操作保留精确数值，拖动锁定当前图，轻�
     await setNumber(frame, 'zoom', 200);
     await setNumber(frame, 'rotation', 88);
     await setNumber(frame, 'offsetX', 13);
-    await frame.locator('[data-reset-setting="offsetX"]').click();
+    await clickInFrame(frame.page(), frame, '[data-reset-setting="offsetX"]');
     assert.equal(Number(await field(frame, 'offsetX').inputValue()), 0);
     assert.equal(Number(await field(frame, 'rotation').inputValue()), 88, '单项复位保留其它构图参数');
     await setNumber(frame, 'rotation', 0);
@@ -135,7 +136,7 @@ test('素人改造照片操作保留精确数值，拖动锁定当前图，轻�
     await setNumber(frame, 'offsetX', 17);
     await target(frame, 0);
     const canvas = frame.locator('#preview');
-    const rect = await canvas.boundingBox();
+    const rect = await frameBoundingBox(frame, canvas);
     await page.mouse.move(rect.x + rect.width * .25, rect.y + rect.height * .4);
     await page.mouse.down();
     await page.mouse.move(rect.x + rect.width * .8, rect.y + rect.height * .48, { steps: 12 });
@@ -148,7 +149,7 @@ test('素人改造照片操作保留精确数值，拖动锁定当前图，轻�
     assert.equal(Number(await field(frame, 'offsetY').inputValue()), 0);
 
     await target(frame, 0);
-    await frame.locator('#reset-photo').click();
+    await clickInFrame(frame.page(), frame, '#reset-photo');
     await settle(frame);
     await page.mouse.move(rect.x + rect.width * .25, rect.y + rect.height * .4);
     await page.mouse.wheel(0, -1000);
@@ -169,7 +170,7 @@ test('素人改造照片操作保留精确数值，拖动锁定当前图，轻�
     await page.mouse.dblclick(rect.x + rect.width * .25, rect.y + rect.height * .4);
     await settle(frame);
     assert.equal(await frame.locator('#rotation-mode').getAttribute('aria-pressed'), 'false');
-    await frame.locator('#reset-photo').click();
+    await clickInFrame(frame.page(), frame, '#reset-photo');
     assert.equal(Number(await field(frame, 'rotation').inputValue()), 0);
     assert.equal(Number(await field(frame, 'zoom').inputValue()), 100);
     await target(frame, 1);
@@ -181,7 +182,7 @@ test('双指缩放只调整手势起点照片并保留另一侧构图', { timeou
   await withEditor(t, true, async ({ page, frame }) => {
     await uploadPair(page, frame);
     await target(frame, 0);
-    const rect = await frame.locator('#preview').boundingBox();
+    const rect = await frameBoundingBox(frame, '#preview');
     const x = rect.x + rect.width * .25;
     const y = rect.y + rect.height * .4;
     const cdp = await page.context().newCDPSession(page);
@@ -224,14 +225,14 @@ test('模板渐变可独立调整、复位与导出，照片参数和固定标�
     assert.equal(await presets.count(), 5, '渐变滑块下应提供五个快速数值');
     assert.equal(await frame.locator('[data-template-gradient-preset="100"]').getAttribute('aria-pressed'), 'true');
     for (const value of [0,25,50,75,100]) {
-      await frame.locator(`[data-template-gradient-preset="${value}"]`).click();
+      await clickInFrame(frame.page(), frame, `[data-template-gradient-preset="${value}"]`);
       assert.equal(await number.inputValue(), String(value));
       assert.equal(await control.inputValue(), String(value));
       assert.equal(await frame.locator('[data-template-gradient-preset][aria-pressed="true"]').count(), 1);
     }
     await number.fill('37'); await number.press('Enter');
     assert.equal(await frame.locator('[data-template-gradient-preset][aria-pressed="true"]').count(), 0, '手动数值不能保留错误的预设选中态');
-    await frame.locator('[data-reset-template-gradient]').click(); await settle(frame);
+    await clickInFrame(frame.page(), frame, '[data-reset-template-gradient]'); await settle(frame);
     const points = [[.25,.62],[.75,.62],[.25,.015],[.5,.015],[.75,.015]];
     const original = await samplePixels(frame, points);
     await number.fill('0'); await number.press('Enter'); await settle(frame);
@@ -243,14 +244,14 @@ test('模板渐变可独立调整、复位与导出，照片参数和固定标�
     assert.equal(await field(frame, 'bottomShade').inputValue(), '0');
     await target(frame, 1);
     assert.equal(await number.inputValue(), '0', '整体渐变不能跟随照片切换被复位');
-    await frame.locator('#reset-photo').click();
+    await clickInFrame(frame.page(), frame, '#reset-photo');
     assert.equal(await number.inputValue(), '0', '照片复位不能覆盖独立的模板渐变');
     await number.fill('50'); await number.press('Enter'); await settle(frame);
     const middle = await samplePixels(frame, points);
     for (const i of [0, 1]) assert.ok(light(middle[i]) > light(original[i]) && light(middle[i]) < light(clear[i]));
     const exported = await inspectExport(frame, 'png', [[1500,4960],[4500,4960]]);
     for (const i of [0, 1]) colorNear(exported.colors[i], middle[i], '导出应使用当前模板渐变强度');
-    await frame.locator('[data-reset-template-gradient]').click(); await settle(frame);
+    await clickInFrame(frame.page(), frame, '[data-reset-template-gradient]'); await settle(frame);
     assert.equal(await number.inputValue(), '100');
     const reset = await samplePixels(frame, points);
     for (let i = 0; i < points.length; i++) colorNear(reset[i], original[i], '复位应恢复原有模板效果');
@@ -276,7 +277,7 @@ test('渐变图层绘制失败后画布变换仍复原，下次调整可正常�
       const m = canvas.getContext('2d').getTransform(); return [m.a,m.b,m.c,m.d,m.e,m.f];
     });
     assert.deepEqual(transform, [1,0,0,1,0,0], '异常不能把预览缩放泄漏到下一帧');
-    await frame.locator('[data-reset-template-gradient]').click(); await settle(frame);
+    await clickInFrame(frame.page(), frame, '[data-reset-template-gradient]'); await settle(frame);
     const after = await samplePixels(frame, points);
     for (let i = 0; i < points.length; i++) colorNear(after[i], before[i], '故障恢复后照片与固定模板不得继承错误绘制状态');
   });
@@ -291,7 +292,7 @@ function colorNear(actual, expected, message) {
 }
 
 async function brushStroke(page, frame, from, to) {
-  const rect = await frame.locator('#preview').boundingBox();
+  const rect = await frameBoundingBox(frame, '#preview');
   await page.mouse.move(rect.x + rect.width * from[0], rect.y + rect.height * from[1]);
   await page.mouse.down();
   await page.mouse.move(rect.x + rect.width * to[0], rect.y + rect.height * to[1], { steps: 10 });
@@ -303,8 +304,8 @@ async function enableOpaqueBrush(frame, size = 120) {
   await target(frame, 0);
   await setNumber(frame, 'shade', 100);
   const details = frame.locator('.brush-settings');
-  if (!await details.evaluate(element => element.open)) await details.locator('summary').click();
-  await frame.locator('#brush-toggle').click();
+  if (!await details.evaluate(element => element.open)) await clickInFrame(frame.page(), frame, details.locator('summary'));
+  await clickInFrame(frame.page(), frame, '#brush-toggle');
   for (const [key, value] of [['size', size], ['feather', 0], ['strength', 100]]) {
     await frame.locator(`#brush-${key}-value`).fill(String(value));
     await frame.locator(`#brush-${key}-value`).press('Enter');
@@ -324,17 +325,17 @@ test('回归：涂抹前切换构图、照片或旋转后显示真实笔迹并�
     await page.setViewportSize({ width: 1000, height: 1000 });
     const restored = [];
     for (const tool of ['compose', 'photos']) {
-      await frame.locator('button[data-tool="brush"]').click();
-      await frame.locator('#brush-before').click();
+      await clickInFrame(frame.page(), frame, 'button[data-tool="brush"]');
+      await clickInFrame(frame.page(), frame, '#brush-before');
       await settle(frame);
       colorNear((await samplePixels(frame, [point]))[0], before, '切换前应处于涂抹前对比状态');
-      await frame.locator(`button[data-tool="${tool}"]`).click();
+      await clickInFrame(frame.page(), frame, `button[data-tool="${tool}"]`);
       await settle(frame);
       restored.push([tool, (await samplePixels(frame, [point]))[0]]);
     }
     await page.setViewportSize({ width: 1280, height: 800 });
-    await frame.locator('#brush-before').click();
-    await frame.locator('#rotation-mode').click();
+    await clickInFrame(frame.page(), frame, '#brush-before');
+    await clickInFrame(frame.page(), frame, '#rotation-mode');
     await settle(frame);
     restored.push(['rotation', (await samplePixels(frame, [point]))[0]]);
     const exported = await inspectExport(frame, 'png', [[1350, 3200]]);
@@ -351,7 +352,7 @@ for (const operation of ['reset', 'number', 'split']) {
       await uploadPair(page, frame);
       await target(frame, 0);
       await setNumber(frame, 'offsetX', 20);
-      const rect = await frame.locator('#preview').boundingBox();
+      const rect = await frameBoundingBox(frame, '#preview');
       const at = (x, y = .4) => [rect.x + rect.width * x, rect.y + rect.height * y];
       await page.mouse.move(...at(.2));
       await page.mouse.down();
@@ -359,7 +360,8 @@ for (const operation of ['reset', 'number', 'split']) {
         await page.mouse.move(...at(.28), { steps: 3 });
         await settle(frame);
         assert.ok(Number(await field(frame, 'offsetX').inputValue()) > 20, '测试时鼠标拖动必须已生效');
-        if (operation === 'reset') await frame.locator('[data-reset-setting="offsetX"]').evaluate(button => button.click());
+        // Use a second input device so the original mouse press stays active.
+        if (operation === 'reset') await frame.locator('[data-reset-setting="offsetX"]').press('Enter');
         else if (operation === 'number') await setNumber(frame, 'offsetX', 70);
         else await frame.locator('#split').evaluate(range => { range.value = '70'; range.dispatchEvent(new Event('input', { bubbles: true })); });
         await settle(frame);
@@ -378,7 +380,7 @@ for (const [gesture, operation] of [['drag', 'reset'], ['pinch', 'number'], ['pi
     await withEditor(t, true, async ({ page, frame }) => {
       await uploadPair(page, frame);
       await target(frame, 0);
-      const rect = await frame.locator('#preview').boundingBox();
+      const rect = await frameBoundingBox(frame, '#preview');
       const x = rect.x + rect.width * .25, y = rect.y + rect.height * .4;
       const cdp = await page.context().newCDPSession(page);
       const touch = async (type, points) => {
@@ -395,7 +397,8 @@ for (const [gesture, operation] of [['drag', 'reset'], ['pinch', 'number'], ['pi
           await touch('touchMove', [[0, -20], [1, 20]]);
         }
         assert.ok(Number(await field(frame, key).inputValue()) > (key === 'zoom' ? 110 : 0), '测试时真实触摸手势必须已生效');
-        if (operation === 'reset') await frame.locator(`[data-reset-setting="${key}"]`).evaluate(button => button.click());
+        // Keyboard activation leaves the original touch gesture pressed.
+        if (operation === 'reset') await frame.locator(`[data-reset-setting="${key}"]`).press('Enter');
         else if (operation === 'number') await setNumber(frame, key, 135);
         else await frame.locator('#split').evaluate(range => { range.value = '70'; range.dispatchEvent(new Event('input', { bubbles: true })); });
         await settle(frame);
@@ -419,7 +422,7 @@ test('回归：聚焦左图数值草稿后滚轮选中右图，失焦仅提交�
     await target(frame, 0);
     await field(frame, 'offsetX').fill('37');
     assert.equal(await field(frame, 'offsetX').evaluate(input => document.activeElement === input), true, '滚轮前左图草稿必须仍聚焦且未提交');
-    const rect = await frame.locator('#preview').boundingBox();
+    const rect = await frameBoundingBox(frame, '#preview');
     await page.mouse.move(rect.x + rect.width * .75, rect.y + rect.height * .4);
     await page.mouse.wheel(0, -50);
     await settle(frame);
@@ -467,7 +470,7 @@ test('回归：涂抹离开当前照片再进入时不连接跨界前后的笔�
     const middle = [.2, .45];
     const start = [.175, .3];
     const [untouched, unbrushed] = await samplePixels(frame, [middle, start]);
-    const rect = await frame.locator('#preview').boundingBox();
+    const rect = await frameBoundingBox(frame, '#preview');
     const at = (x, y) => [rect.x + rect.width * x, rect.y + rect.height * y];
     await page.mouse.move(...at(.15, .3));
     await page.mouse.down();
@@ -483,7 +486,7 @@ test('回归：涂抹离开当前照片再进入时不连接跨界前后的笔�
 });
 
 async function inspectExport(frame, format, fixedPoints) {
-  await frame.locator(`#export-${format}`).click();
+  await clickInFrame(frame.page(), frame, `#export-${format}`);
   await frame.locator('#download-result').waitFor({ state: 'visible' });
   return frame.locator('#download-link').evaluate(async (link, points) => {
     const bitmap = await createImageBitmap(await (await fetch(link.href)).blob());
@@ -502,7 +505,7 @@ test('成品按南铂素人改造加北京时间命名，连续导出不重复',
     await uploadPair(page, frame);
     const names = [];
     for (let i = 0; i < 2; i++) {
-      await frame.locator('#export-jpg').click();
+      await clickInFrame(frame.page(), frame, '#export-jpg');
       await frame.locator('#download-result').waitFor({ state: 'visible' });
       const result = await frame.locator('#download-link').evaluate(async link => ({
         name: link.download, size: (await (await fetch(link.href)).blob()).size,
@@ -526,7 +529,7 @@ test('导出超过19.9MB仍保持尺寸，JPG只编码一次且质量为1', { ti
       };
     });
     for (const format of ['jpg', 'png']) {
-      await frame.locator(`#export-${format}`).click();
+      await clickInFrame(frame.page(), frame, `#export-${format}`);
       await frame.locator('#download-result').waitFor({ state: 'visible' });
       const size = await frame.locator('#download-link').evaluate(async link => (await (await fetch(link.href)).blob()).size);
       assert.equal(size, 20_000_000);
@@ -545,8 +548,8 @@ test('涂抹局部提亮跟随照片移动且不越界，预览导出共享图�
     await setNumber(frame, 'shade', 100);
     await setNumber(frame, 'bottomShade', 100);
     const details = frame.locator('.brush-settings');
-    if (!await details.evaluate(element => element.open)) await details.locator('summary').click();
-    await frame.locator('#brush-toggle').click();
+    if (!await details.evaluate(element => element.open)) await clickInFrame(frame.page(), frame, details.locator('summary'));
+    await clickInFrame(frame.page(), frame, '#brush-toggle');
     for (const [key, value] of [['size', 120], ['feather', 0], ['strength', 100]]) {
       await frame.locator(`#brush-${key}-value`).fill(String(value));
       await frame.locator(`#brush-${key}-value`).press('Enter');
@@ -557,23 +560,23 @@ test('涂抹局部提亮跟随照片移动且不越界，预览导出共享图�
     await brushStroke(page, frame, [.2, .4], [.25, .4]);
     const [brushed] = await samplePixels(frame, [point]);
     assert.ok(light(brushed) > light(unbrushed) + 20, `真实笔迹应擦除额外压暗，而不是仅更新状态: before=${unbrushed}, after=${brushed}, status=${await frame.locator('#status').textContent()}, toggle=${await frame.locator('#brush-toggle').getAttribute('aria-pressed')}, undoDisabled=${await frame.locator('#brush-undo').isDisabled()}`);
-    await frame.locator('#brush-before').click();
+    await clickInFrame(frame.page(), frame, '#brush-before');
     await settle(frame);
     colorNear((await samplePixels(frame, [point]))[0], unbrushed, '涂抹前视图应恢复未擦除效果');
-    await frame.locator('#brush-after').click();
+    await clickInFrame(frame.page(), frame, '#brush-after');
     await settle(frame);
     colorNear((await samplePixels(frame, [point]))[0], brushed, '涂抹后视图应恢复真实提亮');
-    await frame.locator('#brush-undo').click();
+    await clickInFrame(frame.page(), frame, '#brush-undo');
     await settle(frame);
     colorNear((await samplePixels(frame, [point]))[0], unbrushed, '撤销必须撤销真实像素效果');
     await brushStroke(page, frame, [.2, .4], [.25, .4]);
     await setNumber(frame, 'offsetX', 20);
     // A +20% pane offset is +10% of the full poster at the half split.
     const moved = [.325, .4];
-    await frame.locator('#brush-before').click();
+    await clickInFrame(frame.page(), frame, '#brush-before');
     await settle(frame);
     const beforeMove = await samplePixels(frame, [point, moved]);
-    await frame.locator('#brush-after').click();
+    await clickInFrame(frame.page(), frame, '#brush-after');
     await settle(frame);
     const afterMove = await samplePixels(frame, [point, moved]);
     colorNear(afterMove[0], beforeMove[0], '旧画布位置不得残留刷痕');
@@ -581,11 +584,11 @@ test('涂抹局部提亮跟随照片移动且不越界，预览导出共享图�
     await brushStroke(page, frame, [.2, .4], [.8, .4]);
     const rightAfter = await samplePixels(frame, [[.6, .4], [.75, .4]]);
     rightAfter.forEach((color, index) => colorNear(color, rightBefore[index], '笔迹跨过竖线也不得改写另一张图'));
-    await frame.locator('#brush-clear').click();
+    await clickInFrame(frame.page(), frame, '#brush-clear');
     await settle(frame);
     colorNear((await samplePixels(frame, [moved]))[0], beforeMove[1], '清除当前图恢复其额外压暗');
 
-    await frame.locator('#brush-toggle').click();
+    await clickInFrame(frame.page(), frame, '#brush-toggle');
     await setNumber(frame, 'rotation', 33);
     await setNumber(frame, 'brightness', 72);
     const fixed = [[1500, 120], [3000, 120], [4500, 120]];
@@ -625,10 +628,10 @@ test('桌面导出先打开默认桌面的保存窗口，取消不下载，保�
         }) };
       };
     });
-    await frame.locator('#export-jpg').click();
+    await clickInFrame(frame.page(), frame, '#export-jpg');
     await frame.waitForFunction(() => document.querySelector('[role="status"]').textContent.includes('取消'));
     assert.equal(await frame.locator('#download-result').isVisible(), false);
-    await frame.locator('#export-jpg').click();
+    await clickInFrame(frame.page(), frame, '#export-jpg');
     await frame.waitForFunction(() => window.savedClosed === true, { timeout: 20000 });
     const result = await frame.evaluate(() => ({ calls: window.saveCalls, bytes: window.savedBytes }));
     assert.ok(result.bytes > 0);
@@ -639,7 +642,7 @@ test('桌面导出先打开默认桌面的保存窗口，取消不下载，保�
         abort: async () => { window.failedSaveAborted = true; },
       }) });
     });
-    await frame.locator('#export-jpg').click();
+    await clickInFrame(frame.page(), frame, '#export-jpg');
     await frame.waitForFunction(() => window.failedSaveAborted === true);
     assert.equal(await frame.locator('#download-result').isVisible(), false);
     assert.match(await frame.locator('#status').textContent(), /保存失败/);

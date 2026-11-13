@@ -1,6 +1,11 @@
 import { createStripExport } from './strip-export.mjs?v=20261113-mobile-strips';
 import { POSTER, getPanes, getPhotoTransform } from './geometry.mjs?v=20261112-cover-minimum';
 
+export function isMobileMakeoverDevice(environment = globalThis) {
+  const { userAgent = '', maxTouchPoints = 0 } = environment.navigator || {};
+  return /Android|iPhone|iPad|iPod/i.test(userAgent) || (/Macintosh/i.test(userAgent) && maxTouchPoints > 1);
+}
+
 // Expand the composition whenever its current photo placement would discard source pixels.
 export function getMakeoverExportSize(photos, split = .5) {
   const panes = getPanes(split);

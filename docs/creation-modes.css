@@ -7,7 +7,7 @@
 .creation-makeover-panel{width:min(1480px,calc(100% - 40px));margin:0 auto;min-width:0}
 .creation-makeover-frame{display:block;width:100%;border:0;background:#f3f4f1;min-height:300px}
 body.creation-makeover-active:has(.cover-page:not(.is-hidden)){overflow:hidden!important;overscroll-behavior:contain!important;touch-action:auto!important;height:100dvh!important;background:#f3f4f1}
-body.creation-makeover-active .cover-page{zoom:1!important;--cover-desktop-scale:1!important;display:flex;flex-direction:column;box-sizing:border-box;height:100dvh!important;min-height:0!important;max-height:100dvh!important;padding-bottom:8px}
+body.creation-makeover-active .cover-page{display:flex;flex-direction:column;box-sizing:border-box;height:100dvh!important;min-height:0!important;max-height:100dvh!important;padding-bottom:8px}
 /* The native bundle explicitly shows #coverPage; keep its authenticated shell flexible too. */
 body.creation-makeover-active #coverPage:not(.is-hidden){display:flex!important}
 body.creation-makeover-active :is(.studio-header,.cover-studio-header,.creation-mode-bar){flex-shrink:0}
@@ -25,6 +25,9 @@ body.creation-makeover-active .save-preview{display:none!important}
 @media(max-width:760px){.creation-makeover-panel{width:calc(100% - 20px)}}
 @media(max-width:720px),(max-height:520px){body.creation-makeover-active .cover-page>:is(.studio-header,.cover-studio-header){display:none}}
 @media(min-width:800px) and (pointer:fine){
+  /* Keep the cover workspace's scale and logical height, including inside the iframe. */
+  body.creation-makeover-active .cover-page{height:var(--cover-desktop-height,100dvh)!important;max-height:var(--cover-desktop-height,100dvh)!important}
+  body.creation-makeover-active .cover-page>:is(.studio-header,.cover-studio-header){display:flex}
   /* Preserve the existing one-screen desktop footer after adding the 44px bar + 12px gap. */
   body.creation-modes-ready:not(.creation-makeover-active) #coverPanel :is(.studio-grid,.cover-studio-grid)[data-cover-layout="desktop"]{height:calc(var(--cover-desktop-height,100vh) - 226px)}
 }
