@@ -1,6 +1,6 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize } from './export.mjs?v=20261113-original-quality';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize } from './export.mjs?v=20261113-mobile-strips';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -240,7 +240,10 @@ function readyStatus() {
   else status(`请选择${photos.map((photo, side) => !photo.image ? names[side] : '').filter(Boolean).join('和')}。`);
 }
 
+let shareFile = null;
 function clearDownload() {
+  shareFile = null;
+  $('#share-image').hidden = true;
   if (downloadURL) URL.revokeObjectURL(downloadURL);
   downloadURL = null;
   $('#download-result').hidden = true;
@@ -760,11 +763,17 @@ async function exportPoster(format) {
     const asset = await createMakeoverExportAsset({
       format,
       ...getMakeoverExportSize(photos, split),
+      tiled: navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+      onProgress: percent => status(`正在生成原片 ${format.toUpperCase()} · ${percent}%…`),
       isCancelled: () => snapshot !== revision || photos.some(photo => photo.loading),
-      render: canvas => {
+      render: (canvas, region) => {
         const context = canvas.getContext('2d');
         if (!context) throw new Error('无法创建画布，请关闭其他页面后重试。');
-        paint(context, canvas.width, canvas.height, true);
+        context.save();
+        try {
+          if (region) context.translate(-region.x, -region.y);
+          paint(context, region?.width ?? canvas.width, region?.height ?? canvas.height, true);
+        } finally { context.restore(); }
       },
     });
     const { blob } = asset;
@@ -794,6 +803,8 @@ async function exportPoster(format) {
     link.href = downloadURL;
     link.download = fileName;
     $('#open-image').href = downloadURL;
+    shareFile = new File([blob], fileName, { type: blob.type });
+    try { $('#share-image').hidden = !navigator.canShare?.({ files: [shareFile] }); } catch { $('#share-image').hidden = true; }
     $('#download-result').hidden = false;
     status(`${details}${asset.resized ? '（已等比缩小）' : ''}，已生成。`);
     link.click();
@@ -807,6 +818,18 @@ async function exportPoster(format) {
     updateButtons();
   }
 }
+
+$('#share-image').addEventListener('click', async () => {
+  if (!shareFile || !navigator.share) return;
+  const file = shareFile;
+  try {
+    // A fresh tap provides Safari's required user activation after slow encoding.
+    await navigator.share({ files: [file], title: '南铂素人改造' });
+    status('已打开系统分享，请选择“存储图像”；也可打开图片后长按保存。');
+  } catch (error) {
+    status(error?.name === 'AbortError' ? '已取消分享，成品仍可下载或打开保存。' : '请点“打开图片保存”，再长按图片保存。');
+  }
+});
 
 $('#export-png').addEventListener('click', () => exportPoster('png'));
 $('#export-jpg').addEventListener('click', () => exportPoster('jpg'));

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f4f1">
   <title>南铂素人改造对比图</title>
-  <link rel="stylesheet" href="./style.css?v=20261113-original-quality">
+  <link rel="stylesheet" href="./style.css?v=20261113-mobile-strips">
 </head>
 <body>
   <header class="page-header">
@@ -44,7 +44,7 @@
         <div class="export-buttons"><button id="export-png" class="secondary" disabled>成品 PNG</button><button id="export-jpg" class="primary" disabled>高清 JPG</button></div>
         <p id="status" class="status" role="status" aria-live="polite">正在加载原版模板…</p>
         <button id="retry-template" class="quiet" hidden>重新加载模板</button>
-        <div id="download-result" class="download-result" hidden><a id="download-link" download>再次下载图片</a><a id="open-image" target="_blank" rel="noopener">打开图片保存</a><p class="muted small">手机若未自动下载，可打开图片后长按保存。</p></div>
+        <div id="download-result" class="download-result" hidden><button id="share-image" type="button" class="primary" hidden>保存到照片 / 分享</button><a id="download-link" download>再次下载图片</a><a id="open-image" target="_blank" rel="noopener">打开图片保存</a><p class="muted small">手机若未自动下载，可打开图片后长按保存。</p></div>
       </section>
     </div>
     <section class="preview-section" aria-labelledby="preview-heading">
@@ -125,6 +125,6 @@
       <button type="button" data-tool="photos" aria-pressed="true">照片</button><button type="button" data-tool="compose" aria-pressed="false">构图</button><button type="button" data-tool="tone" aria-pressed="false">画面</button><button type="button" data-tool="brush" aria-pressed="false">涂抹</button>
     </nav>
   </main>
-  <script type="module" src="./app.js?v=20261113-original-quality"></script>
+  <script type="module" src="./app.js?v=20261113-mobile-strips"></script>
 </body>
 </html>

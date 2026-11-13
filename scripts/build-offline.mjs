@@ -19,6 +19,8 @@ let html = await readFile('public/makeover/index.html', 'utf8');
 html = html.replace(/<link rel="stylesheet"[^>]*>/, `<style>${await readFile('public/makeover/style.css', 'utf8')}</style>`)
   .replace(/<script type="module"[^>]*><\/script>/, () => `<script>${bundle.replace(/<\/script/gi, '<\\/script')}</script>`)
   .replace(/<a class="back"[^>]*>[^<]*<\/a>/, '<span class="back">本地离线版 · 照片仅在本机处理</span>');
+const jpegLicense = await readFile('public/makeover/vendor/LICENSE.jpeg-js.txt', 'utf8');
+html = html.replace('</head>', `<!-- Third-party encoder notices\n${jpegLicense.replace(/--/g, '—')}\n--></head>`);
 await writeFile('docs/南铂素人改造离线版.html', html);
 await mkdir('outputs', { recursive: true });
 await copyFile('docs/南铂素人改造离线版.html', 'outputs/南铂素人改造离线版.html');
@@ -32,7 +34,7 @@ async function collect(directory) {
   }
 }
 await collect('makeover'); await collect('live');
-files.push('live/南铂实况保存助手.zip');
+files.push('live/南铂实况保存助手.zip', 'makeover/vendor/LICENSE.jpeg-js.txt');
 files.sort();
 const integrity = {};
 for (const file of files) integrity[file] = createHash('sha256').update(await readFile(`docs/${file}`)).digest('hex');

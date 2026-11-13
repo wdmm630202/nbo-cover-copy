@@ -64,3 +64,16 @@ test('a changed composition cancels an export before encoding and releases its c
     assert.equal(canvas.height, 0);
   });
 });
+
+
+test('mobile cancellation releases its small canvas without allocating a full poster', async()=>{
+  let cancelled=false, largest=0;
+  const canvas={width:0,height:0,getContext:()=>({getImageData:(_x,_y,w,h)=>({data:new Uint8Array(w*h*4)})})};
+  await withCanvas(canvas,async()=>{
+    await assert.rejects(createMakeoverExportAsset({format:'png',width:6000,height:8000,tiled:true,
+      isCancelled:()=>cancelled,
+      render:(target,region)=>{assert.ok(region);largest=Math.max(largest,target.width*target.height);cancelled=true;},
+    }),/构图已更改/);
+    assert.ok(largest<300000);assert.equal(canvas.width,0);assert.equal(canvas.height,0);
+  });
+});

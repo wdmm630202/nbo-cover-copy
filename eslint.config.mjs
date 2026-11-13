@@ -13,6 +13,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "scripts/live-hero-source/gsap.min.js",
+    "**/makeover/vendor/jpeg-encoder.mjs",
   ]),
 ]);
 

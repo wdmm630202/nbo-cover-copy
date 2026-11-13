@@ -678,3 +678,63 @@ test('PNG编码解码保留渲染像素逐字节一致', { timeout: 30000 }, asy
     assert.deepEqual(result, { equal: true, type: 'image/png' });
   });
 });
+
+test('手机绕过大画布限制：只用小块画布仍导出完整6K PNG和最高质量JPG', { timeout: 120000 }, async t => {
+  await withEditor(t, true, async ({page, frame}) => {
+    await uploadPair(page, frame);
+    await frame.evaluate(() => {
+      window.exportCanvasMaximum = 0;
+      Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>true});
+      Object.defineProperty(navigator,'share',{configurable:true,value:async ({files})=>{
+        window.sharedImage={name:files[0].name,type:files[0].type,size:files[0].size,activated:navigator.userActivation.isActive};
+      }});
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(...args) {
+        window.exportCanvasMaximum = Math.max(window.exportCanvasMaximum, this.width * this.height);
+        if (this.width > 4096 || this.height > 4096 || this.width * this.height > 4_000_000) return null;
+        return original.apply(this,args);
+      };
+    });
+    for (const format of ['png','jpg']) {
+      await frame.locator(`#export-${format}`).click();
+      await frame.locator('#download-result').waitFor({state:'visible',timeout:45000});
+      const output = await frame.locator('#download-link').evaluate(async link => {
+        const blob = await(await fetch(link.href)).blob(); const image = await createImageBitmap(blob);
+        const output={width:image.width,height:image.height,type:blob.type,size:blob.size};image.close();return output;
+      });
+      assert.deepEqual([output.width,output.height],[6000,8000]);
+      assert.equal(output.type,format==='png'?'image/png':'image/jpeg');
+      assert.ok(output.size>0);
+    }
+    assert.ok(await frame.evaluate(()=>window.exportCanvasMaximum)<4_000_000);
+    await frame.locator('#share-image').click();
+    const shared=await frame.evaluate(()=>window.sharedImage);
+    assert.equal(shared.type,'image/jpeg');assert.ok(shared.size>0);assert.equal(shared.activated,true);
+    assert.match(shared.name,/^南铂素人改造_.*\.jpg$/);
+  });
+});
+
+test('分块PNG跨块渐变旋转无接缝，最多1级栅格舍入差异', {timeout:60000}, async t=>{
+  await withEditor(t,false,async({frame})=>{
+    const result=await frame.evaluate(async()=>{
+      const {createMakeoverExportAsset}=await import('./export.mjs');
+      const width=2053,height=271;
+      const render=(canvas,region)=>{
+        const context=canvas.getContext('2d');context.save();
+        if(region)context.translate(-region.x,-region.y);
+        context.fillStyle='#d8c9b7';context.fillRect(0,0,width,height);
+        const gradient=context.createLinearGradient(10,0,width,height);gradient.addColorStop(0,'#294f7d');gradient.addColorStop(1,'#f1ac5c');context.fillStyle=gradient;context.fillRect(2,3,width-4,height-6);
+        context.translate(1024,128);context.rotate(.31);context.fillStyle='#fcfcfc';context.fillRect(-200,-50,400,100);context.restore();
+      };
+      const pixels=[];
+      for(const tiled of [false,true]){
+        const asset=await createMakeoverExportAsset({format:'png',width,height,render,tiled});
+        const image=await createImageBitmap(asset.blob);const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;const context=canvas.getContext('2d');context.drawImage(image,0,0);image.close();pixels.push(context.getImageData(0,0,width,height).data);
+      }
+      let differences=0,maxDelta=0;for(let i=0;i<pixels[0].length;i++){const delta=Math.abs(pixels[0][i]-pixels[1][i]);if(delta)differences++;maxDelta=Math.max(maxDelta,delta)}
+      return{differences,maxDelta};
+    });
+    // Canvas gradient rasterization can round by one level when the origin changes.
+    assert.ok(result.maxDelta <= 1, JSON.stringify(result));
+  });
+});
