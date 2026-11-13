@@ -28,7 +28,7 @@ PNG 原片细节无损导出，JPG 最高质量，不限19.9MB，仍受本机内
 '''
 output = root/'docs/南铂制作台离线版.zip'
 with ZipFile(output, 'w', ZIP_DEFLATED) as z:
-    for name in sys.argv[1:] + ['studio-sw.js']:
+    for name in sys.argv[1:] + ['studio-sw.js', 'update.html', 'studio-release.json']:
         z.write(root/'docs'/name, '南铂制作台离线版/'+name)
     for name, content in [('启动制作台.command',launcher),('start.py',server),('使用说明.txt',readme)]:
         info=ZipInfo('南铂制作台离线版/'+name)

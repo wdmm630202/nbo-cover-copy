@@ -233,3 +233,5 @@ html.is-embedded .workspace{max-width:none}
 .template-gradient-presets button{min-width:0;min-height:26px;padding:4px 2px;border:1px solid var(--border);border-radius:6px;background:#f7f6f2;color:var(--muted);font-size:11px;line-height:1.2;font-variant-numeric:tabular-nums}
 .template-gradient-presets button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:650}
 .template-gradient-presets button:hover:not(:disabled):not([aria-pressed=true]){border-color:var(--accent);color:var(--accent)}
+
+.export-version{display:block;color:var(--muted);font-size:10px;line-height:14px;margin-bottom:4px}

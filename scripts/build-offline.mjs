@@ -11,7 +11,7 @@ const result = await build({ configFile: false, logLevel: 'silent', plugins: [{
   name: 'standalone-makeover-assets',
   transform(source, id) {
     if (!id.split('?')[0].endsWith('/public/makeover/app.js')) return;
-    return templateNames.reduce((text, name, index) => text.replace(`decodeImage('./assets/template-${name}.png' + suffix)`, `decodeImage(${JSON.stringify(images[index])})`).replace(`decodeImage('./assets/template-${name}.png' + '?v=20261113-mobile-strips')`, `decodeImage(${JSON.stringify(images[index])})`), source);
+    return templateNames.reduce((text, name, index) => text.replace(`decodeImage('./assets/template-${name}.png' + suffix)`, `decodeImage(${JSON.stringify(images[index])})`).replace(`decodeImage('./assets/template-${name}.png' + '?v=20261113-mobile-cachefix')`, `decodeImage(${JSON.stringify(images[index])})`), source);
   },
 }], build: { write: false, minify: false, lib: { entry: 'public/makeover/app.js', name: 'NanboOffline', formats: ['iife'] } } });
 const bundle = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk').code;
@@ -39,6 +39,8 @@ files.sort();
 const integrity = {};
 for (const file of files) integrity[file] = createHash('sha256').update(await readFile(`docs/${file}`)).digest('hex');
 const hash = createHash('sha256');
+// Worker logic changes also require a distinct cache, even if editor assets stay identical.
+hash.update(await readFile(new URL(import.meta.url)));
 for (const file of files) hash.update(file).update(await readFile(`docs/${file}`));
 const version = hash.digest('hex').slice(0, 16);
 const worker = `const CACHE = 'nanbo-studio-${version}';
@@ -63,7 +65,11 @@ self.addEventListener('install', event => event.waitUntil((async () => {
   if (results.some(result => result.status === 'rejected')) { await caches.delete(CACHE); throw new Error('离线安装未完成'); }
 })()));
 self.addEventListener('activate', event => event.waitUntil((async () => {
-  for (const key of await caches.keys()) if (key.startsWith('nanbo-studio-') && key !== CACHE) await caches.delete(key);
+  for (const key of await caches.keys()) {
+    if (!key.startsWith('nanbo-studio-') || key === CACHE) continue;
+    const old = await caches.open(key);
+    if (await old.match(new URL('cover.html', base))) await caches.delete(key);
+  }
   await self.clients.claim();
 })()));
 self.addEventListener('fetch', event => {
@@ -72,14 +78,16 @@ self.addEventListener('fetch', event => {
   if (!FILES.includes(name)) return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    // Requests with version/retry/mode queries map to this complete release's own files.
     const cached = await cache.match(new URL(name, base));
+    // Serve one complete verified release. The uncached update page switches releases explicitly.
+
     if (cached) return cached;
     return fetch(event.request);
   })());
 });
 `;
 await writeFile('docs/studio-sw.js', worker);
+await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261113.3', build: version }) + '\n');
 // Root hosted apps can also expose the same offline standalone editor.
 
 await copyFile('docs/南铂素人改造离线版.html', 'public/南铂素人改造离线版.html');

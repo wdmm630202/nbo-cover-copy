@@ -1,6 +1,6 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261113-mobile-strips';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261113-mobile-cachefix';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -64,6 +64,7 @@ async function saveInApp(blob) {
 }
 
 const $ = (selector) => document.querySelector(selector);
+if (!/^https?:$/.test(location.protocol)) $('#update-export').hidden = true;
 const mobileExport = isMobileMakeoverDevice();
 if (mobileExport) {
   $('#export-note').textContent = '原片像素分块导出 · PNG 无损 / JPG 最高质量';
@@ -824,8 +825,8 @@ async function exportPoster(format) {
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
     // Low-memory mobile templates are for preview only; final artwork uses the original PSD rasters.
     if (mobileExport) exportLayers = await Promise.all([
-      decodeImage('./assets/template-fixed.png' + '?v=20261113-mobile-strips'),
-      decodeImage('./assets/template-gradient.png' + '?v=20261113-mobile-strips'),
+      decodeImage('./assets/template-fixed.png' + '?v=20261113-mobile-cachefix'),
+      decodeImage('./assets/template-gradient.png' + '?v=20261113-mobile-cachefix'),
     ]);
     const asset = await createMakeoverExportAsset({
       format,
