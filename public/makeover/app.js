@@ -1,6 +1,6 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261113-mobile-cachefix';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261113-note-colors';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -94,6 +94,12 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let template = null;
 let templateGradient = null;
 let templateGradientOpacity = 100;
+// Original PSD text raster, cropped without altering its 75% layer opacity.
+const NOTE_BOUNDS = { x: 104, y: 299, width: 1076, height: 228 };
+let noteTemplate = null;
+let noteLayer = null;
+let noteColor = '#000000';
+let pickingNoteColor = false;
 let templateRequest = 0;
 let split = .5;
 let activeSide = 0;
@@ -110,7 +116,7 @@ function status(message, error = false) {
 }
 
 function ready() {
-  return Boolean(template && templateGradient && photos.every((photo) => photo.image && !photo.loading));
+  return Boolean(template && templateGradient && noteLayer && photos.every((photo) => photo.image && !photo.loading));
 }
 
 function updateButtons() {
@@ -141,6 +147,16 @@ function updateButtons() {
   });
   $('#adjust-templateGradient').value = templateGradientOpacity;
   if (document.activeElement !== $('#adjust-templateGradient-value')) $('#adjust-templateGradient-value').value = templateGradientOpacity;
+  $('#note-color').value = noteColor;
+  $('#note-color-value').textContent = noteColor.toUpperCase();
+  $('#note-color').disabled = $('#note-pick').disabled = !noteTemplate;
+  document.querySelectorAll('[data-note-color]').forEach(button => {
+    button.disabled = !noteTemplate;
+    button.setAttribute('aria-pressed', String(button.dataset.noteColor === noteColor));
+  });
+  $('#note-pick').setAttribute('aria-pressed', String(pickingNoteColor));
+  $('#note-pick-help').hidden = !pickingNoteColor;
+  $('.poster-wrap').classList.toggle('is-picking-color', pickingNoteColor);
   document.querySelectorAll('[data-photo-target]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.photoTarget) === activeSide)));
   document.querySelectorAll('button[data-tool]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tool === currentTool)));
   document.querySelectorAll('.setting-row').forEach(row => row.classList.toggle('is-selected', row.dataset.setting === selectedParameter));
@@ -171,10 +187,11 @@ function updateButtons() {
 }
 
 function setTool(tool) {
+  pickingNoteColor = false;
   currentTool = tool;
   $('.workspace').dataset.tool = tool;
-  if (tool === 'compose' && ['brightness', 'shade', 'bottomShade', 'templateGradient'].includes(selectedParameter)) selectedParameter = 'zoom';
-  if (tool === 'tone' && !['brightness', 'shade', 'bottomShade', 'templateGradient'].includes(selectedParameter)) selectedParameter = 'brightness';
+  if (tool === 'compose' && ['brightness', 'shade', 'bottomShade', 'templateGradient', 'noteColor'].includes(selectedParameter)) selectedParameter = 'zoom';
+  if (tool === 'tone' && !['brightness', 'shade', 'bottomShade', 'templateGradient', 'noteColor'].includes(selectedParameter)) selectedParameter = 'brightness';
   if (tool === 'brush') $('.brush-settings').open = true;
   else { brush.active = false; brush.compareBefore = false; $('#brush-cursor').classList.remove('visible'); }
   updateButtons();
@@ -360,6 +377,7 @@ function paint(context, width, height, forExport = false, layers = null) {
       } finally { context.restore(); }
     }
     if (fixed) context.drawImage(fixed, 0, 0, POSTER.width, POSTER.height);
+    if (noteLayer) context.drawImage(noteLayer, NOTE_BOUNDS.x, NOTE_BOUNDS.y, NOTE_BOUNDS.width, NOTE_BOUNDS.height);
   } finally { context.restore(); }
 }
 
@@ -459,32 +477,69 @@ async function loadTemplate() {
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const suffix = `?v=20261112-template-gradient${request > 1 ? `&retry=${request}` : ''}`;
-    const [image, gradient] = mobileExport
-      ? await Promise.all([
+    const suffix = `?v=20261113-note-colors${request > 1 ? `&retry=${request}` : ''}`;
+    const [[image, gradient], note] = await Promise.all([mobileExport
+      ? Promise.all([
         decodeImage('./assets/template-fixed-mobile.png' + suffix),
         decodeImage('./assets/template-gradient-mobile.png' + suffix),
       ])
-      : await Promise.all([
+      : Promise.all([
         decodeImage('./assets/template-fixed.png' + suffix),
         decodeImage('./assets/template-gradient.png' + suffix),
-      ]);
+      ]), decodeImage('./assets/template-note.png' + suffix)]);
     if (request !== templateRequest) return;
     const expected = mobileExport ? { width: 2160, height: 2880 } : POSTER;
     if ([image, gradient].some(asset => asset.naturalWidth !== expected.width || asset.naturalHeight !== expected.height)) throw new Error('模板尺寸不符');
+    if (note.naturalWidth !== NOTE_BOUNDS.width || note.naturalHeight !== NOTE_BOUNDS.height) throw new Error('备注模板尺寸不符');
     template = image;
     templateGradient = gradient;
+    noteTemplate = note;
+    recolorNote();
     renderSoon();
     readyStatus();
   } catch {
     if (request !== templateRequest) return;
     template = null;
     templateGradient = null;
+    noteTemplate = noteLayer = null;
     $('#retry-template').hidden = false;
     status('原版模板加载失败，请检查网络后重新加载。模板就绪前无法导出。', true);
   }
   updateButtons();
 }
+
+function recolorNote() {
+  if (!noteTemplate) return;
+  noteLayer ??= document.createElement('canvas');
+  noteLayer.width = NOTE_BOUNDS.width;
+  noteLayer.height = NOTE_BOUNDS.height;
+  const context = noteLayer.getContext('2d');
+  if (!context) throw new Error('无法读取备注图层，请重新加载模板。');
+  context.drawImage(noteTemplate, 0, 0);
+  context.globalCompositeOperation = 'source-in';
+  context.fillStyle = noteColor;
+  context.fillRect(0, 0, noteLayer.width, noteLayer.height);
+  context.globalCompositeOperation = 'source-over';
+}
+
+function setNoteColor(color) {
+  if (!/^#[0-9a-f]{6}$/i.test(color) || !noteTemplate) return;
+  stopGesture();
+  noteColor = color.toLowerCase();
+  pickingNoteColor = false;
+  recolorNote();
+  updateButtons();
+  edited();
+}
+
+document.querySelectorAll('[data-note-color]').forEach(button => button.addEventListener('click', () => setNoteColor(button.dataset.noteColor)));
+$('#note-color').addEventListener('input', event => setNoteColor(event.target.value));
+$('#note-pick').addEventListener('click', () => {
+  stopGesture();
+  pickingNoteColor = !pickingNoteColor;
+  $('#brush-cursor').classList.remove('visible');
+  updateButtons();
+});
 
 function point(event) {
   const bounds = preview.getBoundingClientRect();
@@ -524,6 +579,22 @@ function rebaseTouch() {
 }
 preview.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
+  if (pickingNoteColor) {
+    const position = point(event);
+    const x = clamp(Math.floor(position.x / POSTER.width * preview.width), 0, preview.width - 1);
+    const y = clamp(Math.floor(position.y / POSTER.height * preview.height), 0, preview.height - 1);
+    // Read a one-pixel copy so repeated sampling does not switch the poster's
+    // canvas to a different rendering backend or allocate a full-size copy.
+    const sample = document.createElement('canvas');
+    sample.width = sample.height = 1;
+    const sampleContext = sample.getContext('2d', { willReadFrequently: true });
+    if (!sampleContext) { status('暂时无法吸色，请使用自定义颜色。', true); return; }
+    sampleContext.drawImage(preview, x, y, 1, 1, 0, 0, 1, 1);
+    const pixel = sampleContext.getImageData(0, 0, 1, 1).data;
+    setNoteColor('#' + Array.from(pixel.slice(0, 3), value => value.toString(16).padStart(2, '0')).join(''));
+    event.preventDefault();
+    return;
+  }
   const position = point(event), side = sideAt(position), photo = photos[side];
   if (event.pointerType === 'touch' && pointer?.touch && pointer.type === 'photo' && pointer.side === side && touches.size === 1) {
     touches.set(event.pointerId, { id: event.pointerId, position, clientX: event.clientX, clientY: event.clientY });
@@ -565,6 +636,7 @@ $('#divider').addEventListener('pointerdown', event => {
   event.preventDefault();
 });
 function movePointer(event) {
+  if (pickingNoteColor) return;
   const position = point(event);
   if (brush.active && event.currentTarget === preview) brushCursor(position);
   if (!pointer) return;
@@ -630,7 +702,7 @@ for (const target of [preview, $('#divider')]) {
 }
 preview.addEventListener('pointerleave', () => $('#brush-cursor').classList.remove('visible'));
 preview.addEventListener('wheel', event => {
-  if (brush.active || pointer) return;
+  if (brush.active || pointer || pickingNoteColor) return;
   const side = sideAt(point(event)), photo = photos[side];
   if (!photo.image || photo.loading) return;
   event.preventDefault();
@@ -639,7 +711,7 @@ preview.addEventListener('wheel', event => {
   showHint(photo.zoom + '%'); updateButtons(); edited();
 }, { passive: false });
 preview.addEventListener('dblclick', event => {
-  if (brush.active) return;
+  if (brush.active || pickingNoteColor) return;
   const side = sideAt(point(event));
   if (!photos[side].image || photos[side].loading) return;
   event.preventDefault();
@@ -666,7 +738,8 @@ preview.addEventListener('keydown', event => {
 });
 window.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
-    const hadOperation = pointer || rotationMode || brush.active || brush.compareBefore;
+    const hadOperation = pointer || rotationMode || brush.active || brush.compareBefore || pickingNoteColor;
+    pickingNoteColor = false;
     stopGesture(); rotationMode = false; brush.active = false; brush.compareBefore = false;
     $('#brush-cursor').classList.remove('visible'); updateButtons(); renderSoon();
     if (hadOperation) status('已退出当前操作，可继续移动照片。');
@@ -723,7 +796,7 @@ document.querySelectorAll('[data-photo-target]').forEach(button => button.addEve
 document.querySelectorAll('button[data-tool]').forEach(button => button.addEventListener('click', () => { stopGesture(); setTool(button.dataset.tool); }));
 $('#parameter-select').addEventListener('change', event => {
   selectedParameter = event.target.value;
-  setTool(['brightness', 'shade', 'bottomShade', 'templateGradient'].includes(selectedParameter) ? 'tone' : 'compose');
+  setTool(['brightness', 'shade', 'bottomShade', 'templateGradient', 'noteColor'].includes(selectedParameter) ? 'tone' : 'compose');
 });
 for (const key of Object.keys(PHOTO_DEFAULTS)) {
   $('#adjust-' + key).addEventListener('input', event => setParameter(key, event.target.value, key === 'rotation'));
@@ -825,8 +898,8 @@ async function exportPoster(format) {
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
     // Low-memory mobile templates are for preview only; final artwork uses the original PSD rasters.
     if (mobileExport) exportLayers = await Promise.all([
-      decodeImage('./assets/template-fixed.png' + '?v=20261113-mobile-cachefix'),
-      decodeImage('./assets/template-gradient.png' + '?v=20261113-mobile-cachefix'),
+      decodeImage('./assets/template-fixed.png' + '?v=20261113-note-colors'),
+      decodeImage('./assets/template-gradient.png' + '?v=20261113-note-colors'),
     ]);
     const asset = await createMakeoverExportAsset({
       format,

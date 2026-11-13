@@ -235,3 +235,28 @@ html.is-embedded .workspace{max-width:none}
 .template-gradient-presets button:hover:not(:disabled):not([aria-pressed=true]){border-color:var(--accent);color:var(--accent)}
 
 .export-version{display:block;color:var(--muted);font-size:10px;line-height:14px;margin-bottom:4px}
+.note-colors{margin:9px 0 10px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.note-color-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:var(--muted);font-size:10px}
+.note-color-heading h3{margin:0;font-size:11px;font-weight:500}
+.note-color-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) minmax(0,1.3fr) minmax(0,.9fr);gap:5px}
+.note-color-actions button,.custom-note-color{display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:29px;padding:4px 3px;border:1px solid var(--border);border-radius:7px;background:#f8f8f5;color:var(--muted);font-size:11px;line-height:1.2;cursor:pointer}
+.note-color-actions button[aria-pressed=true]{border-color:var(--accent);background:#fff1f3;color:var(--accent);font-weight:650}
+.color-dot{display:block;flex:none;width:12px;height:12px;border:1px solid #b8b8b8;border-radius:50%}
+.color-dot.white{background:#fff}.color-dot.black{background:#000}
+.custom-note-color input{width:22px;height:22px;min-width:0;padding:0;border:0;background:transparent;cursor:pointer}
+.custom-note-color:focus-within{border-color:var(--accent);outline:2px solid #ff244218}
+.note-pick-help{margin:5px 0 0;color:var(--accent);font-size:10px;line-height:1.4}
+.poster-wrap.is-picking-color #preview{cursor:crosshair}
+.poster-wrap.is-picking-color .selection,.poster-wrap.is-picking-color .divider,.poster-wrap.is-picking-color #split-handle{pointer-events:none}
+@media(max-width:1099px){
+ .workspace:not([data-tool=tone]) .note-colors{display:none}
+ .note-colors{margin:3px 0 5px;padding-bottom:5px}
+ .note-color-heading{margin-bottom:4px}
+}
+@media(min-width:600px) and (max-width:1099px) and (max-height:560px){
+ .workspace:not([data-tool=photos])>.controls>.export-panel{padding:5px}
+ .workspace:not([data-tool=photos]) .export-panel>#export-note{display:none}
+ .workspace:not([data-tool=photos]) .export-version{grid-column:2;grid-row:1;margin:0}
+ .workspace:not([data-tool=photos]) .status{grid-column:2;grid-row:2}
+ .workspace:not([data-tool=photos]) .download-result{grid-column:2;grid-row:3}
+}

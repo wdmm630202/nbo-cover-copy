@@ -8,6 +8,7 @@ import { clickInFrame } from './helpers/makeover-browser-geometry.mjs';
 const MATRIX = [[320,480],[320,568],[390,844],[640,480],[768,1024],[844,390],[1024,768],[1280,720],[1920,1080]];
 const SETTINGS = ['zoom','offsetX','offsetY','rotation','brightness','shade','bottomShade','templateGradient'];
 const TARGETS = ['[data-photo-target="0"]','[data-photo-target="1"]','#reset-photo'];
+const NOTE_CONTROLS = ['[data-note-color=\"#ffffff\"]','[data-note-color=\"#000000\"]','#note-color','#note-pick'];
 const GRADIENT_PRESETS = [0,25,50,75,100].map(value => `[data-template-gradient-preset="${value}"]`);
 const BRUSH = [
   '#brush-toggle', ...['size','feather','strength'].flatMap(key => [`#brush-${key}`,`#brush-${key}-value`,`[data-reset-brush="${key}"]`]),
@@ -92,15 +93,20 @@ test('九种窗口中照片、构图、画面和涂抹工具均保留完整预�
               await settle(frame);
               await assertLayout(page,frame,[...nav,...exports,...TARGETS,...GRADIENT_PRESETS,'#adjust-templateGradient','#adjust-templateGradient-value','[data-reset-template-gradient]'],`${label} 渐变快捷数值`);
             }
+            if(tool==='tone'){
+              await frame.locator('#parameter-select').selectOption('noteColor');
+              await settle(frame);
+              await assertLayout(page,frame,[...nav,...exports,...TARGETS,...NOTE_CONTROLS,'#parameter-select'],`${label} 备注颜色`);
+            }
             if(tool==='brush'){
               assert.equal(await frame.locator('.brush-settings').evaluate(details=>details.open),true);
               assert.match(await frame.locator('#brush-hint').textContent(),/涂抹不影响模板渐变/);
             }
           }
         }else{
-          assert.equal(await frame.locator('.setting-row:visible').count(),8,`${label}: 桌面同时显示照片参数和独立模板渐变`);
+          assert.equal(await frame.locator('.setting-row:visible').count(),9,`${label}: 桌面同时显示照片参数和独立模板渐变`);
           const controls=SETTINGS.flatMap(key=>[`#adjust-${key}`,`#adjust-${key}-value`,key==='templateGradient'?'[data-reset-template-gradient]':`[data-reset-setting="${key}"]`]);
-          const poster=await assertLayout(page,frame,[...exports,...TARGETS,...controls,...GRADIENT_PRESETS,'#rotation-mode','.brush-settings summary'],`${label} 默认调整区`);
+          const poster=await assertLayout(page,frame,[...exports,...TARGETS,...controls,...NOTE_CONTROLS,...GRADIENT_PRESETS,'#rotation-mode','.brush-settings summary'],`${label} 默认调整区`);
           await clickInFrame(page,frame,'.brush-settings summary');
           for(const selector of BRUSH){
             await frame.locator(selector).scrollIntoViewIfNeeded();
