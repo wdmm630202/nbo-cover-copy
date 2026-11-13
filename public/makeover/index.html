@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f4f1">
   <title>南铂素人改造对比图</title>
-  <link rel="stylesheet" href="./style.css?v=20261113-gradient-colors">
+  <link rel="stylesheet" href="./style.css?v=20261114-continuous-picker">
 </head>
 <body>
   <header class="page-header">
@@ -40,7 +40,7 @@
       </section>
       <section class="panel export-panel" aria-labelledby="export-heading">
         <div class="section-title"><span class="step">03</span><h2 id="export-heading">导出对比图</h2></div>
-        <small id="export-version" class="export-version">导出版本 20261113.5 · 原片分块 · <a id="update-export" target="_top" href="../update.html?mode=makeover" title="更新后需要重新选择照片">更新导出</a></small>
+        <small id="export-version" class="export-version">导出版本 20261114.1 · 原片分块 · <a id="update-export" target="_top" href="../update.html?mode=makeover" title="更新后需要重新选择照片">更新导出</a></small>
         <p id="export-note" class="muted small">原片像素 · 不限大小 · PNG 无损 / JPG 最高质量</p>
         <div class="export-buttons"><button id="export-png" class="secondary" disabled>成品 PNG</button><button id="export-jpg" class="primary" disabled>高清 JPG</button></div>
         <p id="status" class="status" role="status" aria-live="polite">正在加载原版模板…</p>
@@ -78,7 +78,7 @@
           <label class="custom-note-color" for="note-color"><input id="note-color" type="color" value="#000000" aria-label="自定义备注文字颜色"><span>自定义</span></label>
           <button type="button" id="note-pick" aria-pressed="false">吸色</button>
         </div>
-        <p id="note-pick-help" class="note-pick-help" role="status" hidden>点击预览照片吸色，再点吸色可取消。</p>
+        <p id="note-pick-help" class="note-pick-help" role="status" hidden>可连续点击预览照片试色，点“完成吸色”或按 Esc 退出。</p>
       </section>
       <label class="parameter-picker" for="parameter-select"><span>调整项目</span><select id="parameter-select" aria-label="选择照片调整项目">
         <optgroup label="构图"><option value="zoom">照片缩放</option><option value="offsetX">左右位置</option><option value="offsetY">上下位置</option><option value="rotation">自由旋转</option></optgroup>
@@ -125,7 +125,7 @@
           <label class="custom-note-color" for="gradient-color"><input id="gradient-color" type="color" value="#000000" aria-label="自定义渐变颜色"><span>自定义</span></label>
           <button type="button" id="gradient-pick" aria-pressed="false">吸色</button>
         </div>
-        <p id="gradient-pick-help" class="note-pick-help" role="status" hidden>点击预览照片吸色，再点吸色可取消。</p>
+        <p id="gradient-pick-help" class="note-pick-help" role="status" hidden>可连续点击预览照片试色，点“完成吸色”或按 Esc 退出。</p>
       </section>
       <div class="rotation-tools"><button id="rotation-mode" type="button" aria-pressed="false">进入旋转</button><p id="interaction-help">拖动移动 · 滚轮缩放 · 双击旋转</p></div>
       <details class="brush-settings">
@@ -152,6 +152,6 @@
     <div class="mobile-save-picture"><img id="mobile-save-image" alt="已生成的素人改造成品，长按可保存到照片" /></div>
     <button id="mobile-share" type="button" class="primary">存储到照片 / 分享</button>
   </section>
-  <script type="module" src="./app.js?v=20261113-gradient-colors"></script>
+  <script type="module" src="./app.js?v=20261114-continuous-picker"></script>
 </body>
 </html>

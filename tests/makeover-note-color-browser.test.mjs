@@ -78,8 +78,8 @@ for (const mobile of [false, true]) test(`${mobile ? '手机' : '电脑'}备注�
     assert.equal(await page.locator('#note-color').inputValue(),'#789abc','预览吸色应读取实际照片颜色');
     assert.equal(await page.locator('#adjust-offsetX-value').inputValue(),beforePosition,'吸色不得拖动照片');
     for(let i=0;i<4;i++){
-      await page.locator('#note-pick').click();
       await page.mouse.click(bounds.x+bounds.width*.25,bounds.y+bounds.height*.25);
+      assert.equal(await page.locator('#note-pick').getAttribute('aria-pressed'),'true','反复吸色期间保持开启');
     }
     await page.locator('[data-note-color="#000000"]').click();
     await page.waitForTimeout(60);

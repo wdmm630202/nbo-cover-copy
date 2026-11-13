@@ -1,7 +1,7 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { drawTintedMask } from './tint-mask.mjs?v=20261113-gradient-colors';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261113-gradient-colors';
+import { drawTintedMask } from './tint-mask.mjs?v=20261114-continuous-picker';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-continuous-picker';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -158,6 +158,7 @@ function updateButtons() {
       button.setAttribute('aria-pressed', String(button.dataset[target + 'Color'] === color));
     });
     $('#' + target + '-pick').setAttribute('aria-pressed', String(pickingColor === target));
+    $('#' + target + '-pick').textContent = pickingColor === target ? '完成吸色' : '吸色';
     $('#' + target + '-pick-help').hidden = pickingColor !== target;
   }
   $('.poster-wrap').classList.toggle('is-picking-color', Boolean(pickingColor));
@@ -247,6 +248,7 @@ function stopGesture() {
 
 function toggleRotation() {
   stopGesture();
+  pickingColor = null;
   brush.active = false;
   brush.compareBefore = false;
   $('#brush-cursor').classList.remove('visible');
@@ -485,7 +487,7 @@ async function loadTemplate() {
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const suffix = `?v=20261113-gradient-colors${request > 1 ? `&retry=${request}` : ''}`;
+    const suffix = `?v=20261114-continuous-picker${request > 1 ? `&retry=${request}` : ''}`;
     const [[image, gradient], note] = await Promise.all([mobileExport
       ? Promise.all([
         decodeImage('./assets/template-fixed-mobile.png' + suffix),
@@ -530,12 +532,12 @@ function recolorNote() {
   context.globalCompositeOperation = 'source-over';
 }
 
-function setArtworkColor(target, color) {
+function setArtworkColor(target, color, keepPicking = false) {
   if (!/^#[0-9a-f]{6}$/i.test(color) || !(target === 'note' ? noteTemplate : templateGradient)) return;
   stopGesture();
   if (target === 'note') { noteColor = color.toLowerCase(); recolorNote(); }
   else gradientColor = color.toLowerCase();
-  pickingColor = null;
+  if (!keepPicking) pickingColor = null;
   updateButtons();
   edited();
 }
@@ -601,7 +603,7 @@ preview.addEventListener('pointerdown', event => {
     if (!sampleContext) { status('暂时无法吸色，请使用自定义颜色。', true); return; }
     sampleContext.drawImage(preview, x, y, 1, 1, 0, 0, 1, 1);
     const pixel = sampleContext.getImageData(0, 0, 1, 1).data;
-    setArtworkColor(pickingColor, '#' + Array.from(pixel.slice(0, 3), value => value.toString(16).padStart(2, '0')).join(''));
+    setArtworkColor(pickingColor, '#' + Array.from(pixel.slice(0, 3), value => value.toString(16).padStart(2, '0')).join(''), true);
     event.preventDefault();
     return;
   }
@@ -848,6 +850,7 @@ $('[data-reset-template-gradient]').addEventListener('click', () => setTemplateG
 document.querySelectorAll('[data-template-gradient-preset]').forEach(button => button.addEventListener('click', () => setTemplateGradient(button.dataset.templateGradientPreset)));
 $('#rotation-mode').addEventListener('click', toggleRotation);
 $('#brush-toggle').addEventListener('click', () => {
+  pickingColor = null;
   stopGesture(); rotationMode = false; brush.active = !brush.active; brush.compareBefore = false;
   if (!brush.active) $('#brush-cursor').classList.remove('visible');
   updateButtons(); renderSoon();
@@ -908,8 +911,8 @@ async function exportPoster(format) {
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
     // Low-memory mobile templates are for preview only; final artwork uses the original PSD rasters.
     if (mobileExport) exportLayers = await Promise.all([
-      decodeImage('./assets/template-fixed.png' + '?v=20261113-gradient-colors'),
-      decodeImage('./assets/template-gradient.png' + '?v=20261113-gradient-colors'),
+      decodeImage('./assets/template-fixed.png' + '?v=20261114-continuous-picker'),
+      decodeImage('./assets/template-gradient.png' + '?v=20261114-continuous-picker'),
     ]);
     const asset = await createMakeoverExportAsset({
       format,
