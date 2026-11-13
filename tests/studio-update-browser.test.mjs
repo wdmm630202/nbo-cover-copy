@@ -34,7 +34,7 @@ test('保留旧标签时也能从旧离线缓存更新到新手机导出，且�
     await page.waitForURL(/cover\.html.*updated=/,{timeout:20000});
     const frame=await(await page.locator('#makeoverFrame').elementHandle()).contentFrame();
     await frame.waitForFunction(()=>document.querySelector('#status')?.textContent.startsWith('请选择'));
-    assert.match(await frame.locator('#export-version').textContent(),/20261113\.4/);
+    assert.match(await frame.locator('#export-version').textContent(),/20261113\.5/);
     const state=await page.evaluate(async()=>({settings:localStorage.getItem('keep-my-settings'),other:await(await caches.open('nanbo-studio-other-fixture')).match('/another-project/cover.html').then(Boolean),stale:await caches.has('nanbo-studio-old-fixture')}));
     assert.deepEqual(state,{settings:'unchanged',other:true,stale:false});
     assert.equal(await old.locator('#stale').count(),1,'无须关闭旧标签');

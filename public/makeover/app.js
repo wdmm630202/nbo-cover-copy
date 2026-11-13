@@ -1,6 +1,7 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261113-note-colors';
+import { drawTintedMask } from './tint-mask.mjs?v=20261113-gradient-colors';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261113-gradient-colors';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -94,12 +95,13 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let template = null;
 let templateGradient = null;
 let templateGradientOpacity = 100;
+let gradientColor = '#000000';
 // Original PSD text raster, cropped without altering its 75% layer opacity.
 const NOTE_BOUNDS = { x: 104, y: 299, width: 1076, height: 228 };
 let noteTemplate = null;
 let noteLayer = null;
 let noteColor = '#000000';
-let pickingNoteColor = false;
+let pickingColor = null;
 let templateRequest = 0;
 let split = .5;
 let activeSide = 0;
@@ -147,16 +149,18 @@ function updateButtons() {
   });
   $('#adjust-templateGradient').value = templateGradientOpacity;
   if (document.activeElement !== $('#adjust-templateGradient-value')) $('#adjust-templateGradient-value').value = templateGradientOpacity;
-  $('#note-color').value = noteColor;
-  $('#note-color-value').textContent = noteColor.toUpperCase();
-  $('#note-color').disabled = $('#note-pick').disabled = !noteTemplate;
-  document.querySelectorAll('[data-note-color]').forEach(button => {
-    button.disabled = !noteTemplate;
-    button.setAttribute('aria-pressed', String(button.dataset.noteColor === noteColor));
-  });
-  $('#note-pick').setAttribute('aria-pressed', String(pickingNoteColor));
-  $('#note-pick-help').hidden = !pickingNoteColor;
-  $('.poster-wrap').classList.toggle('is-picking-color', pickingNoteColor);
+  for (const [target, color, available] of [['note', noteColor, noteTemplate], ['gradient', gradientColor, templateGradient]]) {
+    $('#' + target + '-color').value = color;
+    $('#' + target + '-color-value').textContent = color.toUpperCase();
+    $('#' + target + '-color').disabled = $('#' + target + '-pick').disabled = !available;
+    document.querySelectorAll('[data-' + target + '-color]').forEach(button => {
+      button.disabled = !available;
+      button.setAttribute('aria-pressed', String(button.dataset[target + 'Color'] === color));
+    });
+    $('#' + target + '-pick').setAttribute('aria-pressed', String(pickingColor === target));
+    $('#' + target + '-pick-help').hidden = pickingColor !== target;
+  }
+  $('.poster-wrap').classList.toggle('is-picking-color', Boolean(pickingColor));
   document.querySelectorAll('[data-photo-target]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.photoTarget) === activeSide)));
   document.querySelectorAll('button[data-tool]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tool === currentTool)));
   document.querySelectorAll('.setting-row').forEach(row => row.classList.toggle('is-selected', row.dataset.setting === selectedParameter));
@@ -187,11 +191,11 @@ function updateButtons() {
 }
 
 function setTool(tool) {
-  pickingNoteColor = false;
+  pickingColor = null;
   currentTool = tool;
   $('.workspace').dataset.tool = tool;
-  if (tool === 'compose' && ['brightness', 'shade', 'bottomShade', 'templateGradient', 'noteColor'].includes(selectedParameter)) selectedParameter = 'zoom';
-  if (tool === 'tone' && !['brightness', 'shade', 'bottomShade', 'templateGradient', 'noteColor'].includes(selectedParameter)) selectedParameter = 'brightness';
+  if (tool === 'compose' && ['brightness', 'shade', 'bottomShade', 'templateGradient', 'gradientColor', 'noteColor'].includes(selectedParameter)) selectedParameter = 'zoom';
+  if (tool === 'tone' && !['brightness', 'shade', 'bottomShade', 'templateGradient', 'gradientColor', 'noteColor'].includes(selectedParameter)) selectedParameter = 'brightness';
   if (tool === 'brush') $('.brush-settings').open = true;
   else { brush.active = false; brush.compareBefore = false; $('#brush-cursor').classList.remove('visible'); }
   updateButtons();
@@ -332,7 +336,7 @@ function edited() {
   renderSoon();
 }
 
-function paint(context, width, height, forExport = false, layers = null) {
+function paint(context, width, height, forExport = false, layers = null, visible = null) {
   const fixed = layers?.[0] ?? template, gradient = layers?.[1] ?? templateGradient;
   context.save();
   try {
@@ -373,7 +377,11 @@ function paint(context, width, height, forExport = false, layers = null) {
       context.save();
       try {
         context.globalAlpha = templateGradientOpacity / 100;
-        context.drawImage(gradient, 0, 0, POSTER.width, POSTER.height);
+        if (gradientColor === '#000000') context.drawImage(gradient, 0, 0, POSTER.width, POSTER.height);
+        else {
+          context.scale(POSTER.width / width, POSTER.height / height);
+          drawTintedMask(context, gradient, width, height, gradientColor, visible);
+        }
       } finally { context.restore(); }
     }
     if (fixed) context.drawImage(fixed, 0, 0, POSTER.width, POSTER.height);
@@ -477,7 +485,7 @@ async function loadTemplate() {
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const suffix = `?v=20261113-note-colors${request > 1 ? `&retry=${request}` : ''}`;
+    const suffix = `?v=20261113-gradient-colors${request > 1 ? `&retry=${request}` : ''}`;
     const [[image, gradient], note] = await Promise.all([mobileExport
       ? Promise.all([
         decodeImage('./assets/template-fixed-mobile.png' + suffix),
@@ -522,24 +530,26 @@ function recolorNote() {
   context.globalCompositeOperation = 'source-over';
 }
 
-function setNoteColor(color) {
-  if (!/^#[0-9a-f]{6}$/i.test(color) || !noteTemplate) return;
+function setArtworkColor(target, color) {
+  if (!/^#[0-9a-f]{6}$/i.test(color) || !(target === 'note' ? noteTemplate : templateGradient)) return;
   stopGesture();
-  noteColor = color.toLowerCase();
-  pickingNoteColor = false;
-  recolorNote();
+  if (target === 'note') { noteColor = color.toLowerCase(); recolorNote(); }
+  else gradientColor = color.toLowerCase();
+  pickingColor = null;
   updateButtons();
   edited();
 }
 
-document.querySelectorAll('[data-note-color]').forEach(button => button.addEventListener('click', () => setNoteColor(button.dataset.noteColor)));
-$('#note-color').addEventListener('input', event => setNoteColor(event.target.value));
-$('#note-pick').addEventListener('click', () => {
-  stopGesture();
-  pickingNoteColor = !pickingNoteColor;
-  $('#brush-cursor').classList.remove('visible');
-  updateButtons();
-});
+for (const target of ['note', 'gradient']) {
+  document.querySelectorAll('[data-' + target + '-color]').forEach(button => button.addEventListener('click', () => setArtworkColor(target, button.dataset[target + 'Color'])));
+  $('#' + target + '-color').addEventListener('input', event => setArtworkColor(target, event.target.value));
+  $('#' + target + '-pick').addEventListener('click', () => {
+    stopGesture();
+    pickingColor = pickingColor === target ? null : target;
+    $('#brush-cursor').classList.remove('visible');
+    updateButtons();
+  });
+}
 
 function point(event) {
   const bounds = preview.getBoundingClientRect();
@@ -579,7 +589,7 @@ function rebaseTouch() {
 }
 preview.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
-  if (pickingNoteColor) {
+  if (pickingColor) {
     const position = point(event);
     const x = clamp(Math.floor(position.x / POSTER.width * preview.width), 0, preview.width - 1);
     const y = clamp(Math.floor(position.y / POSTER.height * preview.height), 0, preview.height - 1);
@@ -591,7 +601,7 @@ preview.addEventListener('pointerdown', event => {
     if (!sampleContext) { status('暂时无法吸色，请使用自定义颜色。', true); return; }
     sampleContext.drawImage(preview, x, y, 1, 1, 0, 0, 1, 1);
     const pixel = sampleContext.getImageData(0, 0, 1, 1).data;
-    setNoteColor('#' + Array.from(pixel.slice(0, 3), value => value.toString(16).padStart(2, '0')).join(''));
+    setArtworkColor(pickingColor, '#' + Array.from(pixel.slice(0, 3), value => value.toString(16).padStart(2, '0')).join(''));
     event.preventDefault();
     return;
   }
@@ -636,7 +646,7 @@ $('#divider').addEventListener('pointerdown', event => {
   event.preventDefault();
 });
 function movePointer(event) {
-  if (pickingNoteColor) return;
+  if (pickingColor) return;
   const position = point(event);
   if (brush.active && event.currentTarget === preview) brushCursor(position);
   if (!pointer) return;
@@ -702,7 +712,7 @@ for (const target of [preview, $('#divider')]) {
 }
 preview.addEventListener('pointerleave', () => $('#brush-cursor').classList.remove('visible'));
 preview.addEventListener('wheel', event => {
-  if (brush.active || pointer || pickingNoteColor) return;
+  if (brush.active || pointer || pickingColor) return;
   const side = sideAt(point(event)), photo = photos[side];
   if (!photo.image || photo.loading) return;
   event.preventDefault();
@@ -711,7 +721,7 @@ preview.addEventListener('wheel', event => {
   showHint(photo.zoom + '%'); updateButtons(); edited();
 }, { passive: false });
 preview.addEventListener('dblclick', event => {
-  if (brush.active || pickingNoteColor) return;
+  if (brush.active || pickingColor) return;
   const side = sideAt(point(event));
   if (!photos[side].image || photos[side].loading) return;
   event.preventDefault();
@@ -738,8 +748,8 @@ preview.addEventListener('keydown', event => {
 });
 window.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
-    const hadOperation = pointer || rotationMode || brush.active || brush.compareBefore || pickingNoteColor;
-    pickingNoteColor = false;
+    const hadOperation = pointer || rotationMode || brush.active || brush.compareBefore || pickingColor;
+    pickingColor = null;
     stopGesture(); rotationMode = false; brush.active = false; brush.compareBefore = false;
     $('#brush-cursor').classList.remove('visible'); updateButtons(); renderSoon();
     if (hadOperation) status('已退出当前操作，可继续移动照片。');
@@ -796,7 +806,7 @@ document.querySelectorAll('[data-photo-target]').forEach(button => button.addEve
 document.querySelectorAll('button[data-tool]').forEach(button => button.addEventListener('click', () => { stopGesture(); setTool(button.dataset.tool); }));
 $('#parameter-select').addEventListener('change', event => {
   selectedParameter = event.target.value;
-  setTool(['brightness', 'shade', 'bottomShade', 'templateGradient', 'noteColor'].includes(selectedParameter) ? 'tone' : 'compose');
+  setTool(['brightness', 'shade', 'bottomShade', 'templateGradient', 'gradientColor', 'noteColor'].includes(selectedParameter) ? 'tone' : 'compose');
 });
 for (const key of Object.keys(PHOTO_DEFAULTS)) {
   $('#adjust-' + key).addEventListener('input', event => setParameter(key, event.target.value, key === 'rotation'));
@@ -898,8 +908,8 @@ async function exportPoster(format) {
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
     // Low-memory mobile templates are for preview only; final artwork uses the original PSD rasters.
     if (mobileExport) exportLayers = await Promise.all([
-      decodeImage('./assets/template-fixed.png' + '?v=20261113-note-colors'),
-      decodeImage('./assets/template-gradient.png' + '?v=20261113-note-colors'),
+      decodeImage('./assets/template-fixed.png' + '?v=20261113-gradient-colors'),
+      decodeImage('./assets/template-gradient.png' + '?v=20261113-gradient-colors'),
     ]);
     const asset = await createMakeoverExportAsset({
       format,
@@ -913,7 +923,8 @@ async function exportPoster(format) {
         context.save();
         try {
           if (region) context.translate(-region.x, -region.y);
-          paint(context, region?.width ?? canvas.width, region?.height ?? canvas.height, true, exportLayers);
+          paint(context, region?.width ?? canvas.width, region?.height ?? canvas.height, true, exportLayers,
+            region ? { x: region.x, y: region.y, width: canvas.width, height: canvas.height } : null);
         } finally { context.restore(); }
       },
     });

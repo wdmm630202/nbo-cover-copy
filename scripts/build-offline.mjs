@@ -11,7 +11,7 @@ const result = await build({ configFile: false, logLevel: 'silent', plugins: [{
   name: 'standalone-makeover-assets',
   transform(source, id) {
     if (!id.split('?')[0].endsWith('/public/makeover/app.js')) return;
-    return templateNames.reduce((text, name, index) => text.replace(`decodeImage('./assets/template-${name}.png' + suffix)`, `decodeImage(${JSON.stringify(images[index])})`).replace(`decodeImage('./assets/template-${name}.png' + '?v=20261113-note-colors')`, `decodeImage(${JSON.stringify(images[index])})`), source);
+    return templateNames.reduce((text, name, index) => text.replace(`decodeImage('./assets/template-${name}.png' + suffix)`, `decodeImage(${JSON.stringify(images[index])})`).replace(`decodeImage('./assets/template-${name}.png' + '?v=20261113-gradient-colors')`, `decodeImage(${JSON.stringify(images[index])})`), source);
   },
 }], build: { write: false, minify: false, lib: { entry: 'public/makeover/app.js', name: 'NanboOffline', formats: ['iife'] } } });
 const bundle = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk').code;
@@ -87,7 +87,7 @@ self.addEventListener('fetch', event => {
 });
 `;
 await writeFile('docs/studio-sw.js', worker);
-await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261113.4', build: version }) + '\n');
+await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261113.5', build: version }) + '\n');
 // Root hosted apps can also expose the same offline standalone editor.
 
 await copyFile('docs/南铂素人改造离线版.html', 'public/南铂素人改造离线版.html');
