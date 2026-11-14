@@ -724,7 +724,9 @@ test('分块PNG跨块渐变旋转无接缝，最多1级栅格舍入差异', {tim
       const {createMakeoverExportAsset}=await import('./export.mjs');
       const width=2053,height=271;
       const render=(canvas,region)=>{
-        const context=canvas.getContext('2d');context.save();
+        // Use the same CPU rasterizer for the full-image reference and mobile
+        // tiles; GPU/CPU antialiasing differences do not measure tile seams.
+        const context=canvas.getContext('2d',{willReadFrequently:true});context.save();
         if(region)context.translate(-region.x,-region.y);
         context.fillStyle='#d8c9b7';context.fillRect(0,0,width,height);
         const gradient=context.createLinearGradient(10,0,width,height);gradient.addColorStop(0,'#294f7d');gradient.addColorStop(1,'#f1ac5c');context.fillStyle=gradient;context.fillRect(2,3,width-4,height-6);
