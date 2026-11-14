@@ -69,7 +69,10 @@ test('a changed composition cancels an export before encoding and releases its c
 
 test('mobile cancellation releases its small canvas without allocating a full poster', async()=>{
   let cancelled=false, largest=0;
-  const canvas={width:0,height:0,getContext:()=>({getImageData:(_x,_y,w,h)=>({data:new Uint8Array(w*h*4)})})};
+  const canvas={width:0,height:0,getContext:()=>({
+    save(){},restore(){},setTransform(){},clearRect(){},
+    getImageData:(_x,_y,w,h)=>({data:new Uint8Array(w*h*4)}),
+  })};
   await withCanvas(canvas,async()=>{
     await assert.rejects(createMakeoverExportAsset({format:'png',width:6000,height:8000,tiled:true,
       isCancelled:()=>cancelled,

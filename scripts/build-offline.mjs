@@ -81,7 +81,7 @@ self.addEventListener('fetch', event => {
 });
 `;
 await writeFile('docs/studio-sw.js', worker);
-await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261114.3', build: version }) + '\n');
+await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261114.4', build: version }) + '\n');
 // Root hosted apps can also expose the same offline standalone editor.
 
 await copyFile('docs/南铂素人改造离线版.html', 'public/南铂素人改造离线版.html');

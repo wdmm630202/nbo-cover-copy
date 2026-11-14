@@ -1,7 +1,7 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { drawTintedMask } from './tint-mask.mjs?v=20261114-embedded-templates';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-embedded-templates';
+import { drawTintedMask } from './tint-mask.mjs?v=20261114-complete-mobile-export';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-complete-mobile-export';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);

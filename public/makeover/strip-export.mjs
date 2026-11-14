@@ -1,4 +1,4 @@
-import { encodeJpegRows } from './vendor/jpeg-encoder.mjs?v=20261114-embedded-templates';
+import { encodeJpegRows } from './vendor/jpeg-encoder.mjs?v=20261114-complete-mobile-export';
 
 const ROWS = 128;
 const TILE_WIDTH = 2048;
@@ -71,25 +71,59 @@ export async function encodePngRows(width, height, readRows, checkCurrent, { opa
 
 /** Reuse a bounded row batch; never allocate a full-poster mobile canvas. */
 export async function createStripExport({ format, width, height, render, checkCurrent, opaque = false, onProgress = () => {} }) {
-  const canvas = document.createElement('canvas');
-  // Encoding still consumes 128 rows at a time. Drawing four of those batches
-  // together avoids repeatedly painting both source photos and PSD artwork.
+  // Keep one readback surface instead of reallocating its backing store for
+  // every tile, avoiding GPU backing-store resets during readback.
   const drawRows = Math.max(ROWS, Math.min(DRAW_ROWS, Math.floor(ROW_CACHE_BYTES / (width * 4 * ROWS)) * ROWS));
-  let cached, cachedY = -1;
+  const gutter = 2;
+  let canvas, context, cached, cachedY = -1;
+  const releaseSurface = () => {
+    if (canvas) canvas.width = canvas.height = 0;
+    canvas = context = null;
+  };
+  const readTile = async (x, y, columns, rows) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      checkCurrent();
+      if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.width = Math.min(TILE_WIDTH, width) + gutter * 2;
+        canvas.height = Math.min(drawRows, height) + gutter * 2;
+        // This must be the first getContext call, before the renderer chooses
+        // an accelerated backing store. It changes storage, never image quality.
+        context = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
+      }
+      if (context) {
+        context.save();
+        try {
+          context.setTransform(1, 0, 0, 1, 0, 0);
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          render(canvas, { x: x - gutter, y: y - gutter, width, height });
+        } finally { context.restore(); }
+        try {
+          const pixels = context.getImageData(gutter, gutter, columns, rows).data;
+          let valid = pixels.length === columns * rows * 4;
+          if (valid && opaque) {
+            for (let alpha = 3; alpha < pixels.length; alpha += 4) {
+              if (pixels[alpha] !== 255) { valid = false; break; }
+            }
+          }
+          if (valid) return pixels;
+        } catch { /* Recreate a failed readback surface at the same resolution. */ }
+      }
+      releaseSurface();
+      if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    throw new Error('手机分块画面读取失败，请重新导出；未降低像素和画质。');
+  };
   const readRows = async (y, rows) => {
     checkCurrent();
     if (cachedY < 0 || y >= cachedY + drawRows) {
       cachedY = y;
-      const batchRows = Math.min(drawRows, height - y), gutter = 2;
+      const batchRows = Math.min(drawRows, height - y);
       cached ??= new Uint8Array(width * Math.min(drawRows, height) * 4);
       for (let x = 0; x < width; x += TILE_WIDTH) {
         checkCurrent();
         const columns = Math.min(TILE_WIDTH, width - x);
-        canvas.width = columns + gutter * 2; canvas.height = batchRows + gutter * 2;
-        render(canvas, { x: x - gutter, y: y - gutter, width, height });
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('手机绘图内存不足，请关闭其他页面后重试；未降低画质。');
-        const pixels = context.getImageData(gutter, gutter, columns, batchRows).data;
+        const pixels = await readTile(x, y, columns, batchRows);
         for (let row = 0; row < batchRows; row++) cached.set(pixels.subarray(row * columns * 4, (row + 1) * columns * 4), (row * width + x) * 4);
       }
     }
@@ -102,5 +136,5 @@ export async function createStripExport({ format, width, height, render, checkCu
     const blob = format === 'png' ? await encodePngRows(width, height, readRows, checkCurrent, { opaque }) : await encodeJpegRows(width, height, readRows);
     checkCurrent(); onProgress(100);
     return { blob, width, height, resized: false };
-  } finally { cached = null; canvas.width = canvas.height = 0; }
+  } finally { cached = null; releaseSurface(); }
 }
