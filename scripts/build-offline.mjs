@@ -5,15 +5,9 @@ import { execFileSync } from 'node:child_process';
 
 await copyFile('public/studio-offline.js', 'docs/studio-offline.js');
 // A real standalone file: no server, JavaScript modules, CDN or initial connection required.
-const templateNames = ['fixed', 'gradient', 'fixed-mobile', 'gradient-mobile', 'note'];
-const images = await Promise.all(templateNames.map(async name => `data:image/png;base64,${(await readFile(`public/makeover/assets/template-${name}.png`)).toString('base64')}`));
-const result = await build({ configFile: false, logLevel: 'silent', plugins: [{
-  name: 'standalone-makeover-assets',
-  transform(source, id) {
-    if (!id.split('?')[0].endsWith('/public/makeover/app.js')) return;
-    return templateNames.reduce((text, name, index) => text.replace(`decodeImage('./assets/template-${name}.png' + suffix)`, `decodeImage(${JSON.stringify(images[index])})`).replace(`decodeImage('./assets/template-${name}.png' + '?v=20261114-fast-mobile-export')`, `decodeImage(${JSON.stringify(images[index])})`), source);
-  },
-}], build: { write: false, minify: false, lib: { entry: 'public/makeover/app.js', name: 'NanboOffline', formats: ['iife'] } } });
+const result = await build({ configFile: false, logLevel: 'silent',
+  build: { write: false, minify: false, lib: { entry: 'public/makeover/app.js', name: 'NanboOffline', formats: ['iife'] } },
+});
 const bundle = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk').code;
 let html = await readFile('public/makeover/index.html', 'utf8');
 html = html.replace(/<link rel="stylesheet"[^>]*>/, `<style>${await readFile('public/makeover/style.css', 'utf8')}</style>`)
@@ -87,7 +81,7 @@ self.addEventListener('fetch', event => {
 });
 `;
 await writeFile('docs/studio-sw.js', worker);
-await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261114.2', build: version }) + '\n');
+await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261114.3', build: version }) + '\n');
 // Root hosted apps can also expose the same offline standalone editor.
 
 await copyFile('docs/南铂素人改造离线版.html', 'public/南铂素人改造离线版.html');

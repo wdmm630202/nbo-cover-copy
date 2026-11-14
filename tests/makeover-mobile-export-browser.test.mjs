@@ -171,12 +171,7 @@ async function exportMobile(page, frame, format, events) {
   assert.deepEqual(state.failedCanvases, [], '手机流程不能创建超过 Safari 上限的画布');
   assert.deepEqual(state.encodes, [], '手机分块编码不得调用整图toBlob');
   assert.equal(state.shares.length, previousShares, '异步生成后不能自动唤起系统分享');
-  assert.deepEqual([...new Set(events.templates)].sort(), [
-    '/docs/makeover/assets/template-fixed-mobile.png',
-    '/docs/makeover/assets/template-gradient-mobile.png',
-    '/docs/makeover/assets/template-fixed.png',
-    '/docs/makeover/assets/template-gradient.png',
-  ].sort(), '预览加载小模板，最终成品使用原版PSD模板');
+  assert.deepEqual(events.templates, [], '预览和原片导出均使用内置原PSD模板，无需单独请求模板图片');
   assert.equal(events.downloads, 0, '手机生成后不能自动触发下载');
   assert.equal(events.popups, 0, '手机生成后不能自动打开新页面');
   assert.deepEqual(events.errors, [], '手机生成不能出现未处理脚本错误');

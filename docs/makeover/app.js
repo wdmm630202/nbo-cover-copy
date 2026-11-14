@@ -1,7 +1,7 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { drawTintedMask } from './tint-mask.mjs?v=20261114-fast-mobile-export';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-fast-mobile-export';
+import { drawTintedMask } from './tint-mask.mjs?v=20261114-embedded-templates';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-embedded-templates';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -260,7 +260,7 @@ function toggleRotation() {
 
 function readyStatus() {
   if (!template) {
-    if (!$('#retry-template').hidden) status('原版模板加载失败，请检查网络后重新加载。模板就绪前无法导出。', true);
+    if (!$('#retry-template').hidden) status('内置模板读取失败，请点击重新加载模板。若仍失败，请更新制作台后重试。', true);
     return;
   }
   if (photos.some((photo) => photo.loading)) {
@@ -482,21 +482,28 @@ async function loadPhoto(file, side) {
   }
 }
 
+let templateSources;
+function templateSource(name) {
+  templateSources ??= JSON.parse($('#template-assets')?.textContent || '{}');
+  const source = templateSources[name];
+  if (typeof source !== 'string' || !source.startsWith('data:image/png;base64,')) throw new Error('模板资源不完整，请更新制作台后重试。');
+  return source;
+}
+
 async function loadTemplate() {
   const request = ++templateRequest;
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const suffix = `?v=20261114-fast-mobile-export${request > 1 ? `&retry=${request}` : ''}`;
     const [[image, gradient], note] = await Promise.all([mobileExport
       ? Promise.all([
-        decodeImage('./assets/template-fixed-mobile.png' + suffix),
-        decodeImage('./assets/template-gradient-mobile.png' + suffix),
+        decodeImage(templateSource('fixed-mobile')),
+        decodeImage(templateSource('gradient-mobile')),
       ])
       : Promise.all([
-        decodeImage('./assets/template-fixed.png' + suffix),
-        decodeImage('./assets/template-gradient.png' + suffix),
-      ]), decodeImage('./assets/template-note.png' + suffix)]);
+        decodeImage(templateSource('fixed')),
+        decodeImage(templateSource('gradient')),
+      ]), decodeImage(templateSource('note'))]);
     if (request !== templateRequest) return;
     const expected = mobileExport ? { width: 2160, height: 2880 } : POSTER;
     if ([image, gradient].some(asset => asset.naturalWidth !== expected.width || asset.naturalHeight !== expected.height)) throw new Error('模板尺寸不符');
@@ -513,7 +520,7 @@ async function loadTemplate() {
     templateGradient = null;
     noteTemplate = noteLayer = null;
     $('#retry-template').hidden = false;
-    status('原版模板加载失败，请检查网络后重新加载。模板就绪前无法导出。', true);
+    status('内置模板读取失败，请点击重新加载模板。若仍失败，请更新制作台后重试。', true);
   }
   updateButtons();
 }
@@ -911,8 +918,8 @@ async function exportPoster(format) {
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
     // Low-memory mobile templates are for preview only; final artwork uses the original PSD rasters.
     if (mobileExport) exportLayers = await Promise.all([
-      decodeImage('./assets/template-fixed.png' + '?v=20261114-fast-mobile-export'),
-      decodeImage('./assets/template-gradient.png' + '?v=20261114-fast-mobile-export'),
+      decodeImage(templateSource('fixed')),
+      decodeImage(templateSource('gradient')),
     ]);
     const asset = await createMakeoverExportAsset({
       format,

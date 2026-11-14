@@ -266,8 +266,9 @@ test('渐变图层绘制失败后画布变换仍复原，下次调整可正常�
     await frame.evaluate(() => {
       const draw = CanvasRenderingContext2D.prototype.drawImage;
       let fail = true;
+      const gradientSource = JSON.parse(document.querySelector('#template-assets').textContent).gradient;
       CanvasRenderingContext2D.prototype.drawImage = function(image, ...args) {
-        if (fail && image?.src?.includes('template-gradient.png')) { fail = false; throw new Error('GRADIENT_FAILURE'); }
+        if (fail && image?.src === gradientSource) { fail = false; throw new Error('GRADIENT_FAILURE'); }
         return draw.call(this, image, ...args);
       };
     });
