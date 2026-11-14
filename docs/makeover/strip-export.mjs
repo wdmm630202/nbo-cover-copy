@@ -1,4 +1,4 @@
-import { encodeJpegRows } from './vendor/jpeg-encoder.mjs?v=20261114-complete-mobile-export';
+import { encodeJpegRows } from './vendor/jpeg-encoder.mjs?v=20261114-single-document';
 
 const ROWS = 128;
 const TILE_WIDTH = 2048;

@@ -26,11 +26,13 @@ test('模板图片网址全部失败时，手机首次打开仍能就绪并可�
     assert.match(await frame.locator('#status').textContent(), /^请选择/, '模板外链失败也不能阻止编辑器就绪');
     assert.deepEqual(requested, [], '打开和导出都应使用随页面内置的原PSD资源');
     const sources = await frame.locator('#template-assets').evaluate(element => JSON.parse(element.textContent));
-    for (const name of ['fixed', 'gradient', 'fixed-mobile', 'gradient-mobile', 'note']) {
+    for (const name of ['atlas', 'note']) {
       const bytes = Buffer.from(sources[name].split(',')[1], 'base64');
       const original = await readFile(`public/makeover/assets/template-${name}.png`);
-      assert.equal(createHash('sha256').update(bytes).digest('hex'), createHash('sha256').update(original).digest('hex'), `${name}必须是原PSD导出的原文件字节`);
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), createHash('sha256').update(original).digest('hex'), `${name}必须是已校验的原PSD像素资源`);
     }
+    const manifest = JSON.parse(await readFile('public/makeover/assets/template-atlas.json', 'utf8'));
+    assert.deepEqual(sources['atlas-manifest'], manifest);
     const data = await page.evaluate(() => {
       const canvas = document.createElement('canvas'); canvas.width = 120; canvas.height = 180;
       const ctx = canvas.getContext('2d'); ctx.fillStyle = '#789abc'; ctx.fillRect(0, 0, 120, 180);
@@ -70,7 +72,7 @@ test('编辑器尚未载入时，不启动整套Live离线资源下载抢占手�
       window.offlineRegistrations = 0;
       navigator.serviceWorker.register = () => { window.offlineRegistrations++; return new Promise(() => {}); };
     });
-    await page.route(/\/makeover\/app\.js\?/, async route => { await gate; await route.continue(); });
+    await page.route(/\/makeover\/index\.html\?/, async route => { await gate; await route.continue(); });
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/docs/cover.html?mode=makeover`, { waitUntil: 'domcontentloaded' });
     assert.equal(await page.evaluate(() => document.readyState), 'interactive');
     assert.equal(await page.evaluate(() => window.offlineRegistrations), 0, '不要在编辑器仍下载时抢占带宽缓存41MB Live素材');

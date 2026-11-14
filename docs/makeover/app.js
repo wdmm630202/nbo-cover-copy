@@ -1,7 +1,9 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { drawTintedMask } from './tint-mask.mjs?v=20261114-complete-mobile-export';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-complete-mobile-export';
+import { drawTintedMask } from './tint-mask.mjs?v=20261114-single-document';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-single-document';
+import { decodeImage } from './image-loader.mjs';
+import { loadTemplateLayers, drawTemplateLayer } from './template-layers.mjs';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -277,7 +279,13 @@ function clearDownload() {
   $('#share-image').hidden = true;
   mobileSaveAsset = null;
   $('#mobile-save-preview').hidden = true;
-  $('#mobile-save-image').removeAttribute('src');
+  const image = $('#mobile-save-image');
+  image.onload = image.onerror = null;
+  image.removeAttribute('src');
+  image.parentElement.hidden = false;
+  $('#mobile-save-download').removeAttribute('href');
+  $('#mobile-save-download').removeAttribute('download');
+  $('#mobile-save-open').removeAttribute('href');
   $('.workspace').inert = false;
   if (downloadURL) URL.revokeObjectURL(downloadURL);
   downloadURL = null;
@@ -294,9 +302,20 @@ function canShareFile(file) {
 
 function showMobileSave(asset, fileName) {
   const file = new File([asset.blob], fileName, { type: asset.blob.type });
-  mobileSaveAsset = { file, revision, width: asset.width, height: asset.height };
-  $('#mobile-save-image').src = downloadURL;
-  $('#mobile-save-note').textContent = `${asset.width} × ${asset.height} 像素${asset.resized ? '（手机兼容尺寸）' : ''}。长按成品图片，选择“存储到照片”，或点击下方按钮。`;
+  const saved = mobileSaveAsset = { file, revision, width: asset.width, height: asset.height, previewFailed: false };
+  const image = $('#mobile-save-image');
+  image.parentElement.hidden = false;
+  image.onerror = () => {
+    if (mobileSaveAsset !== saved) return;
+    saved.previewFailed = true;
+    image.parentElement.hidden = true;
+    $('#mobile-save-note').textContent = mobileSaveDetails(saved) + '成品已生成，图片预览暂不可用。' + mobileSaveOptions(saved);
+  };
+  $('#mobile-save-download').href = downloadURL;
+  $('#mobile-save-download').download = fileName;
+  $('#mobile-save-open').href = downloadURL;
+  $('#mobile-save-note').textContent = mobileSaveDetails(saved) + mobileSaveOptions(saved);
+  image.src = downloadURL;
   $('#mobile-share').hidden = !canShareFile(file);
   $('#mobile-share').disabled = false;
   $('#mobile-save-preview').hidden = false;
@@ -306,6 +325,12 @@ function showMobileSave(asset, fileName) {
 
 function mobileSaveDetails(asset) {
   return `${asset.width} × ${asset.height} 像素。`;
+}
+
+function mobileSaveOptions(asset) {
+  return asset.previewFailed
+    ? '请点“下载原文件”或“打开原图”保存。'
+    : '长按成品图片可存储到照片，也可使用下方原文件按钮。';
 }
 
 $('#mobile-save-close').addEventListener('click', () => {
@@ -319,11 +344,11 @@ $('#mobile-share').addEventListener('click', async () => {
   try {
     // This second, explicit tap supplies a fresh user gesture after image encoding.
     await navigator.share({ files: [asset.file], title: '南铂素人改造' });
-    if (mobileSaveAsset === asset) $('#mobile-save-note').textContent = mobileSaveDetails(asset) + '分享流程已结束。也可长按成品图片，选择“存储到照片”。';
+    if (mobileSaveAsset === asset) $('#mobile-save-note').textContent = mobileSaveDetails(asset) + '分享流程已结束。' + mobileSaveOptions(asset);
   } catch (error) {
     if (mobileSaveAsset === asset) $('#mobile-save-note').textContent = error?.name === 'AbortError'
-      ? mobileSaveDetails(asset) + '已取消分享，成品仍在。长按图片可存储到照片。'
-      : mobileSaveDetails(asset) + '当前浏览器未能打开分享。请长按成品图片，选择“存储到照片”。';
+      ? mobileSaveDetails(asset) + '已取消分享，成品仍在。' + mobileSaveOptions(asset)
+      : mobileSaveDetails(asset) + '当前浏览器未能打开分享。' + mobileSaveOptions(asset);
   } finally {
     if (mobileSaveAsset === asset) $('#mobile-share').disabled = false;
   }
@@ -379,14 +404,14 @@ function paint(context, width, height, forExport = false, layers = null, visible
       context.save();
       try {
         context.globalAlpha = templateGradientOpacity / 100;
-        if (gradientColor === '#000000') context.drawImage(gradient, 0, 0, POSTER.width, POSTER.height);
+        if (gradientColor === '#000000') drawTemplateLayer(context, gradient);
         else {
           context.scale(POSTER.width / width, POSTER.height / height);
           drawTintedMask(context, gradient, width, height, gradientColor, visible);
         }
       } finally { context.restore(); }
     }
-    if (fixed) context.drawImage(fixed, 0, 0, POSTER.width, POSTER.height);
+    if (fixed) drawTemplateLayer(context, fixed);
     if (noteLayer) context.drawImage(noteLayer, NOTE_BOUNDS.x, NOTE_BOUNDS.y, NOTE_BOUNDS.width, NOTE_BOUNDS.height);
   } finally { context.restore(); }
 }
@@ -434,15 +459,6 @@ function setSplit(value, fromPointer = false) {
   edited();
 }
 
-function decodeImage(url) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => image.naturalWidth && image.naturalHeight ? resolve(image) : reject(new Error('图片没有有效尺寸'));
-    image.onerror = () => reject(new Error('无法解码图片'));
-    image.src = url;
-  });
-}
-
 async function loadPhoto(file, side) {
   const photo = photos[side];
   const request = ++photo.request;
@@ -461,7 +477,7 @@ async function loadPhoto(file, side) {
   let url;
   try {
     url = URL.createObjectURL(file);
-    const image = await decodeImage(url);
+    const image = await decodeImage(url, { timeoutMs: 60_000 });
     if (request !== photo.request) return;
     Object.assign(photo, PHOTO_DEFAULTS, { image, strokes: [] });
     brush.compareBefore = false;
@@ -483,9 +499,11 @@ async function loadPhoto(file, side) {
 }
 
 let templateSources;
+function embeddedTemplateSources() {
+  return templateSources ??= JSON.parse($('#template-assets')?.textContent || '{}');
+}
 function templateSource(name) {
-  templateSources ??= JSON.parse($('#template-assets')?.textContent || '{}');
-  const source = templateSources[name];
+  const source = embeddedTemplateSources()[name];
   if (typeof source !== 'string' || !source.startsWith('data:image/png;base64,')) throw new Error('模板资源不完整，请更新制作台后重试。');
   return source;
 }
@@ -495,17 +513,12 @@ async function loadTemplate() {
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const [[image, gradient], note] = await Promise.all([mobileExport
-      ? Promise.all([
-        decodeImage(templateSource('fixed-mobile')),
-        decodeImage(templateSource('gradient-mobile')),
-      ])
-      : Promise.all([
-        decodeImage(templateSource('fixed')),
-        decodeImage(templateSource('gradient')),
-      ]), decodeImage(templateSource('note'))]);
+    const [{ fixed: image, gradient }, note] = await Promise.all([
+      loadTemplateLayers(embeddedTemplateSources(), decodeImage),
+      decodeImage(templateSource('note')),
+    ]);
     if (request !== templateRequest) return;
-    const expected = mobileExport ? { width: 2160, height: 2880 } : POSTER;
+    const expected = POSTER;
     if ([image, gradient].some(asset => asset.naturalWidth !== expected.width || asset.naturalHeight !== expected.height)) throw new Error('模板尺寸不符');
     if (note.naturalWidth !== NOTE_BOUNDS.width || note.naturalHeight !== NOTE_BOUNDS.height) throw new Error('备注模板尺寸不符');
     template = image;
@@ -902,8 +915,7 @@ async function exportPoster(format) {
   clearDownload();
   updateButtons();
   status(`正在生成 ${format.toUpperCase()}，保留原片细节…`);
-  let writable, exportLayers;
-  const releaseLayers = () => { exportLayers?.forEach(image => { image.src = 'data:,'; }); exportLayers = null; };
+  let writable;
   try {
     const fileName = getMakeoverExportFileName(format);
     const usePicker = /^https?:$/.test(location.protocol) && !nativeSave && !mobileExport && window.showSaveFilePicker;
@@ -916,11 +928,8 @@ async function exportPoster(format) {
       } }],
     }) : null;
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
-    // Low-memory mobile templates are for preview only; final artwork uses the original PSD rasters.
-    if (mobileExport) exportLayers = await Promise.all([
-      decodeImage(templateSource('fixed')),
-      decodeImage(templateSource('gradient')),
-    ]);
+    // Preview and export share the same lossless original-pixel atlas. Never
+    // decode two additional 48MP PSD images just to draw small output strips.
     const asset = await createMakeoverExportAsset({
       format,
       // paint() fills the entire poster white before compositing the photos/PSD.
@@ -936,12 +945,11 @@ async function exportPoster(format) {
         context.save();
         try {
           if (region) context.translate(-region.x, -region.y);
-          paint(context, region?.width ?? canvas.width, region?.height ?? canvas.height, true, exportLayers,
+          paint(context, region?.width ?? canvas.width, region?.height ?? canvas.height, true, null,
             region ? { x: region.x, y: region.y, width: canvas.width, height: canvas.height } : null);
         } finally { context.restore(); }
       },
     });
-    releaseLayers();
     const { blob } = asset;
     const details = `${asset.width} × ${asset.height} 像素 · ${(blob.size / 1_000_000).toFixed(2)}MB`;
     if (snapshot !== revision || photos.some((photo) => photo.loading)) {
@@ -981,7 +989,6 @@ async function exportPoster(format) {
     else if (snapshot !== revision || photos.some(photo => photo.loading)) status('照片或构图已更改，请重新导出。');
     else status(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : '导出失败，可能是图片过大或浏览器内存不足。请重新尝试，或更换浏览器。', true);
   } finally {
-    releaseLayers();
     exporting = false;
     updateButtons();
   }

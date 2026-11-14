@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { createServer } from 'vite';
 import { chromium, executablePath, available } from './helpers/live-browser-driver.mjs';
 import { clickInFrame } from './helpers/makeover-browser-geometry.mjs';
 
 const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
 
-async function withIPhone(t, run, { sharing = true } = {}) {
+async function withIPhone(t, run, { sharing = true, sourceEditor = process.env.NBO_MOBILE_EXPORT_SOURCE === '1', previewDecodeFailure = false } = {}) {
   if (!available) { t.skip('需本机 Chrome 和 Playwright'); return; }
   const vite = await createServer({ root: resolve('.'), configFile: false, logLevel: 'silent', server: { host: '127.0.0.1', port: 0 } });
   let browser;
@@ -28,7 +30,7 @@ async function withIPhone(t, run, { sharing = true } = {}) {
       const path = new URL(request.url()).pathname;
       if (/\/template-(fixed|gradient)(-mobile)?\.png$/.test(path)) events.templates.push(path);
     });
-    await page.addInitScript(({ sharing }) => {
+    await page.addInitScript(({ sharing, previewDecodeFailure }) => {
       localStorage.setItem('nbo_cover_access_until', String(Date.now() + 1000000));
       const state = window.__mobileExportTest = {
         encodes: [], failedCanvases: [], revoked: [], shares: [],
@@ -66,6 +68,14 @@ async function withIPhone(t, run, { sharing = true } = {}) {
         }
         return toBlob.call(this, callback, type, quality);
       };
+      if (previewDecodeFailure) {
+        // Fail only the final IMG decoder, as a memory-limited browser can do.
+        // The real encoded Blob and all file-saving paths remain untouched.
+        const source = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+        Object.defineProperty(HTMLImageElement.prototype, 'src', { ...source, set(value) {
+          source.set.call(this, this.id === 'mobile-save-image' && String(value).startsWith('blob:') ? 'data:,' : value);
+        } });
+      }
       // The OS share sheet is external. Keep its real File input and trusted
       // browser activation observable while replacing only the OS handoff.
       Object.defineProperty(navigator, 'canShare', { configurable: true, value: sharing ? data =>
@@ -79,13 +89,19 @@ async function withIPhone(t, run, { sharing = true } = {}) {
         };
         state.shares.push(call);
         if (data.files?.[0]) {
+          call.digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await data.files[0].arrayBuffer()))].map(byte => byte.toString(16).padStart(2, '0')).join('');
           const bitmap = await createImageBitmap(data.files[0]);
           call.image = { width: bitmap.width, height: bitmap.height };
           bitmap.close();
         }
         if (call.outcome !== 'success') throw new DOMException('测试系统分享结果', call.outcome);
       } : undefined });
-    }, { sharing });
+    }, { sharing, previewDecodeFailure });
+    if (sourceEditor) {
+      // Exercise source changes without rebuilding the shared hosted artifacts.
+      const html = (await readFile('public/makeover/index.html', 'utf8')).replaceAll('"./style.css?', '"/makeover/style.css?').replaceAll('"./app.js?', '"/makeover/app.js?');
+      await page.route('**/docs/makeover/index.html?*', route => route.fulfill({ contentType: 'text/html', body: html }));
+    }
     await page.goto(`http://127.0.0.1:${vite.httpServer.address().port}/docs/cover.html?mode=makeover`);
     const iframe = page.locator('#makeoverFrame');
     await iframe.waitFor({ state: 'visible' });
@@ -252,5 +268,59 @@ test('iPhone 用户取消或系统拒绝分享后仍能长按保存且不清除�
       assert.equal(events.popups, 0);
     }
     assert.deepEqual(events.errors, [], '拒绝或取消分享必须被页面正常处理');
+  });
+});
+
+test('iPhone 成品预览解码失败后仍能保存同一份原文件，退出时清理失效入口', { timeout: 60000 }, async t => {
+  for (const sharing of [false, true]) await t.test(sharing ? '分享保留原文件且结果提示不误导长按' : '不支持分享时弹窗内仍能下载和打开原文件', async t => {
+    await withIPhone(t, async (page, frame, events) => {
+      await clickInFrame(page, frame, '#export-png');
+      await frame.locator('#mobile-save-preview').waitFor({ state: 'visible' });
+      await frame.waitForFunction(() => document.querySelector('#mobile-save-note').textContent.includes('预览暂不可用'));
+      const file = await frame.evaluate(async () => {
+        const url = document.querySelector('#download-link').href;
+        const blob = await fetch(url).then(response => response.blob());
+        const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map(byte => byte.toString(16).padStart(2, '0')).join('');
+        return { url, bytes: blob.size, digest, name: document.querySelector('#download-link').download };
+      });
+      assert.ok(file.bytes > 0);
+      for (const id of ['mobile-save-download', 'mobile-save-open']) {
+        assert.ok(await frame.locator(`#${id}`).isVisible(), '预览失败后必须存在弹窗内可操作的保存入口');
+        assert.equal(await frame.locator(`#${id}`).getAttribute('href'), file.url, '备用保存必须使用同一份原始成图 Blob');
+        assert.ok(!await frame.locator(`#${id}`).evaluate(element => element.closest('[inert]')), '保存入口不能位于已禁用的编辑区');
+      }
+      assert.equal(await frame.locator('#mobile-save-download').getAttribute('download'), file.name);
+      assert.doesNotMatch(await frame.locator('#mobile-save-note').textContent(), /长按/, '预览不可用时不能要求用户长按空图');
+      if (sharing) {
+        for (const outcome of ['success', 'AbortError', 'NotAllowedError']) {
+          await shareMobile(page, frame, 'png', outcome);
+          assert.equal(await frame.evaluate(() => window.__mobileExportTest.shares.at(-1).digest), file.digest, '系统分享必须保留原文件的全部字节');
+          assert.doesNotMatch(await frame.locator('#mobile-save-note').textContent(), /长按/, `${outcome} 后不能恢复无效的长按提示`);
+          assert.ok(await frame.locator('#mobile-save-download').isVisible());
+        }
+      } else {
+        assert.ok(!await frame.locator('#mobile-share').isVisible());
+        const downloadEvent = page.waitForEvent('download');
+        await clickInFrame(page, frame, '#mobile-save-download');
+        const download = await downloadEvent;
+        assert.equal(download.suggestedFilename(), file.name);
+        assert.equal(createHash('sha256').update(await readFile(await download.path())).digest('hex'), file.digest, '下载不得重新编码、压缩或改变原文件');
+        const popupEvent = page.waitForEvent('popup');
+        await clickInFrame(page, frame, '#mobile-save-open');
+        await popupEvent;
+        assert.equal(events.popups, 1, '打开原图必须由点击触发独立的原文件页面');
+      }
+      await clickInFrame(page, frame, '#mobile-save-close');
+      await assertCleared(frame, file.url, '退出解码失败的保存预览');
+      const cleared = await frame.evaluate(() => ({
+        download: document.querySelector('#mobile-save-download').getAttribute('href'),
+        open: document.querySelector('#mobile-save-open').getAttribute('href'),
+        onerror: document.querySelector('#mobile-save-image').onerror,
+        inert: document.querySelector('.workspace').inert,
+        focus: document.activeElement.id,
+      }));
+      assert.deepEqual(cleared, { download: null, open: null, onerror: null, inert: false, focus: 'export-jpg' });
+      assert.deepEqual(events.errors, [], '图片解码失败应被正常处理');
+    }, { sharing, sourceEditor: true, previewDecodeFailure: true });
   });
 });

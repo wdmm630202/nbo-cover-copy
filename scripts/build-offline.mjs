@@ -11,11 +11,15 @@ const result = await build({ configFile: false, logLevel: 'silent',
 const bundle = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk').code;
 let html = await readFile('public/makeover/index.html', 'utf8');
 html = html.replace(/<link rel="stylesheet"[^>]*>/, `<style>${await readFile('public/makeover/style.css', 'utf8')}</style>`)
-  .replace(/<script type="module"[^>]*><\/script>/, () => `<script>${bundle.replace(/<\/script/gi, '<\\/script')}</script>`)
-  .replace(/<a class="back"[^>]*>[^<]*<\/a>/, '<span class="back">本地离线版 · 照片仅在本机处理</span>');
+  .replace(/<script type="module"[^>]*><\/script>/, () => `<script>${bundle.replace(/<\/script/gi, '<\\/script')}</script>`);
 const jpegLicense = await readFile('public/makeover/vendor/LICENSE.jpeg-js.txt', 'utf8');
-html = html.replace('</head>', `<!-- Third-party encoder notices\n${jpegLicense.replace(/--/g, '—')}\n--></head>`);
-await writeFile('docs/南铂素人改造离线版.html', html);
+html = html.replace('</head>', `<!-- Third-party encoder notices\n${jpegLicense.replace(/--/g, '—').replace(/[ \t]+$/gm, '')}\n--></head>`);
+// Hosted and React editors use the same complete document as the offline app.
+// A missing JPEG module or stylesheet must never prevent preview from starting.
+await writeFile('docs/makeover/index.html', html);
+await writeFile('public/makeover/editor.html', html);
+const standalone = html.replace(/<a class="back"[^>]*>[^<]*<\/a>/, '<span class="back">本地离线版 · 照片仅在本机处理</span>');
+await writeFile('docs/南铂素人改造离线版.html', standalone);
 await mkdir('outputs', { recursive: true });
 await copyFile('docs/南铂素人改造离线版.html', 'outputs/南铂素人改造离线版.html');
 
@@ -81,7 +85,7 @@ self.addEventListener('fetch', event => {
 });
 `;
 await writeFile('docs/studio-sw.js', worker);
-await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261114.4', build: version }) + '\n');
+await writeFile('docs/studio-release.json', JSON.stringify({ family: 'nanbo-studio', version: '20261114.5', build: version }) + '\n');
 // Root hosted apps can also expose the same offline standalone editor.
 
 await copyFile('docs/南铂素人改造离线版.html', 'public/南铂素人改造离线版.html');

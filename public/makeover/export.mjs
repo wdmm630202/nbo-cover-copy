@@ -1,4 +1,4 @@
-import { createStripExport } from './strip-export.mjs?v=20261114-complete-mobile-export';
+import { createStripExport } from './strip-export.mjs?v=20261114-single-document';
 import { POSTER, getPanes, getPhotoTransform } from './geometry.mjs?v=20261112-cover-minimum';
 
 export function isMobileMakeoverDevice(environment = globalThis) {

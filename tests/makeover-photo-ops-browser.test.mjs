@@ -266,14 +266,15 @@ test('渐变图层绘制失败后画布变换仍复原，下次调整可正常�
     await frame.evaluate(() => {
       const draw = CanvasRenderingContext2D.prototype.drawImage;
       let fail = true;
-      const gradientSource = JSON.parse(document.querySelector('#template-assets').textContent).gradient;
+      const gradientSource = JSON.parse(document.querySelector('#template-assets').textContent).atlas;
       CanvasRenderingContext2D.prototype.drawImage = function(image, ...args) {
-        if (fail && image?.src === gradientSource) { fail = false; throw new Error('GRADIENT_FAILURE'); }
+        if (fail && image?.src === gradientSource) { fail = false; window.gradientFailureInjected = true; throw new Error('GRADIENT_FAILURE'); }
         return draw.call(this, image, ...args);
       };
     });
     await frame.locator('#adjust-templateGradient').evaluate(range => { range.value = '80'; range.dispatchEvent(new Event('input', { bubbles: true })); });
     await settle(frame);
+    assert.equal(await frame.evaluate(() => window.gradientFailureInjected), true, '必须触发真实图层绘制错误');
     const transform = await frame.locator('#preview').evaluate(canvas => {
       const m = canvas.getContext('2d').getTransform(); return [m.a,m.b,m.c,m.d,m.e,m.f];
     });
