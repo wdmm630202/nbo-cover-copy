@@ -1,7 +1,7 @@
 import { POSTER, PHOTO_AREA, clampSplit, getPanes, getPhotoTransform, snapPhotoRotation, rotationFromDrag, inversePhotoPoint } from './geometry.mjs?v=20261112-cover-minimum';
 import { drawPhotoEffects } from './photo-effects.mjs?v=20261112-photo-ops';
-import { drawTintedMask } from './tint-mask.mjs?v=20261114-continuous-picker';
-import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-continuous-picker';
+import { drawTintedMask } from './tint-mask.mjs?v=20261114-fast-mobile-export';
+import { createMakeoverExportAsset, getMakeoverExportFileName, getMakeoverExportSize, isMobileMakeoverDevice } from './export.mjs?v=20261114-fast-mobile-export';
 
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
 document.documentElement.classList.toggle('is-embedded', embedded);
@@ -487,7 +487,7 @@ async function loadTemplate() {
   $('#retry-template').hidden = true;
   status('正在加载原版模板…');
   try {
-    const suffix = `?v=20261114-continuous-picker${request > 1 ? `&retry=${request}` : ''}`;
+    const suffix = `?v=20261114-fast-mobile-export${request > 1 ? `&retry=${request}` : ''}`;
     const [[image, gradient], note] = await Promise.all([mobileExport
       ? Promise.all([
         decodeImage('./assets/template-fixed-mobile.png' + suffix),
@@ -911,11 +911,14 @@ async function exportPoster(format) {
     if (snapshot !== revision || photos.some(photo => photo.loading)) throw new Error('照片或构图已更改，请重新导出。');
     // Low-memory mobile templates are for preview only; final artwork uses the original PSD rasters.
     if (mobileExport) exportLayers = await Promise.all([
-      decodeImage('./assets/template-fixed.png' + '?v=20261114-continuous-picker'),
-      decodeImage('./assets/template-gradient.png' + '?v=20261114-continuous-picker'),
+      decodeImage('./assets/template-fixed.png' + '?v=20261114-fast-mobile-export'),
+      decodeImage('./assets/template-gradient.png' + '?v=20261114-fast-mobile-export'),
     ]);
     const asset = await createMakeoverExportAsset({
       format,
+      // paint() fills the entire poster white before compositing the photos/PSD.
+      // RGB PNG preserves identical pixels without encoding a redundant alpha channel.
+      opaque: true,
       ...getMakeoverExportSize(photos, split),
       tiled: navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
       onProgress: percent => status(`正在生成原片 ${format.toUpperCase()} · ${percent}%…`),

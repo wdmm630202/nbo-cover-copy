@@ -125,6 +125,7 @@ async function exportMobile(page, frame, format, events) {
   const image = await frame.locator('#mobile-save-image').evaluate(async image => {
     await image.decode();
     const blob = await fetch(image.currentSrc || image.src).then(response => response.blob());
+    const header = new Uint8Array(await blob.slice(0, 33).arrayBuffer());
     const bitmap = await createImageBitmap(blob);
     const sample = document.createElement('canvas');
     sample.width = 2; sample.height = 1;
@@ -135,6 +136,7 @@ async function exportMobile(page, frame, format, events) {
     const result = {
       tag: image.tagName, src: image.currentSrc || image.src,
       width: bitmap.width, height: bitmap.height, type: blob.type, bytes: blob.size,
+      pngColorType: blob.type === 'image/png' ? header[25] : null,
       naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight, pixels,
       pointerEvents: getComputedStyle(image).pointerEvents,
       touchCallout: getComputedStyle(image).getPropertyValue('-webkit-touch-callout'),
@@ -147,6 +149,7 @@ async function exportMobile(page, frame, format, events) {
   assert.equal(image.src, result.href, '预览与备用下载应引用同一份成图');
   assert.deepEqual([image.width, image.height, image.naturalWidth, image.naturalHeight], [6000, 8000, 6000, 8000], '实际 Blob 与长按图片均应为 6000×8000');
   assert.equal(image.type, format === 'png' ? 'image/png' : 'image/jpeg');
+  if (format === 'png') assert.equal(image.pngColorType, 2, '不透明成品用无损RGB编码，减少冗余alpha处理');
   assert.ok(image.bytes > 0, '成图不能是空 Blob');
   const expectedPixels = [210, 60, 70, 255, 40, 100, 220, 255];
   image.pixels.forEach((value, index) => assert.ok(Math.abs(value - expectedPixels[index]) <= (format === 'png' ? 0 : 12), `${format} 应包含实际导入的左右照片 ${JSON.stringify(image.pixels)}`));

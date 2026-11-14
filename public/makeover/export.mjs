@@ -1,4 +1,4 @@
-import { createStripExport } from './strip-export.mjs?v=20261113-mobile-strips';
+import { createStripExport } from './strip-export.mjs?v=20261114-fast-mobile-export';
 import { POSTER, getPanes, getPhotoTransform } from './geometry.mjs?v=20261112-cover-minimum';
 
 export function isMobileMakeoverDevice(environment = globalThis) {
@@ -42,14 +42,14 @@ function encode(canvas, type, quality) {
 }
 
 /** Encode the rendered composition once. Never lower resolution or quality on failure. */
-export async function createMakeoverExportAsset({ format, render, width = POSTER.width, height = POSTER.height, isCancelled = () => false, tiled = false, onProgress }) {
+export async function createMakeoverExportAsset({ format, render, width = POSTER.width, height = POSTER.height, isCancelled = () => false, tiled = false, opaque = false, onProgress }) {
   if (!['png', 'jpg'].includes(format)) throw new Error('导出格式无效。');
   if (![width, height].every(value => Number.isSafeInteger(value) && value > 0)) throw new Error('导出尺寸无效。');
   const type = format === 'jpg' ? 'image/jpeg' : 'image/png';
   const checkCurrent = () => {
     if (isCancelled()) throw new Error('照片或构图已更改，请重新导出。');
   };
-  if (tiled) return createStripExport({ format, width, height, render, checkCurrent, onProgress });
+  if (tiled) return createStripExport({ format, width, height, render, checkCurrent, opaque, onProgress });
   const canvas = document.createElement('canvas');
   try {
     checkCurrent();
@@ -61,7 +61,7 @@ export async function createMakeoverExportAsset({ format, render, width = POSTER
     checkCurrent();
     if (!blob || !blob.size) {
       canvas.width = canvas.height = 0;
-      return await createStripExport({ format, width, height, render, checkCurrent, onProgress });
+      return await createStripExport({ format, width, height, render, checkCurrent, opaque, onProgress });
     }
     if (blob.type !== type) throw new Error('浏览器无法生成指定格式，请更换浏览器重试。');
     return { blob, width, height, resized: false };

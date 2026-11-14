@@ -89,7 +89,7 @@ for (const mobile of [false, true]) test(`${mobile ? '手机' : '电脑'}备注�
     await page.locator('[data-note-color="#ffffff"]').click();
     for(const format of ['png','jpg']){
       await page.locator(`#export-${format}`).click();
-      await page.waitForFunction(()=>document.querySelector('#download-link').getAttribute('href')?.startsWith('blob:'),{timeout:60000});
+      await page.waitForFunction(()=>document.querySelector('#download-link').getAttribute('href')?.startsWith('blob:'),undefined,{timeout:60000});
       const output=await page.locator('#download-link').evaluate(async a=>{
         const blob=await(await fetch(a.href)).blob(),bitmap=await createImageBitmap(blob);
         const c=document.createElement('canvas');c.width=1076;c.height=228;

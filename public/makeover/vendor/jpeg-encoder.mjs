@@ -69,8 +69,8 @@ function JPEGEncoder(quality) {
 	var ffloor = Math.floor;
 	var YTable = new Array(64);
 	var UVTable = new Array(64);
-	var fdtbl_Y = new Array(64);
-	var fdtbl_UV = new Array(64);
+	var fdtbl_Y = new Float64Array(64);
+	var fdtbl_UV = new Float64Array(64);
 	var YDC_HT;
 	var UVDC_HT;
 	var YAC_HT;
@@ -78,18 +78,18 @@ function JPEGEncoder(quality) {
 	
 	var bitcode = new Array(65535);
 	var category = new Array(65535);
-	var outputfDCTQuant = new Array(64);
-	var DU = new Array(64);
+	var outputfDCTQuant = new Int32Array(64);
+	var DU = new Int32Array(64);
 	var byteout = [];
   var output = new Uint8Array(65536), outputOffset = 0;
 	var bytenew = 0;
 	var bytepos = 7;
 	
-	var YDU = new Array(64);
-	var UDU = new Array(64);
-	var VDU = new Array(64);
+	var YDU = new Float64Array(64);
+	var UDU = new Float64Array(64);
+	var VDU = new Float64Array(64);
 	var clt = new Array(256);
-	var RGB_YUV_TABLE = new Array(2048);
+	var RGB_YUV_TABLE = new Int32Array(2048);
 	var currentQuality;
 	
 	var ZigZag = [
@@ -278,26 +278,18 @@ function JPEGEncoder(quality) {
 		// IO functions
 		function writeBits(bs)
 		{
-			var value = bs[0];
-			var posval = bs[1]-1;
-			while ( posval >= 0 ) {
-				if (value & (1 << posval) ) {
-					bytenew |= (1 << bytepos);
-				}
-				posval--;
-				bytepos--;
-				if (bytepos < 0) {
-					if (bytenew == 0xFF) {
-						writeByte(0xFF);
-						writeByte(0);
-					}
-					else {
-						writeByte(bytenew);
-					}
-					bytepos=7;
-					bytenew=0;
-				}
+			// Pack a whole Huffman/amplitude code instead of branching per bit.
+			// At most 7 pending + 16 incoming bits: the 32-bit buffer is exact.
+			var count = 7 - bytepos + bs[1];
+			var bits = (bytenew >>> (bytepos + 1)) * (1 << bs[1]) + bs[0];
+			while (count >= 8) {
+				count -= 8;
+				var value = (bits >>> count) & 255;
+				writeByte(value);
+				if (value === 255) writeByte(0);
 			}
+			bytenew = (bits & ((1 << count) - 1)) << (8 - count);
+			bytepos = 7 - count;
 		}
 	
 		function writeByte(value)

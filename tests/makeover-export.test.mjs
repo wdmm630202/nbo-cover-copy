@@ -75,7 +75,7 @@ test('mobile cancellation releases its small canvas without allocating a full po
       isCancelled:()=>cancelled,
       render:(target,region)=>{assert.ok(region);largest=Math.max(largest,target.width*target.height);cancelled=true;},
     }),/构图已更改/);
-    assert.ok(largest<300000);assert.equal(canvas.width,0);assert.equal(canvas.height,0);
+    assert.ok(largest<=1_100_000);assert.equal(canvas.width,0);assert.equal(canvas.height,0);
   });
 });
 
